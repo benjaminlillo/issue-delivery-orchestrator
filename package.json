@@ -1,0 +1,10 @@
+{
+  "name": "issue-delivery-orchestrator",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.14.2",
+  "scripts": {
+    "start": "python3 scripts/issue-delivery",
+    "test": "PYTHONPATH=src python3 -m unittest discover -s tests -v"
+  }
+}

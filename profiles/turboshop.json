@@ -1,0 +1,49 @@
+{
+  "name": "turboshop",
+  "productName": "TurboShop",
+  "git": {
+    "defaultBase": "development",
+    "prTarget": "test",
+    "evidenceBranch": "codex-ui-evidence"
+  },
+  "runtime": {
+    "root": ".local-runtime",
+    "namespace": "issue-delivery-orchestrator",
+    "initCommand": [
+      "corepack",
+      "pnpm",
+      "local-runtime",
+      "init",
+      "--profile",
+      "implementation"
+    ],
+    "cleanupCommand": [
+      "corepack",
+      "pnpm",
+      "local-runtime",
+      "cleanup",
+      "--runtime",
+      "{runtime_id}"
+    ]
+  },
+  "identity": {
+    "linearExpectedEmail": "",
+    "githubExpectedLogin": "",
+    "linearKeychainService": "issue-delivery-orchestrator-linear"
+  },
+  "review": {
+    "botNames": [
+      "coderabbit",
+      "hellonston"
+    ],
+    "blockerBot": "hellonston",
+    "maximumRounds": 5,
+    "quietSeconds": 300,
+    "maximumWaitSeconds": 900,
+    "pollSeconds": 15
+  },
+  "linear": {
+    "markerPrefix": "turboshop-dev-loop",
+    "uiSection": "UI enhancements"
+  }
+}

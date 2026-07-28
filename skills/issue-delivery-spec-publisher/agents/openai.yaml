@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Spec Publisher"
+  short_description: "Publish an approved spec safely to Linear"
+  default_prompt: "Use $issue-delivery-spec-publisher to publish the approved spec to the canonical Linear block."

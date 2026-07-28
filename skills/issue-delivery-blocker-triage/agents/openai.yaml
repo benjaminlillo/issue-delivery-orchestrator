@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Blocker Triage"
+  short_description: "Triage PR blockers against scope and evidence"
+  default_prompt: "Use $issue-delivery-blocker-triage to classify these review blockers as FIX, SKIP, or NEEDS_USER_DECISION."

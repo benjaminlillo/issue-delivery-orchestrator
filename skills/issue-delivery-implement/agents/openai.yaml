@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Implement"
+  short_description: "Implement one approved ticket with focused checks"
+  default_prompt: "Use $issue-delivery-implement to implement or repair this approved ticket and validate the affected scope."

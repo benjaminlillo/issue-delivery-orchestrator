@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Grill"
+  short_description: "Refine an issue into an approved delivery spec"
+  default_prompt: "Use $issue-delivery-grill to challenge this issue and produce an implementation-ready spec."

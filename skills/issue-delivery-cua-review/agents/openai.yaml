@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Cua Review"
+  short_description: "Verify Superset-mode UI flows with Cua Driver"
+  default_prompt: "Use $issue-delivery-cua-review to verify these stories on the current Superset runtime and save final evidence."

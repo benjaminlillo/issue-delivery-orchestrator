@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Delivery Ticket Publisher"
+  short_description: "Slice and publish approved implementation tickets"
+  default_prompt: "Use $issue-delivery-ticket-publisher to slice the approved spec and publish its tickets to Linear."

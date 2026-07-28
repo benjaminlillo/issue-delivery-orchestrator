@@ -1,0 +1,33 @@
+{
+  "name": "issue-delivery-orchestrator",
+  "version": "0.1.0",
+  "description": "Deliver Linear issues from an approved spec through implementation, UI verification, pull request creation, and automated review convergence.",
+  "author": {
+    "name": "Benjamin Lillo"
+  },
+  "repository": "https://github.com/benjaminlillo/issue-delivery-orchestrator",
+  "homepage": "https://github.com/benjaminlillo/issue-delivery-orchestrator",
+  "keywords": [
+    "linear",
+    "github",
+    "delivery",
+    "worktree",
+    "review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Issue Delivery Orchestrator",
+    "shortDescription": "Deliver Linear issues through a verified PR.",
+    "longDescription": "A resumable delivery workflow for Codex and Superset worktrees, with bundled planning, implementation, UI review, evidence, and PR blocker-triage skills.",
+    "developerName": "Benjamin Lillo",
+    "category": "Productivity",
+    "capabilities": [
+      "Linear issue planning",
+      "Codex and Superset worktree modes",
+      "Focused implementation validation",
+      "UI evidence publication",
+      "GitHub review convergence"
+    ],
+    "defaultPrompt": "Use $issue-delivery-orchestrator to deliver this Linear issue from its approved spec through a verified pull request."
+  }
+}
