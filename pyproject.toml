@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "issue-delivery-orchestrator"
-version = "0.1.0"
+version = "0.1.1"
 description = "Portable issue-to-PR delivery orchestration for Codex and Superset worktrees"
 requires-python = ">=3.9"
 

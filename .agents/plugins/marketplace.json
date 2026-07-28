@@ -1,0 +1,21 @@
+{
+  "name": "issue-delivery-orchestrator",
+  "interface": {
+    "displayName": "Issue Delivery Orchestrator"
+  },
+  "plugins": [
+    {
+      "name": "issue-delivery-orchestrator",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/benjaminlillo/issue-delivery-orchestrator.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -24,9 +24,73 @@ The Browser skill, Linear connector, Figma connector, GitHub CLI, Cua Driver, an
 repository's runtime commands remain environment capabilities. The orchestrator checks them only
 when the selected flow needs them.
 
+## Install
+
+### Prerequisites
+
+- Codex CLI with plugin support.
+- Git and GitHub CLI (`gh`) authenticated with access to this private repository.
+- Python 3.9 or newer.
+- Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
+
+If HTTPS Git credentials are not already configured:
+
+```bash
+gh auth login
+gh auth setup-git
+```
+
+### Install with Codex CLI
+
+Add this repository as a marketplace and install the plugin from it:
+
+```bash
+codex plugin marketplace add benjaminlillo/issue-delivery-orchestrator --ref main
+codex plugin add issue-delivery-orchestrator@issue-delivery-orchestrator
+```
+
+Confirm that Codex can see the installed entry:
+
+```bash
+codex plugin list
+```
+
+Then start a **new** Codex CLI session so its bundled skills are loaded:
+
+```bash
+codex
+```
+
+Inside Codex, run `/plugins` to inspect the installation and make sure
+`issue-delivery-orchestrator` is enabled. The plugin is then available as
+`$issue-delivery-orchestrator`.
+
+### Install in the Codex desktop app
+
+Run the marketplace command above once, restart the desktop app, select **Codex**, and open
+**Plugins**. Choose the **Issue Delivery Orchestrator** marketplace, install the plugin with the
+plus button, and start a new chat. Local and repository marketplaces are supported in Codex and
+the ChatGPT desktop app, but not in the IDE extension.
+
+### Update
+
+Refresh the Git marketplace snapshot and reinstall the current plugin version:
+
+```bash
+codex plugin marketplace upgrade issue-delivery-orchestrator
+codex plugin add issue-delivery-orchestrator@issue-delivery-orchestrator
+```
+
+Start a new CLI session or desktop chat after updating. Published plugin changes should increment
+the version in `.codex-plugin/plugin.json` so Codex does not reuse an older cached bundle.
+
+These steps follow the official
+[Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
+[plugin usage](https://learn.chatgpt.com/docs/plugins) guidance.
+
 ## Configure
 
-Copy `.env.example` to:
+Create the per-user configuration file:
 
 ```text
 ~/.config/issue-delivery-orchestrator/.env
@@ -45,7 +109,7 @@ The `.env` is user-owned and must not be committed. On macOS, `LINEAR_API_KEY` c
 Keychain under the configured service and `LINEAR_EXPECTED_EMAIL` account. Existing `gh`
 authentication is used for GitHub, and its login must match `GITHUB_EXPECTED_LOGIN`.
 
-Inspect the effective non-secret configuration:
+From a clone of this repository, inspect the effective non-secret configuration:
 
 ```bash
 python3 scripts/issue-delivery config
@@ -57,9 +121,9 @@ commands, review bots, evidence branch, and Linear markers without changing the 
 
 ## Start a run
 
-Install or load this repository as a Codex plugin, open a session in the intended worktree, and
-invoke `$issue-delivery-orchestrator` with a Linear issue. The skill will select and preserve either
-Codex or Superset mode for the complete run.
+Open a new Codex session in the intended product worktree and invoke
+`$issue-delivery-orchestrator` with a Linear issue. The skill will select and preserve either Codex
+or Superset mode for the complete run.
 
 The deterministic engine can also be inspected directly:
 
