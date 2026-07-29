@@ -1,17 +1,39 @@
 # Criterios obligatorios de Refactor
 
-Aplicar esta revisión únicamente al código humano creado o modificado por el run. Obedecer primero
-los `AGENTS.md` aplicables cuando establezcan una regla más específica. Excluir lockfiles,
-migraciones generadas, snapshots y otros artefactos generados mecánicamente; registrar cada
-exclusión.
+Aplicar esta revisión únicamente al código humano de producto creado o modificado por el run.
+Obedecer primero los `AGENTS.md` aplicables cuando establezcan una regla más específica. Excluir
+lockfiles, migraciones generadas, snapshots y otros artefactos generados mecánicamente; registrar
+cada exclusión.
+
+## Tratamiento de tests
+
+Excluir del scope de Refactor todos los archivos de test: unitarios e integración (`*.spec.*`,
+`*.test.*`, directorios `__tests__` o equivalentes) y E2E (por ejemplo Playwright, Cypress o el
+patrón definido por el repositorio). No aplicarles los gates de capas, helpers, clean code ni
+tamaño, y no refactorizarlos por iniciativa propia durante esta fase.
+
+Permitir modificar un test sólo cuando un archivo de producto refactorizado obligue a mantener sus
+referencias y el comportamiento validado:
+
+- actualizar imports o paths después de mover una unidad;
+- ajustar nombres de símbolos, tipos, fixtures o mocks;
+- actualizar selectores o referencias E2E que cambiaron legítimamente;
+- alinear referencias de expectativas con nombres o shapes aprobados, sin cambiar el comportamiento
+  esperado ni debilitar la aserción.
+
+Limitar el cambio al ajuste necesario. No reestructurar suites, extraer helpers de test, reorganizar
+casos, cambiar estilo ni ampliar o reducir cobertura como parte de Refactor. Si el test falla por un
+problema ajeno al refactor, no modificarlo para ponerlo verde. Registrar cada test ajustado, el
+archivo de producto que originó el cambio y la referencia concreta que debió alinearse.
 
 ## Preparar la revisión
 
-1. Construir el allowlist desde el diff de implementación y los commits adoptados de la issue.
-2. Identificar archivos creados y modificados, su cantidad de líneas actual y, para archivos
-   existentes, su cantidad de líneas en el baseline anterior al run.
-3. Clasificar los archivos por responsabilidad: controller, service, repository, helper/utilidad,
-   componente, test u otro.
+1. Construir el scope de Refactor desde los archivos de producto del diff de implementación y los
+   commits adoptados de la issue. Mantener los tests en un conjunto separado de alineación.
+2. Identificar archivos de producto creados y modificados, su cantidad de líneas actual y, para
+   archivos existentes, su cantidad de líneas en el baseline anterior al run.
+3. Clasificar los archivos de producto por responsabilidad: controller, service, repository,
+   helper/utilidad, componente u otro.
 4. Inspeccionar implementaciones y llamadas reales; no aprobar por nombre de archivo.
 
 ## Gate de capas
@@ -79,7 +101,7 @@ mantener interfaces pequeñas, cohesión alta y complejidad oculta por el dueño
 
 ## Gate de tamaño
 
-Medir con `wc -l` todos los archivos humanos creados o modificados:
+Medir con `wc -l` todos los archivos humanos de producto creados o modificados. No contar tests:
 
 - Un archivo nuevo no puede superar 200 líneas. Dividirlo por responsabilidades cohesivas antes de
   aprobarlo.
@@ -111,6 +133,7 @@ Guardar un recibo Markdown bajo
 Incluir además:
 
 - allowlist final;
+- tests excluidos del Refactor y tests ajustados únicamente para alinear referencias;
 - excepciones y exclusiones justificadas;
 - archivos que salieron del allowlist para corregir `AGENTS.md`;
 - comandos de unit tests y typecheck ejecutados después del último refactor;
