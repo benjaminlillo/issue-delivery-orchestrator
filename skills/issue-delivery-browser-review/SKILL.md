@@ -71,10 +71,17 @@ estado final de la branch. Prohibir el handoff mientras exista `FAIL` o `BLOCKED
 
 ## Evidencia final
 
-Conservar únicamente PNG del estado final aceptado y generar:
+Leer
+[evidence-annotations.md](../issue-delivery-orchestrator/references/evidence-annotations.md).
+Conservar únicamente PNG del estado final aceptado y generar evidencia v2. Obtener los bounds desde
+el mismo estado DOM/visual de la captura; no adivinarlos desde otra observación. Ejecutar
+`prepare-evidence` e inspeccionar el PNG anotado antes de devolver PASS.
+
+Generar:
 
 ```json
 {
+  "evidenceVersion": 2,
   "verification": {
     "status": "PASS",
     "provider": "codex-browser",
@@ -88,11 +95,19 @@ Conservar únicamente PNG del estado final aceptado y generar:
       "storyId": "US-1",
       "title": "Descripción del estado",
       "caption": "Criterio demostrado",
-      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png"
+      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png",
+      "callouts": [
+        {
+          "kind": "highlight",
+          "caption": "Elemento nuevo verificado",
+          "bounds": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.1}
+        }
+      ]
     }
   ]
 }
 ```
 
 Incluir al menos una captura por punto visual relevante, sin secretos ni estados fallidos
-intermedios.
+intermedios. Usar `annotationReason` sólo cuando el cambio sea global y una región localizada
+resultaría engañosa.

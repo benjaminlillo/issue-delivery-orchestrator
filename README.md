@@ -37,6 +37,7 @@ when the selected flow needs them.
 - Git and GitHub CLI (`gh`) authenticated with access to this private repository.
 - Python 3.9 or newer.
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
+- macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
 
 If HTTPS Git credentials are not already configured:
 
@@ -151,6 +152,10 @@ python3 scripts/issue-delivery --help
 
 All run memory, receipts, logs, screenshots, and browser profiles are written under the ignored
 runtime directory inside the adopted worktree. Product commits contain only product changes.
+
+Final UI evidence uses deterministic numbered callouts to highlight the changed or relevant
+regions. The annotated PNG is shown in Linear and GitHub while the untouched original remains
+available through an audit link. Global changes can explicitly omit a localized callout.
 
 ## Development
 

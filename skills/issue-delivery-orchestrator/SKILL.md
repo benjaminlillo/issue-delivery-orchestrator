@@ -184,13 +184,27 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie declarada.
 5. Ningún reviewer edita código. Entregar findings a `$issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
 6. Permitir como máximo cinco ciclos revisión-reparación.
-7. Conservar únicamente capturas del estado final aceptado y producir el manifiesto con `provider` igual al método seleccionado.
+7. Leer
+   [evidence-annotations.md](references/evidence-annotations.md). Conservar únicamente capturas
+   originales del estado final aceptado y producir un manifiesto v2 con `provider` igual al método
+   seleccionado. Exigir callouts honestos sobre lo nuevo o `annotationReason` para cambios globales.
+8. Ejecutar
+   `python3 <plugin-root>/scripts/issue-delivery <issue> prepare-evidence --manifest <ruta>`,
+   inspeccionar la copia anotada y corregir bounds o captions antes del checkpoint. El motor
+   preserva el original.
 
 El Browser de modo Codex no es elegible para otra aplicación, UI nativa, selector de archivos ni
 upload. Si una historia lo exige, bloquear antes de probar; no degradar cobertura ni cambiar
 automáticamente a Superset o Cua.
 
-Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase manual-revision --artifact ui-manifest=<ruta>`.
+Completar la fase con:
+
+```bash
+python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint \
+  --phase manual-revision --artifact ui-manifest=<ruta>
+```
+
+El checkpoint vuelve a preparar y validar las anotaciones.
 
 ## 6. PR
 
@@ -201,10 +215,13 @@ python3 <plugin-root>/scripts/issue-delivery <issue> ensure-pr --body-file <ruta
 python3 <plugin-root>/scripts/issue-delivery <issue> publish-evidence --manifest <ruta>
 ```
 
-Publicar cada PNG en dos destinos distintos:
+Publicar cada PNG anotado en dos destinos distintos:
 
 - Linear: copia privada para `## UI enhancements`.
 - GitHub: copia en la evidence branch del perfil, fuera de la branch y diff de producto.
+
+Publicar además el PNG original en ambos destinos y enlazarlo bajo la imagen anotada. Las
+anotaciones son evidencia explicativa; nunca reemplazan la captura original auditable.
 
 El comentario de la PR debe usar exclusivamente las rutas relativas devueltas por el motor. No
 insertar URLs privadas de uploads de Linear: el proxy de imágenes de GitHub no puede renderizarlas.

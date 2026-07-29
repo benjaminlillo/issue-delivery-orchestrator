@@ -63,10 +63,17 @@ No entregar control al usuario para que verifique mientras exista un `FAIL` o `B
 
 ## Evidencia final
 
-Generar un manifiesto JSON compatible con `$issue-delivery-orchestrator`:
+Leer
+[evidence-annotations.md](../issue-delivery-orchestrator/references/evidence-annotations.md).
+Calcular bounds desde el árbol AX y screenshot de la misma llamada `get_window_state`; usar
+coordenadas del PNG exacto sólo cuando AX no exponga una región útil. Ejecutar `prepare-evidence` e
+inspeccionar la copia anotada antes de devolver PASS.
+
+Generar un manifiesto JSON v2 compatible con `$issue-delivery-orchestrator`:
 
 ```json
 {
+  "evidenceVersion": 2,
   "verification": {
     "status": "PASS",
     "provider": "cua-driver",
@@ -80,10 +87,18 @@ Generar un manifiesto JSON compatible con `$issue-delivery-orchestrator`:
       "storyId": "US-1",
       "title": "Descripción del estado",
       "caption": "Criterio demostrado",
-      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png"
+      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png",
+      "callouts": [
+        {
+          "kind": "highlight",
+          "caption": "Elemento nuevo verificado",
+          "bounds": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.1}
+        }
+      ]
     }
   ]
 }
 ```
 
 Incluir al menos una captura por punto visual relevante, sin duplicar estados equivalentes. No incluir capturas de fallos intermedios en el manifiesto final.
+Usar `annotationReason` sólo para cambios globales donde destacar una región sería engañoso.

@@ -13,7 +13,7 @@ from typing import Any
 from .config import DEFAULT_CONFIG_HOME, Settings, settings
 from .credentials import CredentialProvider
 from .errors import IdentityMismatch, OrchestrationError, RunBlocked
-from .evidence import publish_evidence, repair_github_evidence
+from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
@@ -120,6 +120,9 @@ def parser() -> argparse.ArgumentParser:
     evidence = actions.add_parser("publish-evidence")
     evidence.add_argument("--manifest", type=Path, required=True)
 
+    prepare = actions.add_parser("prepare-evidence")
+    prepare.add_argument("--manifest", type=Path, required=True)
+
     actions.add_parser("repair-evidence-links")
 
     review = actions.add_parser("wait-review")
@@ -189,6 +192,16 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return {"reviewer": selection, "state": _public_state(state)}
     if args.action == "checkpoint":
         artifacts = _parse_artifacts(args.artifact, Path(state["worktree"]))
+        if args.phase == "manual-revision":
+            manifest = artifacts.get("ui-manifest")
+            if not manifest:
+                raise RunBlocked(
+                    "Manual revision requires the ui-manifest artifact"
+                )
+            prepare_evidence(
+                state,
+                Path(state["worktree"]) / manifest,
+            )
         if args.phase == "review-convergence":
             assert_review_converged(state)
         complete_phase(state, args.phase, artifacts)
@@ -237,6 +250,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             _resolve_in_worktree(args.manifest, Path(state["worktree"])),
             linear=linear,
             github=github if state.get("pr") else None,
+        )
+    if args.action == "prepare-evidence":
+        return prepare_evidence(
+            state,
+            _resolve_in_worktree(args.manifest, Path(state["worktree"])),
         )
     if args.action == "repair-evidence-links":
         github = GitHubClient(Path(state["worktree"]))

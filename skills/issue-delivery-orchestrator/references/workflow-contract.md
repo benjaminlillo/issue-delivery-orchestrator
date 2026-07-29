@@ -86,6 +86,7 @@ El manifiesto de screenshots debe ser JSON:
 
 ```json
 {
+  "evidenceVersion": 2,
   "verification": {
     "status": "PASS",
     "provider": "cua-driver",
@@ -99,18 +100,27 @@ El manifiesto de screenshots debe ser JSON:
       "storyId": "US-1",
       "title": "Resultado observable",
       "caption": "Qué demuestra la captura",
-      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png"
+      "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/US-1.png",
+      "callouts": [
+        {
+          "kind": "highlight",
+          "caption": "Elemento nuevo verificado",
+          "bounds": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.1}
+        }
+      ]
     }
   ]
 }
 ```
 
-Incluir sólo PNG finales, sin secretos ni datos sensibles. Rechazar como obsoleto un manifiesto cuyo `verifiedCommit` no sea el HEAD final.
+Leer [evidence-annotations.md](evidence-annotations.md). Incluir sólo PNG originales finales, sin
+secretos ni datos sensibles. Preparar una copia anotada determinista y conservar ambas. Rechazar
+como obsoleto un manifiesto cuyo `verifiedCommit` no sea el HEAD final.
 
 `publish-evidence` debe:
 
-1. Subir una copia privada a Linear y actualizar `## UI enhancements`.
-2. Subir una copia GitHub a `git.evidenceBranch` mediante Git Data API, sin tocar la branch de la issue.
+1. Subir copias anotada y original a Linear y actualizar `## UI enhancements`.
+2. Subir ambas copias a `git.evidenceBranch` mediante Git Data API, sin tocar la branch de la issue.
 3. Usar en el comentario idempotente sólo los paths relativos devueltos por el motor.
 4. Rechazar cualquier body de PR que dependa de `uploads.linear.app`.
 
