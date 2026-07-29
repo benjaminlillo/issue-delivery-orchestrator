@@ -9,6 +9,11 @@ It supports two fixed workspace modes:
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser.
 - `superset`: adopt a Superset worktree and review UI through Cua Driver in a dedicated browser.
 
+The orchestrator never creates a worktree. Start the chat in a worktree prepared by Codex or
+Superset so that surface can run its local setup. A new run cleans tracked changes and untracked,
+non-ignored files before adoption while preserving ignored `.env`, dependency, and runtime files.
+Existing runs are never cleaned when resumed.
+
 ## Included skills
 
 - `$issue-delivery-orchestrator`

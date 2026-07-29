@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,64 +15,15 @@ class Worktree:
     created_from: str
     adopted_head: str
     adopted_status: tuple[str, ...] = ()
+    discarded_status: tuple[str, ...] = ()
 
 
 class GitWorkspace:
-    def __init__(self, repository: Path, worktrees_root: Path):
+    def __init__(self, repository: Path):
         self.repository = repository.resolve()
-        self.worktrees_root = worktrees_root.resolve()
 
     def fetch(self, base: str) -> None:
         run(["git", "fetch", "origin", "--prune"], cwd=self.repository)
-
-    def create(self, branch: str, base: str, issue: str, run_id: str) -> Worktree:
-        occupied = self._branch_worktree(branch)
-        if occupied:
-            raise RunBlocked(f"Branch {branch} is already attached to worktree {occupied}")
-        directory = f"{_slug(issue)}-{run_id}"
-        destination = self.worktrees_root / directory
-        if destination.exists():
-            raise RunBlocked(f"Worktree destination already exists: {destination}")
-        self.worktrees_root.mkdir(parents=True, exist_ok=True)
-
-        local = self._ref_exists(f"refs/heads/{branch}")
-        remote = self._ref_exists(f"refs/remotes/origin/{branch}")
-        if local:
-            run(["git", "worktree", "add", str(destination), branch], cwd=self.repository)
-            created_from = branch
-        elif remote:
-            run(
-                [
-                    "git",
-                    "worktree",
-                    "add",
-                    "--track",
-                    "-b",
-                    branch,
-                    str(destination),
-                    f"origin/{branch}",
-                ],
-                cwd=self.repository,
-            )
-            created_from = f"origin/{branch}"
-        else:
-            if not self._ref_exists(f"refs/remotes/origin/{base}"):
-                raise RunBlocked(f"Base branch origin/{base} does not exist")
-            run(
-                [
-                    "git",
-                    "worktree",
-                    "add",
-                    "-b",
-                    branch,
-                    str(destination),
-                    f"origin/{base}",
-                ],
-                cwd=self.repository,
-            )
-            created_from = f"origin/{base}"
-        head = run(["git", "rev-parse", "HEAD"], cwd=destination).stdout.strip()
-        return Worktree(destination, branch, created_from, head)
 
     def adopt(self, path: Path, expected_branch: str, issue: str) -> Worktree:
         candidate = self._validated_worktree(path)
@@ -85,8 +35,16 @@ class GitWorkspace:
                 f"Worktree branch {branch} does not match Linear branch {expected_branch}"
             )
         self._require_ignored_runtime(candidate)
+        discarded_status = self._discard_initial_changes(candidate)
         head, status = self._snapshot(candidate)
-        return Worktree(candidate, branch, f"adopted:{branch}", head, status)
+        return Worktree(
+            candidate,
+            branch,
+            f"adopted:{branch}",
+            head,
+            status,
+            discarded_status,
+        )
 
     def adopt_codex(
         self,
@@ -104,8 +62,16 @@ class GitWorkspace:
                     f"{expected_branch}; start the run from a detached Codex worktree"
                 )
             self._require_ignored_runtime(candidate)
+            discarded_status = self._discard_initial_changes(candidate)
             head, status = self._snapshot(candidate)
-            return Worktree(candidate, branch, f"codex:{branch}", head, status)
+            return Worktree(
+                candidate,
+                branch,
+                f"codex:{branch}",
+                head,
+                status,
+                discarded_status,
+            )
 
         occupied = self._branch_worktree(expected_branch)
         if occupied:
@@ -127,11 +93,20 @@ class GitWorkspace:
                 raise RunBlocked(f"Base branch {target} does not exist")
             switch = ["git", "switch", "-c", expected_branch, target]
 
-        self._require_safe_codex_switch(candidate, target, base)
+        self._require_safe_codex_history(candidate, target, base)
+        self._require_ignored_runtime(candidate)
+        discarded_status = self._discard_initial_changes(candidate)
         run(switch, cwd=candidate)
         self._require_ignored_runtime(candidate)
         head, status = self._snapshot(candidate)
-        return Worktree(candidate, expected_branch, f"codex:{target}", head, status)
+        return Worktree(
+            candidate,
+            expected_branch,
+            f"codex:{target}",
+            head,
+            status,
+            discarded_status,
+        )
 
     def paths(self) -> tuple[Path, ...]:
         output = run(["git", "worktree", "list", "--porcelain"], cwd=self.repository).stdout
@@ -208,15 +183,32 @@ class GitWorkspace:
         )
         return head, status
 
-    def _require_safe_codex_switch(self, path: Path, target: str, base: str) -> None:
-        head = run(["git", "rev-parse", "HEAD"], cwd=path).stdout.strip()
-        target_head = run(["git", "rev-parse", target], cwd=path).stdout.strip()
-        status = self._snapshot(path)[1]
-        if head != target_head and status:
+    @staticmethod
+    def _discard_initial_changes(path: Path) -> tuple[str, ...]:
+        status = GitWorkspace._snapshot(path)[1]
+        if not status:
+            return ()
+        configuration = settings()
+        run(["git", "reset", "--hard", "HEAD"], cwd=path)
+        run(
+            [
+                "git",
+                "clean",
+                "-fd",
+                "-e",
+                f"{configuration.runtime_root}/",
+            ],
+            cwd=path,
+        )
+        remaining = GitWorkspace._snapshot(path)[1]
+        if remaining:
             raise RunBlocked(
-                f"Codex worktree has local changes and is not based on {target}; "
-                "start a fresh Codex worktree from the requested base"
+                "Could not clean the adopted worktree before starting the run: "
+                + ", ".join(remaining)
             )
+        return status
+
+    def _require_safe_codex_history(self, path: Path, target: str, base: str) -> None:
         safe_refs = [target]
         remote_base = f"origin/{base}"
         if self._ref_exists(f"refs/remotes/{remote_base}"):
@@ -240,10 +232,6 @@ class GitWorkspace:
     def _git_common_dir(path: Path) -> Path:
         raw = Path(run(["git", "rev-parse", "--git-common-dir"], cwd=path).stdout.strip())
         return (path / raw).resolve() if not raw.is_absolute() else raw.resolve()
-
-
-def _slug(value: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
 def _matches_issue_branch(actual: str, expected: str, issue: str) -> bool:

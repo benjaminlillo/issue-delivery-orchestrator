@@ -165,7 +165,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             str(DEFAULT_CONFIG_HOME / "worktrees"),
         )
     ).expanduser().resolve()
-    workspace = GitWorkspace(repository, worktrees)
+    workspace = GitWorkspace(repository)
     registered_worktrees = workspace.paths()
     if args.action is None:
         return bootstrap(
@@ -361,6 +361,7 @@ def bootstrap(
         created_from=worktree.created_from,
         adopted_head=worktree.adopted_head,
         adopted_status=worktree.adopted_status,
+        discarded_status=worktree.discarded_status,
         identities={
             "linear": configuration.linear_expected_email,
             "github": github_login,
@@ -641,6 +642,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         ),
         "developmentMode": run_mode(state),
         "adoptedStatus": state.get("adoptedStatus", []),
+        "discardedInitialStatus": state.get("discardedInitialStatus", []),
         "status": state["status"],
         "currentPhase": state.get("currentPhase"),
         "reviewerMethod": review_method(state),

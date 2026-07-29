@@ -45,90 +45,18 @@ class GitWorkspaceTests(unittest.TestCase):
             )
         )
 
-    def test_creates_issue_branch_from_requested_base(self):
+    def test_adopts_registered_worktree_and_discards_existing_changes(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             remote = root / "remote.git"
             seed = root / "seed"
             checkout = root / "checkout"
-            worktrees = root / "worktrees"
-            git(root, "init", "--bare", str(remote))
-            git(root, "init", "-b", "development", str(seed))
-            git(seed, "config", "user.email", "test@example.com")
-            git(seed, "config", "user.name", "Test")
-            (seed / "file.txt").write_text("base\n")
-            git(seed, "add", "file.txt")
-            git(seed, "commit", "-m", "base")
-            git(seed, "remote", "add", "origin", str(remote))
-            git(seed, "push", "-u", "origin", "development")
-            git(root, "clone", str(remote), str(checkout))
-
-            workspace = GitWorkspace(checkout, worktrees)
-            workspace.fetch("development")
-            result = workspace.create(
-                "benjamin/ts-10",
-                "development",
-                "TS-10",
-                "run-id",
-            )
-
-            self.assertEqual(
-                git(result.path, "branch", "--show-current"),
-                "benjamin/ts-10",
-            )
-            self.assertEqual(result.created_from, "origin/development")
-
-    def test_reuses_remote_issue_branch_even_when_requested_base_is_missing(self):
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            remote = root / "remote.git"
-            seed = root / "seed"
-            checkout = root / "checkout"
-            worktrees = root / "worktrees"
-            git(root, "init", "--bare", str(remote))
-            git(root, "init", "-b", "development", str(seed))
-            git(seed, "config", "user.email", "test@example.com")
-            git(seed, "config", "user.name", "Test")
-            (seed / "file.txt").write_text("base\n")
-            git(seed, "add", "file.txt")
-            git(seed, "commit", "-m", "base")
-            git(seed, "remote", "add", "origin", str(remote))
-            git(seed, "push", "-u", "origin", "development")
-            git(seed, "switch", "-c", "benjamin/ts-11")
-            (seed / "issue.txt").write_text("existing\n")
-            git(seed, "add", "issue.txt")
-            git(seed, "commit", "-m", "existing issue work")
-            git(seed, "push", "-u", "origin", "benjamin/ts-11")
-            git(root, "clone", str(remote), str(checkout))
-
-            workspace = GitWorkspace(checkout, worktrees)
-            workspace.fetch("does-not-exist")
-            result = workspace.create(
-                "benjamin/ts-11",
-                "does-not-exist",
-                "TS-11",
-                "run-id",
-            )
-
-            self.assertEqual(result.created_from, "origin/benjamin/ts-11")
-            self.assertEqual(
-                git(result.path, "branch", "--show-current"),
-                "benjamin/ts-11",
-            )
-
-    def test_adopts_registered_worktree_and_records_existing_changes(self):
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            remote = root / "remote.git"
-            seed = root / "seed"
-            checkout = root / "checkout"
-            worktrees = root / "worktrees"
             superset = root / "superset-worktree"
             git(root, "init", "--bare", str(remote))
             git(root, "init", "-b", "development", str(seed))
             git(seed, "config", "user.email", "test@example.com")
             git(seed, "config", "user.name", "Test")
-            (seed / ".gitignore").write_text(".local-runtime/\n")
+            (seed / ".gitignore").write_text(".env\n.local-runtime/\n")
             (seed / "file.txt").write_text("base\n")
             git(seed, "add", ".gitignore", "file.txt")
             git(seed, "commit", "-m", "base")
@@ -145,8 +73,10 @@ class GitWorkspaceTests(unittest.TestCase):
                 "origin/development",
             )
             (superset / "file.txt").write_text("preexisting\n")
+            (superset / "untracked.txt").write_text("remove\n")
+            (superset / ".env").write_text("preserve\n")
 
-            workspace = GitWorkspace(checkout, worktrees)
+            workspace = GitWorkspace(checkout)
             result = workspace.adopt(
                 superset,
                 "benjamin/ts-12-long-linear-branch-name",
@@ -156,7 +86,14 @@ class GitWorkspaceTests(unittest.TestCase):
             self.assertEqual(result.path, superset.resolve())
             self.assertEqual(result.branch, "benjamin/ts-12-long-linear")
             self.assertEqual(result.created_from, "adopted:benjamin/ts-12-long-linear")
-            self.assertEqual(result.adopted_status, (" M file.txt",))
+            self.assertEqual(result.adopted_status, ())
+            self.assertEqual(
+                result.discarded_status,
+                (" M file.txt", "?? untracked.txt"),
+            )
+            self.assertEqual((superset / "file.txt").read_text(), "base\n")
+            self.assertFalse((superset / "untracked.txt").exists())
+            self.assertEqual((superset / ".env").read_text(), "preserve\n")
 
     def test_adopts_detached_codex_worktree_and_creates_issue_branch(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -164,7 +101,6 @@ class GitWorkspaceTests(unittest.TestCase):
             remote = root / "remote.git"
             seed = root / "seed"
             checkout = root / "checkout"
-            worktrees = root / "worktrees"
             codex = root / "codex-worktree"
             git(root, "init", "--bare", str(remote))
             git(root, "init", "-b", "development", str(seed))
@@ -186,7 +122,7 @@ class GitWorkspaceTests(unittest.TestCase):
                 "origin/development",
             )
 
-            workspace = GitWorkspace(checkout, worktrees)
+            workspace = GitWorkspace(checkout)
             workspace.fetch("development")
             result = workspace.adopt_codex(
                 codex,
@@ -203,13 +139,69 @@ class GitWorkspaceTests(unittest.TestCase):
                 "benjamin/ts-13-codex-mode",
             )
 
+    def test_codex_mode_cleans_stale_worktree_and_preserves_ignored_setup(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            remote = root / "remote.git"
+            seed = root / "seed"
+            checkout = root / "checkout"
+            codex = root / "codex-worktree"
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "test", str(seed))
+            git(seed, "config", "user.email", "test@example.com")
+            git(seed, "config", "user.name", "Test")
+            (seed / ".gitignore").write_text(".env\n.local-runtime/\n")
+            (seed / "file.txt").write_text("old base\n")
+            git(seed, "add", ".gitignore", "file.txt")
+            git(seed, "commit", "-m", "old base")
+            git(seed, "remote", "add", "origin", str(remote))
+            git(seed, "push", "-u", "origin", "test")
+            git(root, "clone", str(remote), str(checkout))
+            git(
+                checkout,
+                "worktree",
+                "add",
+                "--detach",
+                str(codex),
+                "origin/test",
+            )
+
+            (seed / "file.txt").write_text("current base\n")
+            git(seed, "add", "file.txt")
+            git(seed, "commit", "-m", "advance base")
+            git(seed, "push", "origin", "test")
+
+            (codex / "file.txt").write_text("setup changed tracked file\n")
+            (codex / "scratch.txt").write_text("remove\n")
+            (codex / ".env").write_text("preserve\n")
+
+            workspace = GitWorkspace(checkout)
+            workspace.fetch("test")
+            result = workspace.adopt_codex(
+                codex,
+                "benjamin/ts-16-codex-mode",
+                "test",
+                "TS-16",
+            )
+
+            self.assertEqual(result.path, codex.resolve())
+            self.assertEqual(result.branch, "benjamin/ts-16-codex-mode")
+            self.assertEqual(result.created_from, "codex:origin/test")
+            self.assertEqual(result.adopted_status, ())
+            self.assertEqual(
+                result.discarded_status,
+                (" M file.txt", "?? scratch.txt"),
+            )
+            self.assertEqual((codex / "file.txt").read_text(), "current base\n")
+            self.assertFalse((codex / "scratch.txt").exists())
+            self.assertEqual((codex / ".env").read_text(), "preserve\n")
+
     def test_codex_mode_rejects_unrelated_attached_branch(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             remote = root / "remote.git"
             seed = root / "seed"
             checkout = root / "checkout"
-            worktrees = root / "worktrees"
             codex = root / "codex-worktree"
             git(root, "init", "--bare", str(remote))
             git(root, "init", "-b", "development", str(seed))
@@ -231,7 +223,7 @@ class GitWorkspaceTests(unittest.TestCase):
                 "origin/development",
             )
 
-            workspace = GitWorkspace(checkout, worktrees)
+            workspace = GitWorkspace(checkout)
             with self.assertRaisesRegex(RunBlocked, "does not match Linear branch"):
                 workspace.adopt_codex(
                     codex,
@@ -246,7 +238,6 @@ class GitWorkspaceTests(unittest.TestCase):
             remote = root / "remote.git"
             seed = root / "seed"
             checkout = root / "checkout"
-            worktrees = root / "worktrees"
             codex = root / "codex-worktree"
             git(root, "init", "--bare", str(remote))
             git(root, "init", "-b", "development", str(seed))
@@ -273,7 +264,7 @@ class GitWorkspaceTests(unittest.TestCase):
             git(codex, "add", "detached.txt")
             git(codex, "commit", "-m", "detached work")
 
-            workspace = GitWorkspace(checkout, worktrees)
+            workspace = GitWorkspace(checkout)
             workspace.fetch("development")
             with self.assertRaisesRegex(RunBlocked, "commits not contained"):
                 workspace.adopt_codex(

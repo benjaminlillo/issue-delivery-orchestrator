@@ -26,7 +26,9 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
    conservar esa ruta absoluta. No iniciar modo `codex` desde Local ni modo `superset` desde otro
-   checkout.
+   checkout. No crear, solicitar ni delegar otro worktree mediante `create_thread`, subagentes,
+   `git worktree add` o cualquier mecanismo equivalente. Si el worktree actual no es adoptable,
+   bloquear en el mismo chat y pedir al usuario que abra manualmente otro con su setup local.
 4. Ejecutar, agregando `--mode <codex|superset>` sólo cuando el usuario lo haya indicado:
 
    ```bash
@@ -62,10 +64,12 @@ sin migrar estado, ramas ni procesos. Las sesiones que ya están ejecutando el l
 ese contrato legacy.
 
 Toda adopción exige el mismo repositorio y `.local-runtime` ignorado. Superset exige la rama exacta
-de Linear o un prefijo truncado con el mismo ID. Codex admite el `detached HEAD` recién creado, pero
-bloquea si tendría que abandonar commits propios o mezclar cambios locales con otra base. Conservar
-`adoptedStatus` como baseline: no atribuir, descartar ni incluir silenciosamente cambios
-preexistentes en commits del loop.
+de Linear o un prefijo truncado con el mismo ID. Codex admite el `detached HEAD` creado por la app.
+Para todo run nuevo, el CLI descarta cambios trackeados y archivos no trackeados del worktree antes
+de adoptar; preservar archivos ignorados como `.env`, dependencias y `.local-runtime`, y registrar
+las rutas descartadas en `discardedInitialStatus`. No abandonar commits propios: bloquear si el
+`HEAD` contiene commits que no estén preservados en la branch de la issue o la base remota. Nunca
+limpiar al reanudar un run existente.
 
 Si una fase se bloquea, registrar y detener procesos propios:
 

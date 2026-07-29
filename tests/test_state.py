@@ -43,6 +43,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(find_runs(self.worktrees_root, "TS-1")[0]["runId"], "run-1")
         self.assertEqual(run_mode(self.state), "superset")
         self.assertEqual(review_method(self.state), "cua-driver")
+        self.assertEqual(self.state["discardedInitialStatus"], [])
 
     def test_finds_state_inside_additional_registered_worktree(self):
         separate_root = self.worktrees_root / "superset"
@@ -56,7 +57,7 @@ class StateTests(unittest.TestCase):
             base="development",
             created_from="adopted:benjamin/ts-2",
             adopted_head="def",
-            adopted_status=(" M existing.txt",),
+            discarded_status=(" M existing.txt",),
             identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
         )
 
@@ -67,7 +68,8 @@ class StateTests(unittest.TestCase):
         )
 
         self.assertEqual(found[0]["runId"], "run-2")
-        self.assertEqual(found[0]["adoptedStatus"], [" M existing.txt"])
+        self.assertEqual(found[0]["adoptedStatus"], [])
+        self.assertEqual(found[0]["discardedInitialStatus"], [" M existing.txt"])
 
     def test_advances_in_order_and_finishes_preserved(self):
         for phase in PHASES:

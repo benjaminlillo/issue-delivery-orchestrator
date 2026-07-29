@@ -129,12 +129,20 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   merge y cleanup; el estado ignorado del run permanece en ese worktree.
 - Modo `superset`: Superset crea primero el worktree en la rama de Linear; el CLI lo adopta mediante
   `--worktree` o `SUPERSET_WORKSPACE_PATH` y fija `reviewer.method=cua-driver`.
+- El orquestador nunca crea worktrees ni delega el run a un thread que solicite otro. Prohibir
+  `create_thread` con entorno worktree, `git worktree add` y mecanismos equivalentes. Si el actual
+  no puede adoptarse, bloquear y pedir al usuario que abra manualmente otro para que la superficie
+  ejecute su setup local.
 - La adopción valida mismo repositorio y `.local-runtime` ignorado. Superset exige branch exacta de
-  Linear o prefijo truncado con el mismo ID. Codex sólo permite detached HEAD o esa misma branch y
-  no abandona commits ni mezcla cambios locales con otra base.
+  Linear o prefijo truncado con el mismo ID. Codex sólo permite detached HEAD o esa misma branch.
+  Antes de iniciar un run nuevo, descartar cambios trackeados y archivos no trackeados no ignorados;
+  preservar `.env`, dependencias, `.local-runtime` y cualquier otro archivo ignorado. Registrar el
+  snapshot previo en `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta
+  limpieza al reanudar.
 - Browser sólo opera dentro de un run modo Codex abierto en la app. Cua sólo opera dentro de modo
   Superset. No cambiar provider o modo silenciosamente.
-- `adoptedHead` y `adoptedStatus` fijan el baseline previo al loop. Preservar y excluir del alcance todo cambio preexistente salvo adopción explícita posterior.
+- `adoptedHead` y `adoptedStatus` fijan el baseline limpio posterior a la adopción;
+  `discardedInitialStatus` conserva la auditoría de lo eliminado.
 - `python3 <plugin-root>/scripts/issue-delivery <issue>` descubre runs actuales en todos los worktrees Git
   registrados, y reanuda el más reciente preservado.
 - Un run existente nunca cambia de worktree por una actualización del orquestador.
