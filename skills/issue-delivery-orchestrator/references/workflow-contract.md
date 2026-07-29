@@ -24,7 +24,8 @@ Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
 
 - Reparación por ticket: 3 ciclos.
 - Revisión UI-reparación: 5 ciclos.
-- Review remoto, quiet window y espera máxima: valores del perfil activo.
+- Review remoto: valores del perfil activo. TurboShop usa 600 segundos de quietud, 1200 segundos
+  de espera máxima por ronda y polling cada 15 segundos.
 - Target de PR: siempre `git.prTarget` del perfil activo.
 
 Al alcanzar un límite, detener procesos propios, conservar estado y bloquear.

@@ -7,6 +7,26 @@ from issue_delivery_orchestrator.cli import _requested_worktree, parser
 
 
 class CliModeTests(unittest.TestCase):
+    def test_turboshop_review_waits_for_ten_quiet_minutes(self):
+        profile = (
+            Path(__file__).resolve().parents[1]
+            / "profiles"
+            / "turboshop.json"
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "ISSUE_DELIVERY_PROFILE": str(profile),
+                "ISSUE_DELIVERY_ENV_FILE": "/missing/issue-delivery.env",
+            },
+            clear=True,
+        ):
+            args = parser().parse_args(["TS-1", "wait-review"])
+
+        self.assertEqual(args.quiet_seconds, 600)
+        self.assertEqual(args.max_seconds, 1200)
+        self.assertEqual(args.poll_seconds, 15)
+
     def test_parses_explicit_codex_mode_and_worktree(self):
         args = parser().parse_args(
             ["TS-1", "--mode", "codex", "--worktree", "/tmp/codex-worktree"]

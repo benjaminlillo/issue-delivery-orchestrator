@@ -38,8 +38,8 @@
     ],
     "blockerBot": "hellonston",
     "maximumRounds": 5,
-    "quietSeconds": 300,
-    "maximumWaitSeconds": 900,
+    "quietSeconds": 600,
+    "maximumWaitSeconds": 1200,
     "pollSeconds": 15
   },
   "linear": {

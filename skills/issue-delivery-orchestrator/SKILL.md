@@ -222,9 +222,11 @@ Ejecutar hasta cinco rondas:
 python3 <plugin-root>/scripts/issue-delivery <issue> wait-review
 ```
 
-Cada ronda usa los tiempos y autores automatizados declarados por el perfil. Procesar sólo problemas
-concretos de los bots configurados y sólo la sección `BLOCKERS` del `blockerBot`; ignorar summaries,
-walkthroughs, sugerencias opcionales y comentarios humanos durante el ciclo automático.
+Cada ronda usa los tiempos y autores automatizados declarados por el perfil. En el perfil TurboShop,
+esperar diez minutos de quietud desde el último cambio relevante, con un máximo de veinte minutos
+por ronda y polling cada quince segundos. Procesar sólo problemas concretos de los bots configurados
+y sólo la sección `BLOCKERS` del `blockerBot`; ignorar summaries, walkthroughs, sugerencias
+opcionales y comentarios humanos durante el ciclo automático.
 
 1. Invocar `$issue-delivery-blocker-triage` con el snapshot.
 2. Si una solicitud contradice spec, ticket o decisión del Grill, registrar `NEEDS_USER_DECISION` y pausar.

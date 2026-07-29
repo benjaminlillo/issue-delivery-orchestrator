@@ -17,8 +17,8 @@ from .util import atomic_write_json, run
 def wait_for_quiet_review(
     state: dict[str, Any],
     *,
-    quiet_seconds: int = 300,
-    max_seconds: int = 900,
+    quiet_seconds: int = 600,
+    max_seconds: int = 1200,
     poll_seconds: int = 15,
     clock: Callable[[], float] = time.monotonic,
     sleeper: Callable[[float], None] = time.sleep,
