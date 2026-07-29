@@ -127,14 +127,22 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase implemen
 
 ## 3. Refactor
 
-Revisar el diff de implementación contra los `AGENTS.md` aplicables.
+Leer [refactor-review.md](references/refactor-review.md) completamente. Revisar el diff de
+implementación contra los `AGENTS.md` aplicables y ejecutar cada gate de esa referencia.
 
 - Allowlist: archivos cambiados por la implementación de este run y por commits preexistentes adoptados de la issue.
 - Salir del allowlist sólo para corregir una violación concreta de `AGENTS.md`; registrar regla, archivo y razón.
 - No hacer refactors especulativos.
 - Repetir unit tests y typecheck afectados antes de cada commit de refactor.
+- Guardar el recibo de revisión bajo el directorio ignorado del run. No completar la fase con
+  criterios `FAIL` o sin evidencia.
 
-Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase refactor`.
+Completar la fase con:
+
+```bash
+python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase refactor \
+  --artifact refactor-review=<ruta-del-recibo>
+```
 
 ## 4. Integrar la branch objetivo
 

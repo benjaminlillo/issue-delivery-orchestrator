@@ -6,7 +6,7 @@
 |---|---|---|
 | `grill` | Issue, repo, AGENTS, diseños | Spec y tickets aprobados/publicados |
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
-| `refactor` | Diff de implementación | Cumplimiento AGENTS validado |
+| `refactor` | Diff de implementación | Cumplimiento AGENTS y gates de arquitectura validado |
 | `merge-target` | Último `origin/<target>` del perfil | Merge resuelto y validado |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados |
 | `pr-creation` | Commits y evidencias | PR no draft hacia `<target>` |
