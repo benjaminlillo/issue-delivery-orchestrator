@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .config import DEFAULT_CONFIG_HOME, settings
+from .config import DEFAULT_CONFIG_HOME, Settings, settings
 from .credentials import CredentialProvider
 from .errors import IdentityMismatch, OrchestrationError, RunBlocked
 from .evidence import publish_evidence, repair_github_evidence
@@ -301,6 +302,7 @@ def bootstrap(
         return {
             "resumed": True,
             "credentialSource": credential_source,
+            "modeSource": "persisted-run",
             "state": _public_state(previous),
             "nextAction": _next_action(previous),
         }
@@ -314,24 +316,30 @@ def bootstrap(
             f"{previous['runId']}; resume it instead of using --new-run"
         )
 
-    if not args.mode:
-        raise RunBlocked(
-            "A new run requires --mode codex or --mode superset"
-        )
     if args.reviewer:
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
             "codex uses codex-browser and superset uses cua-driver"
         )
     if not requested_worktree:
-        raise RunBlocked(
-            f"{args.mode} mode requires --worktree with the workspace created by "
-            f"{'the Codex app' if args.mode == 'codex' else 'Superset'}"
+        mode_hint = (
+            f"{args.mode} mode"
+            if args.mode
+            else "Automatic mode detection"
         )
+        raise RunBlocked(
+            f"{mode_hint} requires --worktree with the workspace created by "
+            "the Codex app or Superset"
+        )
+    mode, mode_source = _new_run_mode(
+        args.mode,
+        requested_worktree,
+        configuration,
+    )
 
     run_id = new_run_id()
     workspace.fetch(args.base)
-    if args.mode == "codex":
+    if mode == "codex":
         worktree = workspace.adopt_codex(
             requested_worktree,
             issue.branch_name,
@@ -357,12 +365,13 @@ def bootstrap(
             "linear": configuration.linear_expected_email,
             "github": github_login,
         },
-        mode=args.mode,
+        mode=mode,
         profile=configuration.public_dict(),
     )
     return {
         "resumed": False,
         "credentialSource": credential_source,
+        "modeSource": mode_source,
         "state": _public_state(state),
         "nextAction": _next_action(state),
     }
@@ -526,6 +535,77 @@ def _requested_worktree(explicit: Path | None, mode: str | None) -> Path | None:
         return None
     raw = os.environ.get("SUPERSET_WORKSPACE_PATH")
     return Path(raw) if raw else None
+
+
+def _new_run_mode(
+    explicit: str | None,
+    worktree: Path,
+    configuration: Settings,
+) -> tuple[str, str]:
+    if explicit:
+        return explicit, "explicit"
+
+    candidate = worktree.expanduser().resolve()
+    superset_workspace = os.environ.get("SUPERSET_WORKSPACE_PATH", "").strip()
+    if superset_workspace and candidate == Path(superset_workspace).expanduser().resolve():
+        return "superset", "superset-environment"
+
+    configured_matches = _configured_mode_matches(candidate, configuration)
+    if len(configured_matches) > 1:
+        raise RunBlocked(
+            "Worktree matches both configured Codex and Superset roots. "
+            "Fix ISSUE_DELIVERY_*_WORKTREE_ROOTS or pass --mode explicitly."
+        )
+    if configured_matches:
+        return configured_matches.pop(), "configured-root"
+
+    marker_matches = _path_mode_markers(candidate)
+    if len(marker_matches) > 1:
+        raise RunBlocked(
+            f"Worktree path contains both Codex and Superset markers: {candidate}. "
+            "Pass --mode explicitly."
+        )
+    if marker_matches:
+        return marker_matches.pop(), "path-marker"
+
+    raise RunBlocked(
+        f"Could not detect a development mode from worktree {candidate}. "
+        "Pass --mode codex|superset or configure "
+        "ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS / "
+        "ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS."
+    )
+
+
+def _configured_mode_matches(
+    worktree: Path,
+    configuration: Settings,
+) -> set[str]:
+    matches: set[str] = set()
+    roots = {
+        "codex": configuration.codex_worktree_roots,
+        "superset": configuration.superset_worktree_roots,
+    }
+    for mode, configured_roots in roots.items():
+        for raw_root in configured_roots:
+            root = Path(raw_root).expanduser().resolve()
+            if worktree == root or root in worktree.parents:
+                matches.add(mode)
+    return matches
+
+
+def _path_mode_markers(path: Path) -> set[str]:
+    matches: set[str] = set()
+    for part in path.parts:
+        tokens = {
+            token
+            for token in re.split(r"[^a-z0-9]+", part.casefold())
+            if token
+        }
+        if "codex" in tokens:
+            matches.add("codex")
+        if "superset" in tokens:
+            matches.add("superset")
+    return matches
 
 
 def _resolve_in_worktree(path: Path, worktree: Path) -> Path:

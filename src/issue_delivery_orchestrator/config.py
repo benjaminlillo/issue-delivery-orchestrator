@@ -40,6 +40,8 @@ class Settings:
     linear_marker_prefix: str
     linear_ui_section: str
     browser_binary: str
+    codex_worktree_roots: tuple[str, ...]
+    superset_worktree_roots: tuple[str, ...]
 
     def public_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -111,6 +113,12 @@ def settings() -> Settings:
         linear_marker_prefix=_required_string(linear, "markerPrefix"),
         linear_ui_section=_required_string(linear, "uiSection"),
         browser_binary=os.environ.get("ISSUE_DELIVERY_BROWSER", "").strip(),
+        codex_worktree_roots=_environment_paths(
+            "ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS"
+        ),
+        superset_worktree_roots=_environment_paths(
+            "ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS"
+        ),
     )
 
 
@@ -172,3 +180,15 @@ def _positive_integer(data: dict[str, Any], key: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise OrchestrationError(f"Profile field {key} must be a positive integer")
     return value
+
+
+def _environment_paths(key: str) -> tuple[str, ...]:
+    raw = os.environ.get(key, "").strip()
+    if not raw:
+        return ()
+    values = [item.strip() for item in raw.split(os.pathsep)]
+    if any(not item for item in values):
+        raise OrchestrationError(
+            f"{key} must contain non-empty paths separated by {os.pathsep!r}"
+        )
+    return tuple(str(Path(item).expanduser().resolve()) for item in values)

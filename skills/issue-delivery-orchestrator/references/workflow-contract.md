@@ -118,8 +118,11 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 
 ## Persistencia
 
-- Todo run nuevo exige `--mode codex|superset` y `--worktree`; el modo no cambia después de crear el
-  estado.
+- Todo run nuevo exige `--worktree`. `--mode codex|superset` es un override opcional: sin él, el
+  CLI detecta el modo mediante `SUPERSET_WORKSPACE_PATH`, las raíces configuradas en
+  `ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS`/`ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS`, o componentes
+  inequívocos de la ruta. No existe un default; una detección vacía o contradictoria bloquea. El
+  modo no cambia después de crear el estado.
 - Modo `codex`: la app crea primero un worktree del chat, normalmente detached; el CLI lo adopta,
   conecta la rama local/remota de Linear o crea la rama desde `origin/<base>`, y fija
   `reviewer.method=codex-browser`. Fijar el chat y no archivarlo ni hacer Handoff a Local antes del

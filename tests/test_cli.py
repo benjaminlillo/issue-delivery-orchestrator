@@ -3,7 +3,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from issue_delivery_orchestrator.cli import _requested_worktree, parser
+from issue_delivery_orchestrator.cli import (
+    _new_run_mode,
+    _path_mode_markers,
+    _requested_worktree,
+    parser,
+)
+from issue_delivery_orchestrator.config import settings
+from issue_delivery_orchestrator.errors import RunBlocked
 
 
 class CliModeTests(unittest.TestCase):
@@ -45,6 +52,111 @@ class CliModeTests(unittest.TestCase):
                 _requested_worktree(None, "superset"),
                 Path("/tmp/superset"),
             )
+
+    def test_detects_codex_from_path_marker(self):
+        configuration = self._settings()
+
+        self.assertEqual(
+            _new_run_mode(
+                None,
+                Path("/tmp/.codex/worktrees/TS-1"),
+                configuration,
+            ),
+            ("codex", "path-marker"),
+        )
+
+    def test_detects_superset_from_environment(self):
+        configuration = self._settings()
+        with patch.dict(
+            os.environ,
+            {"SUPERSET_WORKSPACE_PATH": "/tmp/superset/worktrees/TS-1"},
+        ):
+            self.assertEqual(
+                _new_run_mode(
+                    None,
+                    Path("/tmp/superset/worktrees/TS-1"),
+                    configuration,
+                ),
+                ("superset", "superset-environment"),
+            )
+
+    def test_detects_superset_from_path_marker_without_environment(self):
+        configuration = self._settings()
+
+        self.assertEqual(
+            _new_run_mode(
+                None,
+                Path("/tmp/.superset/worktrees/TS-1"),
+                configuration,
+            ),
+            ("superset", "path-marker"),
+        )
+
+    def test_configured_root_has_priority_over_path_marker(self):
+        configuration = self._settings(
+            ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS="/tmp/custom-worktrees"
+        )
+
+        self.assertEqual(
+            _new_run_mode(
+                None,
+                Path("/tmp/custom-worktrees/superset-project/TS-1"),
+                configuration,
+            ),
+            ("codex", "configured-root"),
+        )
+
+    def test_explicit_mode_has_priority_over_detection(self):
+        configuration = self._settings()
+
+        self.assertEqual(
+            _new_run_mode(
+                "superset",
+                Path("/tmp/.codex/worktrees/TS-1"),
+                configuration,
+            ),
+            ("superset", "explicit"),
+        )
+
+    def test_ambiguous_path_requires_explicit_mode(self):
+        configuration = self._settings()
+
+        with self.assertRaisesRegex(RunBlocked, "both Codex and Superset"):
+            _new_run_mode(
+                None,
+                Path("/tmp/codex/superset/TS-1"),
+                configuration,
+            )
+
+    def test_unknown_path_requires_explicit_mode(self):
+        configuration = self._settings()
+
+        with self.assertRaisesRegex(RunBlocked, "Could not detect"):
+            _new_run_mode(
+                None,
+                Path("/tmp/worktrees/TS-1"),
+                configuration,
+            )
+
+    def test_path_markers_do_not_match_substrings(self):
+        self.assertEqual(
+            _path_mode_markers(Path("/tmp/mycodexproject/TS-1")),
+            set(),
+        )
+
+    def _settings(self, **environment):
+        profile = (
+            Path(__file__).resolve().parents[1]
+            / "profiles"
+            / "turboshop.json"
+        )
+        values = {
+            "ISSUE_DELIVERY_PROFILE": str(profile),
+            "ISSUE_DELIVERY_ENV_FILE": "/missing/issue-delivery.env",
+            **environment,
+        }
+        with patch.dict(os.environ, values, clear=True):
+            return settings()
 
 
 if __name__ == "__main__":

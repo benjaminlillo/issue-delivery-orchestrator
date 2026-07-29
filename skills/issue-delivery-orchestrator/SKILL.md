@@ -15,7 +15,8 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    `python3 <plugin-root>/scripts/issue-delivery config` y bloquear si faltan
    `LINEAR_EXPECTED_EMAIL`, `GITHUB_EXPECTED_LOGIN` o no puede resolverse el repositorio objetivo
    desde la configuración o el worktree actual.
-2. Exigir una issue existente de Linear por ID o URL y elegir explícitamente un modo para todo el run:
+2. Exigir una issue existente de Linear por ID o URL. Para un run nuevo, permitir un modo explícito
+   del usuario o detectarlo desde el worktree actual:
 
    - `codex`: iniciar el chat en la app de Codex con **Worktree** seleccionado y elegir la base
      solicitada, o la `defaultBase` del perfil. Codex crea el worktree antes de ejecutar el loop.
@@ -26,14 +27,18 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
    conservar esa ruta absoluta. No iniciar modo `codex` desde Local ni modo `superset` desde otro
    checkout.
-4. Ejecutar:
+4. Ejecutar, agregando `--mode <codex|superset>` sólo cuando el usuario lo haya indicado:
 
    ```bash
-   python3 <plugin-root>/scripts/issue-delivery <issue> --mode <codex|superset> --worktree <ruta> \
+   python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
+     [--mode <codex|superset>] \
      [--base <branch>] [--new-run]
    ```
 
-5. El modo determina el workspace y reviewer durante todo el run:
+5. Confirmar `modeSource` y `developmentMode` en la respuesta. La detección usa, en orden:
+   `SUPERSET_WORKSPACE_PATH` coincidente, raíces configuradas y componentes inequívocos de la ruta
+   como `.codex` o `superset-worktrees`. Si no puede decidir o detecta ambas señales, pedir el modo
+   al usuario; no elegir un default. El modo determina el workspace y reviewer durante todo el run:
 
    - `codex` adopta el worktree del chat, acepta su `detached HEAD`, lo conecta a la rama de Linear
      y usa `$issue-delivery-browser-review`.

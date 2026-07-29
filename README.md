@@ -105,6 +105,19 @@ GITHUB_EXPECTED_LOGIN=your-github-login
 ISSUE_DELIVERY_REPOSITORY=/absolute/path/to/repository
 ```
 
+New runs detect their mode from `SUPERSET_WORKSPACE_PATH`, configured worktree roots, or
+unambiguous path components such as `.codex` and `superset-worktrees`. Configure custom roots when
+your tools use paths without those markers. Separate multiple roots with the operating system path
+separator (`:` on macOS/Linux and `;` on Windows):
+
+```dotenv
+ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS=/absolute/path/to/codex/worktrees
+ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS=/absolute/path/to/superset/worktrees
+```
+
+An explicit `modo codex` or `modo superset` instruction overrides detection. If detection is
+missing or contradictory, the loop asks for a mode instead of choosing a default.
+
 The `.env` is user-owned and must not be committed. On macOS, `LINEAR_API_KEY` can instead live in
 Keychain under the configured service and `LINEAR_EXPECTED_EMAIL` account. Existing `gh`
 authentication is used for GitHub, and its login must match `GITHUB_EXPECTED_LOGIN`.
