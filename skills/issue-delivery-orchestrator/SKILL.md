@@ -33,8 +33,7 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    delegar otro worktree mediante `create_thread`, subagentes, `git worktree add` o cualquier
    mecanismo equivalente. Si el worktree actual no es adoptable, bloquear en la misma sesión y
    pedir al usuario que abra manualmente otro con su setup local.
-4. Ejecutar, agregando `--mode <codex|superset>` cuando el usuario lo indique y exigiendo
-   `--mode vanilla` para ese modo:
+4. Ejecutar, agregando `--mode <codex|superset|vanilla>` sólo cuando el usuario indique uno:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
@@ -44,8 +43,9 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
 
 5. Confirmar `modeSource` y `developmentMode` en la respuesta. La detección usa, en orden:
    `SUPERSET_WORKSPACE_PATH` coincidente, raíces configuradas y componentes inequívocos de la ruta
-   como `.codex` o `superset-worktrees`. Si no puede decidir o detecta ambas señales, pedir el modo
-   al usuario; no elegir un default. El modo determina el workspace y reviewer durante todo el run:
+   como `.codex` o `superset-worktrees`. Si no encuentra ninguna señal, elegir `vanilla` con
+   `modeSource: vanilla-fallback`; si detecta señales contradictorias, pedir el modo al usuario. El
+   modo determina el workspace y reviewer durante todo el run:
 
    - `codex` adopta el worktree del chat, acepta su `detached HEAD`, lo conecta a la rama de Linear
      y usa `$issue-delivery-browser-review`.
@@ -53,17 +53,30 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
      acepta `SUPERSET_WORKSPACE_PATH`.
    - `vanilla` adopta el checkout/worktree indicado, permite partir desde `origin/<base>`,
      `detached HEAD` seguro o la rama de la issue, conecta la rama de Linear y usa
-     `$issue-delivery-cua-review`. Nunca se detecta implícitamente.
+     `$issue-delivery-cua-review`.
 
-6. Usar la branch base del perfil por defecto. En modo Codex, crear una rama inexistente desde el
+6. Publicar inmediatamente en el chat, para runs nuevos y reanudados, los valores exactos de
+   `modeDecision` devueltos por el motor. Usar un mensaje autocontenido como:
+
+   ```text
+   Modo decidido: <mode> (fuente: <source>).
+   Reviewer: <reviewer>.
+   Worktree adoptado: <worktree>.
+   ```
+
+   No continuar al Grill ni presentar el modo sólo en logs o handoff final. Si `source` es
+   `vanilla-fallback`, decir expresamente que se eligió Vanilla porque no hubo señales Codex o
+   Superset. Si el motor bloquea la adopción del fallback por un checkout dirty, anunciar igualmente
+   la decisión incluida en el error antes de pedir que se preserven o limpien los cambios.
+7. Usar la branch base del perfil por defecto. En modo Codex, crear una rama inexistente desde el
    último `origin/<base>`; reutilizar la rama local o remota de la issue cuando exista.
-7. No cambiar modo, worktree ni reviewer después de crear el run. Obedecer `currentPhase`,
+8. No cambiar modo, worktree ni reviewer después de crear el run. Obedecer `currentPhase`,
    `developmentMode` y `reviewerMethod`; no recrear un run preservado.
    En modo Codex, no usar Handoff a Local: el estado ignorado bajo `.local-runtime` debe permanecer
    en el mismo worktree/chat.
-8. Trabajar exclusivamente en el worktree retornado. Guardar prompts, snapshots, logs y evidencias
+9. Trabajar exclusivamente en el worktree retornado. Guardar prompts, snapshots, logs y evidencias
    bajo `.local-runtime/issue-delivery-orchestrator/<run-id>/`.
-9. No guardar tokens, cookies ni secretos en el worktree. El CLI valida las identidades Linear y
+10. No guardar tokens, cookies ni secretos en el worktree. El CLI valida las identidades Linear y
    GitHub configuradas antes de mutar servicios.
 
 Los runs anteriores sin `mode` persistido conservan su worktree y reviewer históricos; exponer
@@ -78,6 +91,11 @@ de adoptar; preservar archivos ignorados como `.env`, dependencias y `.local-run
 las rutas descartadas en `discardedInitialStatus`. No abandonar commits propios: bloquear si el
 `HEAD` contiene commits que no estén preservados en la branch de la issue o la base remota. Nunca
 limpiar al reanudar un run existente.
+
+Excepción de seguridad: si `vanilla` fue elegido mediante `vanilla-fallback`, exigir un checkout
+sin cambios trackeados ni archivos no ignorados y bloquear antes de limpiar si está dirty. Permitir
+la limpieza normal sólo después de que el usuario preserve/limpie esos cambios o seleccione
+explícitamente `modo vanilla`.
 
 Si una fase se bloquea, registrar y detener procesos propios:
 

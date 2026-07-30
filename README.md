@@ -128,10 +128,11 @@ ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS=/absolute/path/to/codex/worktrees
 ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS=/absolute/path/to/superset/worktrees
 ```
 
-An explicit `modo codex` or `modo superset` instruction overrides detection. Vanilla is never
-detected from the environment or path: start Codex CLI in the intended checkout and request
-`modo vanilla` explicitly. If Codex/Superset detection is missing or contradictory, the loop asks
-for a mode instead of choosing a default.
+An explicit mode always overrides detection. If no Codex or Superset signal matches, the loop
+selects Vanilla with `modeSource: vanilla-fallback`. A fallback Vanilla run requires a clean
+checkout and blocks before discarding local changes; selecting `modo vanilla` explicitly retains
+the normal new-run cleanup contract. Contradictory Codex/Superset signals still require an explicit
+choice.
 
 The `.env` is user-owned and must not be committed. On macOS, `LINEAR_API_KEY` can instead live in
 Keychain under the configured service and `LINEAR_EXPECTED_EMAIL` account. Existing `gh`
@@ -151,8 +152,9 @@ commands, review bots, evidence branch, and Linear markers without changing the 
 
 Open a new Codex session in the intended product worktree and invoke
 `$issue-delivery-orchestrator` with a Linear issue. For a host-independent CLI run, start Codex CLI
-in the prepared checkout and include `modo vanilla`. The skill preserves the selected mode for the
-complete run.
+in the prepared checkout; Vanilla will be selected automatically when no Codex or Superset signal
+exists. The skill immediately states the chosen mode, decision source, reviewer, and worktree in
+the chat, then preserves that mode for the complete run.
 
 The deterministic engine can also be inspected directly:
 

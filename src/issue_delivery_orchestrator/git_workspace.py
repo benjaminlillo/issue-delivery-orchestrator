@@ -68,6 +68,8 @@ class GitWorkspace:
         expected_branch: str,
         base: str,
         issue: str,
+        *,
+        allow_discard: bool = True,
     ) -> Worktree:
         return self._adopt_switchable(
             path,
@@ -76,6 +78,7 @@ class GitWorkspace:
             issue,
             mode="vanilla",
             allowed_start_branches={base},
+            allow_discard=allow_discard,
         )
 
     def _adopt_switchable(
@@ -87,13 +90,18 @@ class GitWorkspace:
         *,
         mode: str,
         allowed_start_branches: set[str],
+        allow_discard: bool = True,
     ) -> Worktree:
         candidate = self._validated_worktree(path)
         branch = run(["git", "branch", "--show-current"], cwd=candidate).stdout.strip()
         if branch:
             if _matches_issue_branch(branch, expected_branch, issue):
                 self._require_ignored_runtime(candidate)
-                discarded_status = self._discard_initial_changes(candidate)
+                discarded_status = self._prepare_initial_state(
+                    candidate,
+                    mode=mode,
+                    allow_discard=allow_discard,
+                )
                 head, status = self._snapshot(candidate)
                 return Worktree(
                     candidate,
@@ -131,7 +139,11 @@ class GitWorkspace:
 
         self._require_safe_switch_history(candidate, target, base, mode)
         self._require_ignored_runtime(candidate)
-        discarded_status = self._discard_initial_changes(candidate)
+        discarded_status = self._prepare_initial_state(
+            candidate,
+            mode=mode,
+            allow_discard=allow_discard,
+        )
         run(switch, cwd=candidate)
         self._require_ignored_runtime(candidate)
         head, status = self._snapshot(candidate)
@@ -218,6 +230,26 @@ class GitWorkspace:
             if line
         )
         return head, status
+
+    @staticmethod
+    def _prepare_initial_state(
+        path: Path,
+        *,
+        mode: str,
+        allow_discard: bool,
+    ) -> tuple[str, ...]:
+        status = GitWorkspace._snapshot(path)[1]
+        if status and not allow_discard:
+            raise RunBlocked(
+                f"Mode decision: {mode} (source: vanilla-fallback, reviewer: "
+                f"cua-driver, worktree: {path}). Inferred {mode} mode found "
+                "local changes: "
+                f"{', '.join(status)}. Preserve or clean them, or explicitly "
+                f"select --mode {mode} to authorize the normal new-run cleanup."
+            )
+        if not status:
+            return ()
+        return GitWorkspace._discard_initial_changes(path)
 
     @staticmethod
     def _discard_initial_changes(path: Path) -> tuple[str, ...]:

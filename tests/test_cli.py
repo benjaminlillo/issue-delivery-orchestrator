@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from issue_delivery_orchestrator.cli import (
+    _mode_decision,
     _new_run_mode,
     _path_mode_markers,
     _requested_worktree,
@@ -150,6 +151,26 @@ class CliModeTests(unittest.TestCase):
             ("vanilla", "explicit"),
         )
 
+    def test_mode_decision_exposes_values_required_for_chat_announcement(self):
+        decision = _mode_decision(
+            {
+                "worktree": "/tmp/worktree",
+                "mode": {"name": "vanilla"},
+                "reviewer": {"method": "cua-driver"},
+            },
+            "vanilla-fallback",
+        )
+
+        self.assertEqual(
+            decision,
+            {
+                "mode": "vanilla",
+                "source": "vanilla-fallback",
+                "reviewer": "cua-driver",
+                "worktree": str(Path("/tmp/worktree").resolve()),
+            },
+        )
+
     def test_ambiguous_path_requires_explicit_mode(self):
         configuration = self._settings()
 
@@ -160,15 +181,17 @@ class CliModeTests(unittest.TestCase):
                 configuration,
             )
 
-    def test_unknown_path_requires_explicit_mode(self):
+    def test_unknown_path_falls_back_to_vanilla(self):
         configuration = self._settings()
 
-        with self.assertRaisesRegex(RunBlocked, "Could not detect"):
+        self.assertEqual(
             _new_run_mode(
                 None,
                 Path("/tmp/worktrees/TS-1"),
                 configuration,
-            )
+            ),
+            ("vanilla", "vanilla-fallback"),
+        )
 
     def test_path_markers_do_not_match_substrings(self):
         self.assertEqual(

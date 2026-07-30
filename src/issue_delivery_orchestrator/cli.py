@@ -322,6 +322,7 @@ def bootstrap(
             "credentialSource": credential_source,
             "modeSource": "persisted-run",
             "state": _public_state(previous),
+            "modeDecision": _mode_decision(previous, "persisted-run"),
             "nextAction": _next_action(previous),
         }
     if (
@@ -370,6 +371,7 @@ def bootstrap(
             issue.branch_name,
             args.base,
             issue.identifier,
+            allow_discard=mode_source != "vanilla-fallback",
         )
     else:
         worktree = workspace.adopt(
@@ -399,6 +401,7 @@ def bootstrap(
         "credentialSource": credential_source,
         "modeSource": mode_source,
         "state": _public_state(state),
+        "modeDecision": _mode_decision(state, mode_source),
         "nextAction": _next_action(state),
     }
 
@@ -594,12 +597,7 @@ def _new_run_mode(
     if marker_matches:
         return marker_matches.pop(), "path-marker"
 
-    raise RunBlocked(
-        f"Could not detect a development mode from worktree {candidate}. "
-        "Pass --mode codex|superset|vanilla or configure "
-        "ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS / "
-        "ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS."
-    )
+    return "vanilla", "vanilla-fallback"
 
 
 def _configured_mode_matches(
@@ -676,6 +674,18 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),
         "runtimes": [item["runtimeId"] for item in state.get("runtimes", [])],
+    }
+
+
+def _mode_decision(
+    state: dict[str, Any],
+    source: str,
+) -> dict[str, str]:
+    return {
+        "mode": run_mode(state),
+        "source": source,
+        "reviewer": review_method(state),
+        "worktree": str(Path(state["worktree"]).resolve()),
     }
 
 

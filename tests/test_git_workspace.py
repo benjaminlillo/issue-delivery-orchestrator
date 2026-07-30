@@ -2,6 +2,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from issue_delivery_orchestrator.errors import RunBlocked
 from issue_delivery_orchestrator.git_workspace import GitWorkspace, _matches_issue_branch
@@ -179,6 +180,29 @@ class GitWorkspaceTests(unittest.TestCase):
                 git(checkout, "branch", "--show-current"),
                 "benjamin/ts-17-vanilla-mode",
             )
+
+    def test_inferred_vanilla_rejects_dirty_state_without_discarding(self):
+        workspace = GitWorkspace(Path("/tmp/repository"))
+        dirty = (" M tracked.txt", "?? scratch.txt")
+
+        with (
+            patch.object(GitWorkspace, "_snapshot", return_value=("abc", dirty)),
+            patch.object(
+                GitWorkspace,
+                "_discard_initial_changes",
+            ) as discard,
+            self.assertRaisesRegex(
+                RunBlocked,
+                "Mode decision: vanilla.*explicitly select --mode vanilla",
+            ),
+        ):
+            workspace._prepare_initial_state(
+                Path("/tmp/worktree"),
+                mode="vanilla",
+                allow_discard=False,
+            )
+
+        discard.assert_not_called()
 
     def test_codex_mode_cleans_stale_worktree_and_preserves_ignored_setup(self):
         with tempfile.TemporaryDirectory() as raw:

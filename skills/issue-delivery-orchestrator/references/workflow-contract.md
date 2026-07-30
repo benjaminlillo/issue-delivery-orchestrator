@@ -128,11 +128,11 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 
 ## Persistencia
 
-- Todo run nuevo exige `--worktree`. `--mode codex|superset` es un override opcional: sin él, el
-  CLI puede detectar esos dos modos mediante `SUPERSET_WORKSPACE_PATH`, raíces configuradas o
-  componentes inequívocos de la ruta. `--mode vanilla` es siempre explícito y nunca se infiere por
-  path o ambiente. No existe un default; una detección vacía o contradictoria bloquea. El modo no
-  cambia después de crear el estado.
+- Todo run nuevo exige `--worktree`. Un `--mode` explícito tiene prioridad. Sin él, el CLI detecta
+  Codex o Superset mediante `SUPERSET_WORKSPACE_PATH`, raíces configuradas o componentes
+  inequívocos de la ruta; sin coincidencias selecciona Vanilla con
+  `modeSource=vanilla-fallback`. Una detección contradictoria bloquea. El modo no cambia después de
+  crear el estado.
 - Modo `codex`: la app crea primero un worktree del chat, normalmente detached; el CLI lo adopta,
   conecta la rama local/remota de Linear o crea la rama desde `origin/<base>`, y fija
   `reviewer.method=codex-browser`. Fijar el chat y no archivarlo ni hacer Handoff a Local antes del
@@ -142,7 +142,8 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 - Modo `vanilla`: el usuario o su herramienta crea/prepara el checkout o worktree y ejecuta su
   setup local antes del loop. El CLI lo adopta mediante `--worktree`, permite partir desde la rama
   base, un detached HEAD seguro o la rama de la issue, conecta la rama de Linear y fija
-  `reviewer.method=cua-driver`.
+  `reviewer.method=cua-driver`. Si el modo fue inferido, bloquear antes de descartar cambios
+  trackeados o archivos no ignorados; exigir un checkout limpio o selección explícita de Vanilla.
 - El orquestador nunca crea worktrees ni delega el run a un thread que solicite otro. Prohibir
   `create_thread` con entorno worktree, `git worktree add` y mecanismos equivalentes. Si el actual
   no puede adoptarse, bloquear y pedir al usuario que abra manualmente otro para que la superficie
@@ -164,6 +165,9 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 - `python3 <plugin-root>/scripts/issue-delivery <issue>` descubre runs actuales en todos los worktrees Git
   registrados, y reanuda el más reciente preservado.
 - Un run existente nunca cambia de worktree por una actualización del orquestador.
+- Después de iniciar o reanudar, anunciar inmediatamente en el chat `modeDecision.mode`,
+  `modeDecision.source`, `modeDecision.reviewer` y `modeDecision.worktree`. No continuar al Grill
+  sin ese anuncio. Para `vanilla-fallback`, explicar que no se detectaron señales Codex/Superset.
 - `--new-run` crea otro sólo si la branch no está asociada a un worktree.
 - `runtime-init --fresh` permite registrar otro runtime sin limpiar los anteriores.
 - Al finalizar el loop sólo se detienen procesos.
