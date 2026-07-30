@@ -77,7 +77,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--worktree",
         type=Path,
-        help="Worktree created by Codex or Superset to adopt for this run",
+        help="Existing checkout or worktree to adopt for this run",
     )
     actions = result.add_subparsers(dest="action")
 
@@ -337,7 +337,7 @@ def bootstrap(
     if args.reviewer:
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
-            "codex uses codex-browser and superset uses cua-driver"
+            "codex uses codex-browser; superset and vanilla use cua-driver"
         )
     if not requested_worktree:
         mode_hint = (
@@ -346,8 +346,8 @@ def bootstrap(
             else "Automatic mode detection"
         )
         raise RunBlocked(
-            f"{mode_hint} requires --worktree with the workspace created by "
-            "the Codex app or Superset"
+            f"{mode_hint} requires --worktree with the checkout or worktree "
+            "that the loop must adopt"
         )
     mode, mode_source = _new_run_mode(
         args.mode,
@@ -359,6 +359,13 @@ def bootstrap(
     workspace.fetch(args.base)
     if mode == "codex":
         worktree = workspace.adopt_codex(
+            requested_worktree,
+            issue.branch_name,
+            args.base,
+            issue.identifier,
+        )
+    elif mode == "vanilla":
+        worktree = workspace.adopt_vanilla(
             requested_worktree,
             issue.branch_name,
             args.base,
@@ -550,7 +557,7 @@ def _select_state(
 def _requested_worktree(explicit: Path | None, mode: str | None) -> Path | None:
     if explicit:
         return explicit
-    if mode == "codex":
+    if mode in {"codex", "vanilla"}:
         return None
     raw = os.environ.get("SUPERSET_WORKSPACE_PATH")
     return Path(raw) if raw else None
@@ -589,7 +596,7 @@ def _new_run_mode(
 
     raise RunBlocked(
         f"Could not detect a development mode from worktree {candidate}. "
-        "Pass --mode codex|superset or configure "
+        "Pass --mode codex|superset|vanilla or configure "
         "ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS / "
         "ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS."
     )
@@ -655,7 +662,9 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "worktree": state["worktree"],
         "workspaceMode": (
             "adopted"
-            if str(state.get("createdFrom", "")).startswith(("adopted:", "codex:"))
+            if str(state.get("createdFrom", "")).startswith(
+                ("adopted:", "codex:", "vanilla:")
+            )
             else "private"
         ),
         "developmentMode": run_mode(state),
@@ -684,6 +693,14 @@ def _next_action(state: dict[str, Any]) -> str:
         return (
             "Resume this worktree and run in the Codex app with the Browser plugin; "
             "do not launch dedicated Chrome."
+        )
+    if (
+        state.get("currentPhase") == "manual-revision"
+        and run_mode(state) == "vanilla"
+    ):
+        return (
+            "Launch the run-owned dedicated browser and verify the UI with "
+            "Cua Driver from this checkout."
         )
     return f"Execute phase {state.get('currentPhase')} from the worktree."
 

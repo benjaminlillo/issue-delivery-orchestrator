@@ -48,10 +48,10 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
 2. Implementar y ejecutar la validación enfocada habitual.
 3. Marcar la salida como `UI_REVIEW_REQUIRED` y entregar el SHA candidato, escenario y superficies
    afectadas al reviewer fijado por el modo.
-4. Invocar `$issue-delivery-cua-review` en modo `superset` o `$issue-delivery-browser-review` en modo `codex` después
-   del último cambio. Para runs legacy, usar el `reviewerMethod` existente. No concluir, hacer
-   handoff ni pedir al usuario que pruebe mientras no exista un PASS de ese reviewer para el mismo
-   SHA.
+4. Invocar `$issue-delivery-cua-review` en modo `superset` o `vanilla`, o
+   `$issue-delivery-browser-review` en modo `codex`, después del último cambio. Para runs legacy,
+   usar el `reviewerMethod` existente. No concluir, hacer handoff ni pedir al usuario que pruebe
+   mientras no exista un PASS de ese reviewer para el mismo SHA.
 5. Si la revisión falla, usar el finding como nueva entrada de reparación y repetir, hasta el límite de cinco ciclos administrado por `$issue-delivery-orchestrator`.
 6. Invalidar el PASS previo ante cualquier edición posterior capaz de afectar el flujo.
 

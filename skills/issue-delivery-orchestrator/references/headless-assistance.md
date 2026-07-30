@@ -1,26 +1,30 @@
 # Asistencia headless por brecha de capacidad
 
-Usar Playwright headless sólo después de demostrar que Browser no puede ejecutar una operación
-necesaria. Los kinds permitidos son `file-upload` y `hover`. La asistencia pertenece a
-`codex-browser`; no cambia modo, provider, worktree ni runtime.
+Usar Playwright headless sólo después de demostrar que el reviewer principal no puede ejecutar una
+operación necesaria. Los kinds permitidos son `file-upload` y `hover`. La asistencia no cambia
+modo, provider, worktree ni runtime.
 
 ## Gate de activación
 
-1. Intentar la acción primero en Browser.
-2. Confirmar que el bloqueo corresponde al Browser y no al producto:
-   - `file-upload`: el Browser no expone o no logra operar el selector real requerido.
-   - `hover`: mover el puntero real al centro del target, confirmar mediante hit testing que el
-     target está bajo esas coordenadas y leer `element.matches(':hover')` sobre el target o ancestro
-     que posee el estilo. Si `:hover` es `true` pero el resultado visual es incorrecto, devolver
-     `FAIL`; no usar fallback.
+1. Intentar la acción primero con el reviewer fijado por el modo.
+2. Confirmar que el bloqueo corresponde al reviewer y no al producto:
+   - `file-upload`: el reviewer no expone o no logra operar el selector real requerido.
+   - `hover` con `codex-browser`: mover el puntero real al centro, confirmar mediante hit testing
+     que el target está bajo esas coordenadas y leer `element.matches(':hover')` sobre el target o
+     ancestro dueño del estilo.
+   - `hover` con `cua-driver`: mover el puntero real mediante AX o coordenadas de ventana y observar
+     nuevamente screenshot/árbol. Registrar brecha sólo si el puntero alcanza el target pero el
+     driver no puede mantener o demostrar el estado requerido.
+   - Si la acción sí ocurre pero el resultado visual es incorrecto, devolver `FAIL`; no usar
+     fallback.
 3. Registrar hora y observación concreta de la brecha. No usar JavaScript para despachar eventos,
    mutar DOM o simular el resultado.
-4. Aplicar Playwright sólo a la story afectada. Las demás continúan en Browser.
+4. Aplicar Playwright sólo a la story afectada. Las demás continúan con el reviewer principal.
 
 ## Alcance
 
-- `operation-only`: Playwright ejecuta la operación faltante y Browser verifica el estado persistido
-  y el resto de la story. Usar normalmente para `file-upload`.
+- `operation-only`: Playwright ejecuta la operación faltante y el reviewer principal verifica el
+  estado persistido y el resto de la story. Usar normalmente para `file-upload`.
 - `full-story`: Playwright ejecuta y captura la story completa porque el estado relevante es
   transitorio o pertenece a esa misma sesión. Usar siempre para `hover`.
 
@@ -28,9 +32,9 @@ necesaria. Los kinds permitidos son `file-upload` y `hover`. La asistencia perte
 
 1. Usar el Playwright ya disponible en el repositorio objetivo. No instalar dependencias ni
    modificar archivos trackeados.
-2. Ejecutar headless. No usar `--headed`, Chrome personal, extensión de Chrome, Cua ni selector
-   nativo.
-3. Trabajar sobre el mismo Local Runtime, SHA, datos sembrados y usuario de pruebas que Browser.
+2. Ejecutar headless. No usar `--headed`, Chrome personal, extensión de Chrome ni selector nativo.
+3. Trabajar sobre el mismo Local Runtime, SHA, datos sembrados y usuario de pruebas que el reviewer
+   principal.
 4. Interactuar con la UI real. Para uploads usar `locator.setInputFiles(...)` o
    `fileChooser.setFiles(...)`; para hover usar `locator.hover()`. No llamar APIs de negocio,
    escribir storage/DB ni inyectar eventos, archivos, DOM o estado mediante JavaScript.
@@ -53,12 +57,12 @@ devolver `BLOCKED` con la capacidad exacta que falta.
 2. Abrir la URL local, autenticar mediante UI o helpers E2E existentes y restablecer la precondición.
 3. Seleccionar archivos reales y confirmar cantidad, nombres, previews y validaciones visibles.
 4. Completar submit y esperar resultados observables cuando corresponda.
-5. En `operation-only`, volver a Browser y verificar visualmente el recurso persistido.
+5. En `operation-only`, volver al reviewer principal y verificar visualmente el recurso persistido.
 6. En `full-story`, capturar e inspeccionar todos los estados transitorios relevantes.
 
 ## Hover
 
-1. Abrir la misma URL y precondición del intento en Browser.
+1. Abrir la misma URL y precondición del intento del reviewer principal.
 2. Localizar el control por un selector estable y ejecutar `locator.hover()`.
 3. Confirmar con `locator.evaluate(element => element.matches(':hover'))` el target o ancestro que
    posee el estilo.
@@ -80,7 +84,7 @@ final de esa story en el manifiesto.
 
 ```json
 {
-  "receiptVersion": 2,
+  "receiptVersion": 3,
   "status": "PASS",
   "driver": "playwright-headless",
   "storyId": "US-001",
@@ -89,8 +93,9 @@ final de esa story en el manifiesto.
   "verifiedCommit": "<sha>",
   "runtimeId": "<runtime-id>",
   "verifiedAt": "<ISO-8601>",
-  "browserAttempt": {
+  "primaryAttempt": {
     "status": "CAPABILITY_GAP",
+    "provider": "cua-driver",
     "kind": "hover",
     "attemptedAt": "<ISO-8601>",
     "observation": "El hit test encontró el target, pero :hover siguió en false tras mover el puntero."
@@ -126,5 +131,5 @@ previo, artifacts ausentes o alterados, screenshots no vinculados y paths fuera 
 }
 ```
 
-Los manifiestos 0.3 con `uploadAssistance` y recibos v1 siguen siendo válidos al reanudar runs
-existentes; no generar ese formato en runs nuevos.
+Los manifiestos 0.3 con `uploadAssistance`/recibos v1 y los recibos v2 de `codex-browser` siguen
+siendo válidos al reanudar runs existentes; generar recibos v3 en runs nuevos.

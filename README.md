@@ -4,16 +4,19 @@ A Codex plugin for taking a Linear issue through specification, ticket slicing, 
 focused validation, manual UI review, pull request creation, and automated review convergence.
 
 The plugin is self-contained: its orchestration engine and workflow skills live in this repository.
-It supports two fixed workspace modes:
+It supports three fixed workspace modes:
 
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser, with headless
   Playwright assistance limited to demonstrated `file-upload` or `hover` capability gaps.
 - `superset`: adopt a Superset worktree and review UI through Cua Driver in a dedicated browser.
+- `vanilla`: adopt any user-prepared checkout or worktree from Codex CLI, without depending on a
+  workspace host, and review UI through Cua Driver.
 
-The orchestrator never creates a worktree. Start the chat in a worktree prepared by Codex or
-Superset so that surface can run its local setup. A new run cleans tracked changes and untracked,
-non-ignored files before adoption while preserving ignored `.env`, dependency, and runtime files.
-Existing runs are never cleaned when resumed.
+The orchestrator never creates a worktree. Start the session in a worktree prepared by Codex,
+Superset, or the user's normal Git tooling. Vanilla users must run the repository's local setup
+before starting the loop. A new run cleans tracked changes and untracked, non-ignored files before
+adoption while preserving ignored `.env`, dependency, and runtime files. Existing runs are never
+cleaned when resumed.
 
 ## Included skills
 
@@ -29,7 +32,7 @@ Existing runs are never cleaned when resumed.
 The Browser skill, Linear connector, Figma connector, GitHub CLI, Cua Driver, Playwright, and the
 target repository's runtime commands remain environment capabilities. The orchestrator checks them
 only when the selected flow needs them. Playwright is required in the target repository only when a
-Codex-mode story hits a supported Browser capability gap; the plugin does not install or add it to
+story hits a supported primary-reviewer capability gap; the plugin does not install or add it to
 product code.
 
 ## Install
@@ -40,6 +43,7 @@ product code.
 - Git and GitHub CLI (`gh`) authenticated with access to this private repository.
 - Python 3.9 or newer.
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
+- Cua Driver and its operating-system permissions for Superset or Vanilla UI review.
 - macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
 
 If HTTPS Git credentials are not already configured:
@@ -124,8 +128,10 @@ ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS=/absolute/path/to/codex/worktrees
 ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS=/absolute/path/to/superset/worktrees
 ```
 
-An explicit `modo codex` or `modo superset` instruction overrides detection. If detection is
-missing or contradictory, the loop asks for a mode instead of choosing a default.
+An explicit `modo codex` or `modo superset` instruction overrides detection. Vanilla is never
+detected from the environment or path: start Codex CLI in the intended checkout and request
+`modo vanilla` explicitly. If Codex/Superset detection is missing or contradictory, the loop asks
+for a mode instead of choosing a default.
 
 The `.env` is user-owned and must not be committed. On macOS, `LINEAR_API_KEY` can instead live in
 Keychain under the configured service and `LINEAR_EXPECTED_EMAIL` account. Existing `gh`
@@ -144,8 +150,9 @@ commands, review bots, evidence branch, and Linear markers without changing the 
 ## Start a run
 
 Open a new Codex session in the intended product worktree and invoke
-`$issue-delivery-orchestrator` with a Linear issue. The skill will select and preserve either Codex
-or Superset mode for the complete run.
+`$issue-delivery-orchestrator` with a Linear issue. For a host-independent CLI run, start Codex CLI
+in the prepared checkout and include `modo vanilla`. The skill preserves the selected mode for the
+complete run.
 
 The deterministic engine can also be inspected directly:
 
@@ -164,10 +171,14 @@ In Codex mode, Browser remains the primary reviewer. If Browser demonstrably can
 file input or activate a required CSS hover state, only the affected story may use the target
 repository's existing Playwright installation in headless mode. Upload assistance drives the real
 file input; hover assistance uses the real pointer path, verifies `:hover`, captures the accepted
-state, moves away, and checks adjacent persistent state. Scripts, fixtures, screenshots, and
-receipts stay inside the ignored run directory and remain tied to the same commit and Local
-Runtime. The evidence gate rejects unsupported kinds, missing Browser attempts, altered artifacts,
-or stale receipts. Version 0.3 `uploadAssistance` receipts remain readable for preserved runs.
+state, moves away, and checks adjacent persistent state.
+
+In Superset and Vanilla modes, Cua Driver remains the primary reviewer. The same bounded Playwright
+assistance is available only after Cua demonstrates an equivalent capability gap. Scripts,
+fixtures, screenshots, and receipts stay inside the ignored run directory and remain tied to the
+same commit and Local Runtime. The evidence gate rejects unsupported kinds, missing primary
+attempts, altered artifacts, or stale receipts. Version 0.3 `uploadAssistance` and version 0.4
+Codex Browser receipts remain readable for preserved runs.
 
 ## Development
 

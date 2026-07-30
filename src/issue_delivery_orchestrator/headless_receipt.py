@@ -34,8 +34,22 @@ def validate_headless_receipt(
         raise OrchestrationError(
             f"Headless assistance receipt {index} must be an object"
         )
+    receipt_version = receipt.get("receiptVersion")
+    if legacy:
+        supported_versions = {1}
+    else:
+        supported_versions = {2, 3}
+    if receipt_version not in supported_versions:
+        raise OrchestrationError(
+            f"Headless assistance receipt {index} has invalid receiptVersion"
+        )
+    provider = str(verification.get("provider") or "cua-driver")
+    if receipt_version == 2 and provider != "codex-browser":
+        raise OrchestrationError(
+            f"Headless assistance receipt {index} version 2 requires "
+            "codex-browser"
+        )
     expected = {
-        "receiptVersion": 1 if legacy else 2,
         "status": "PASS",
         "driver": "playwright-headless",
         "storyId": story_id,
@@ -73,12 +87,19 @@ def validate_headless_receipt(
             index,
         )
         browser_attempt = None
+        primary_attempt = None
     else:
-        browser_attempt = _validate_browser_attempt(
-            receipt.get("browserAttempt"),
+        attempt_field = (
+            "browserAttempt" if receipt_version == 2 else "primaryAttempt"
+        )
+        primary_attempt = _validate_primary_attempt(
+            receipt.get(attempt_field),
             kind,
             index,
+            provider=provider,
+            attempt_field=attempt_field,
         )
+        browser_attempt = primary_attempt if receipt_version == 2 else None
         artifacts = validate_artifacts(
             receipt.get("artifacts"),
             run_directory,
@@ -100,46 +121,57 @@ def validate_headless_receipt(
         "receiptPath": str(receipt_path.relative_to(worktree)),
         "receiptSha256": hashlib.sha256(receipt_path.read_bytes()).hexdigest(),
         "artifactCount": len(artifacts),
+        "receiptVersion": receipt_version,
         "verifiedAt": str(receipt["verifiedAt"]),
     }
     if browser_attempt:
         summary["browserAttempt"] = browser_attempt
+    if primary_attempt and receipt_version == 3:
+        summary["primaryAttempt"] = primary_attempt
     if legacy:
         summary["legacy"] = True
         summary["fileCount"] = len(artifacts)
     return summary
 
 
-def _validate_browser_attempt(
+def _validate_primary_attempt(
     value: Any,
     kind: str,
     index: int,
+    *,
+    provider: str,
+    attempt_field: str,
 ) -> dict[str, str]:
     if not isinstance(value, dict):
         raise OrchestrationError(
-            f"Headless assistance receipt {index} requires browserAttempt"
+            f"Headless assistance receipt {index} requires {attempt_field}"
         )
     expected = {"status": "CAPABILITY_GAP", "kind": kind}
-    for field, expected_value in expected.items():
-        if value.get(field) != expected_value:
+    if attempt_field == "primaryAttempt":
+        expected["provider"] = provider
+    for key, expected_value in expected.items():
+        if value.get(key) != expected_value:
             raise OrchestrationError(
                 f"Headless assistance receipt {index} has invalid "
-                f"browserAttempt.{field}"
+                f"{attempt_field}.{key}"
             )
     observation = str(value.get("observation") or "").strip()
     if not observation:
         raise OrchestrationError(
             f"Headless assistance receipt {index} requires "
-            "browserAttempt.observation"
+            f"{attempt_field}.observation"
         )
     attempted_at = str(value.get("attemptedAt") or "").strip()
-    validate_timestamp(attempted_at, index, "browserAttempt.attemptedAt")
-    return {
+    validate_timestamp(attempted_at, index, f"{attempt_field}.attemptedAt")
+    result = {
         "status": "CAPABILITY_GAP",
         "kind": kind,
         "observation": observation,
         "attemptedAt": attempted_at,
     }
+    if attempt_field == "primaryAttempt":
+        result["provider"] = provider
+    return result
 
 
 def validate_timestamp(value: Any, index: int, field: str) -> None:

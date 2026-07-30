@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-cua-review
-description: "Verificar manualmente historias y reparaciones mediante Cua Driver sobre una instancia Local Runtime y un navegador dedicado. Usar en runs de Issue Delivery Orchestrator en modo Superset, durante Manual Revision y después de reparaciones; nunca editar código."
+description: "Verificar manualmente historias y reparaciones mediante Cua Driver sobre una instancia Local Runtime y un navegador dedicado. Usar en runs de Issue Delivery Orchestrator en modo Superset o Vanilla, durante Manual Revision y después de reparaciones; nunca editar código."
 ---
 
 # Cua Revision
@@ -12,13 +12,16 @@ Leer [driver-contract.md](references/driver-contract.md) antes de usar Cua Drive
 ## Preflight
 
 1. Exigir runtime ID, URLs, historias `UI`, resultados esperados, worktree, run ID y ruta del perfil dedicado.
-2. Confirmar mediante el estado del run que `developmentMode` sea `superset` y `reviewerMethod` sea
-   `cua-driver`. Para estados legacy sin modo, aceptar sólo `cua-driver`; no sustituir modo ni
-   método silenciosamente.
+2. Confirmar mediante el estado del run que `developmentMode` sea `superset` o `vanilla` y
+   `reviewerMethod` sea `cua-driver`. Para estados legacy sin modo, aceptar sólo `cua-driver`; no
+   sustituir modo ni método silenciosamente.
 3. Ejecutar `cua-driver --version`, `cua-driver doctor` y `cua-driver permissions status`.
 4. Bloquear si falta el binario, daemon, Accessibility o Screen Recording. No instalar, actualizar ni abrir diálogos de permisos.
 5. Usar únicamente el Chrome/Chromium dedicado del run. Obtener su PID y `window_id`; nunca controlar una ventana personal.
 6. Confirmar que cada screenshot se escribirá dentro de `.local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/`.
+7. Leer
+   [headless-assistance.md](../issue-delivery-orchestrator/references/headless-assistance.md) si una
+   story puede requerir `file-upload` o `hover`; mantener Cua como primera opción.
 
 ## Verificar una reparación
 
@@ -30,7 +33,11 @@ Exigir además el reporte original, escenario `REPAIR-<n>` o historias afectadas
 4. Emitir PASS sólo con una observación posterior a la acción y evidencia del estado final.
 5. Registrar en el recibo `verifiedCommit`, `runtimeId`, escenario/historias, timestamp y screenshots.
 
-No reutilizar evidencia anterior ni aceptar tests automatizados como sustituto. Si el flujo no es alcanzable mediante UI o falta infraestructura, devolver `BLOCKED`; no devolver PASS por inferencia. Todo cambio relevante posterior al SHA verificado invalida el recibo.
+No reutilizar evidencia anterior ni aceptar tests automatizados como sustituto. Playwright
+headless sólo puede asistir una brecha demostrada conforme al protocolo compartido y debe conservar
+evidencia visual. Si el flujo no es alcanzable mediante UI o falta infraestructura, devolver
+`BLOCKED`; no devolver PASS por inferencia. Todo cambio relevante posterior al SHA verificado
+invalida el recibo.
 
 ## Verificar historias
 
@@ -43,6 +50,10 @@ Para cada historia UI:
 5. Confirmar el resultado mediante una observación nueva, no sólo por el éxito de la acción.
 6. Registrar `PASS` o `FAIL`, pasos, resultado observado y evidencia.
 7. Tomar PNG únicamente después de alcanzar el estado final aceptado. Evitar secretos, tokens y datos sensibles.
+
+Si Cua no puede ejecutar `file-upload` o mantener/demostrar un `hover` necesario, distinguir primero
+esa limitación de un fallo real de la aplicación. Aplicar Playwright sólo a la story afectada y
+añadir `headlessAssistance` al manifiesto; no cambiar provider ni reviewer.
 
 No editar código ni aceptar diferencias visuales basándose sólo en intención. Cuando exista Figma accesible, comparar layout, contenido, jerarquía y estados relevantes; exigir la mayor fidelidad razonable.
 

@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-orchestrator
-description: "Orquestar de extremo a extremo una issue de Linear en modo Codex o Superset: adoptar el worktree, usar la rama de Linear, publicar spec/tickets, implementar, refactorizar, integrar la branch objetivo, revisar UI, crear la PR y converger bots y Actions. Usar también para ajustes posteriores; toda reparación requiere una nueva revisión UI antes del handoff."
+description: "Orquestar de extremo a extremo una issue de Linear en modo Codex, Superset o Vanilla: adoptar el worktree, usar la rama de Linear, publicar spec/tickets, implementar, refactorizar, integrar la branch objetivo, revisar UI, crear la PR y converger bots y Actions. Usar también para ajustes posteriores; toda reparación requiere una nueva revisión UI antes del handoff."
 ---
 
 # Issue Delivery Orchestrator
@@ -23,17 +23,22 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
      Fijar el chat hasta el merge y cleanup final.
    - `superset`: crear en Superset el worktree sobre la rama entregada por Linear y abrir la sesión
      dentro de ese workspace.
+   - `vanilla`: iniciar Codex CLI directamente en un checkout o worktree ya preparado por el
+     usuario o su herramienta habitual. Ejecutar el setup local del repositorio antes del loop y
+     seleccionar siempre `--mode vanilla`.
 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
-   conservar esa ruta absoluta. No iniciar modo `codex` desde Local ni modo `superset` desde otro
-   checkout. No crear, solicitar ni delegar otro worktree mediante `create_thread`, subagentes,
-   `git worktree add` o cualquier mecanismo equivalente. Si el worktree actual no es adoptable,
-   bloquear en el mismo chat y pedir al usuario que abra manualmente otro con su setup local.
-4. Ejecutar, agregando `--mode <codex|superset>` sólo cuando el usuario lo haya indicado:
+   conservar esa ruta absoluta. No iniciar modo `codex` desde Local, modo `superset` desde otro
+   checkout ni modo `vanilla` fuera del checkout que se desea adoptar. No crear, solicitar ni
+   delegar otro worktree mediante `create_thread`, subagentes, `git worktree add` o cualquier
+   mecanismo equivalente. Si el worktree actual no es adoptable, bloquear en la misma sesión y
+   pedir al usuario que abra manualmente otro con su setup local.
+4. Ejecutar, agregando `--mode <codex|superset>` cuando el usuario lo indique y exigiendo
+   `--mode vanilla` para ese modo:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
-     [--mode <codex|superset>] \
+     [--mode <codex|superset|vanilla>] \
      [--base <branch>] [--new-run]
    ```
 
@@ -46,6 +51,9 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
      y usa `$issue-delivery-browser-review`.
    - `superset` adopta el worktree ya conectado a la rama de Linear y usa `$issue-delivery-cua-review`. También
      acepta `SUPERSET_WORKSPACE_PATH`.
+   - `vanilla` adopta el checkout/worktree indicado, permite partir desde `origin/<base>`,
+     `detached HEAD` seguro o la rama de la issue, conecta la rama de Linear y usa
+     `$issue-delivery-cua-review`. Nunca se detecta implícitamente.
 
 6. Usar la branch base del perfil por defecto. En modo Codex, crear una rama inexistente desde el
    último `origin/<base>`; reutilizar la rama local o remota de la issue cuando exista.
@@ -60,8 +68,8 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
 
 Los runs anteriores sin `mode` persistido conservan su worktree y reviewer históricos; exponer
 `developmentMode=codex` sólo para `codex-browser` y `developmentMode=superset` para `cua-driver`,
-sin migrar estado, ramas ni procesos. Las sesiones que ya están ejecutando el loop continúan sobre
-ese contrato legacy.
+sin migrar estado, ramas ni procesos. No inferir `vanilla` para estados legacy. Las sesiones que ya
+están ejecutando el loop continúan sobre ese contrato.
 
 Toda adopción exige el mismo repositorio y `.local-runtime` ignorado. Superset exige la rama exacta
 de Linear o un prefijo truncado con el mismo ID. Codex admite el `detached HEAD` creado por la app.
@@ -94,7 +102,8 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 3. Invocar `$issue-delivery-implement`, ejecutar la validación enfocada y dejar la branch en su estado final.
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
 5. Invocar siempre el reviewer fijado por el modo: `$issue-delivery-cua-review` en `superset` o
-   `$issue-delivery-browser-review` en `codex`, aunque el ajuste sea pequeño o los tests estén verdes.
+   `vanilla`, o `$issue-delivery-browser-review` en `codex`, aunque el ajuste sea pequeño o los
+   tests estén verdes.
 6. Si la revisión detecta un fallo, volver a `$issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
@@ -178,6 +187,8 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
 
    - `superset`: abrir el navegador dedicado mediante
      `python3 <plugin-root>/scripts/issue-delivery <issue> launch-browser --url <url-local>` e invocar `$issue-delivery-cua-review`.
+   - `vanilla`: abrir el navegador dedicado mediante el mismo comando e invocar
+     `$issue-delivery-cua-review` desde el checkout adoptado.
    - `codex`: no ejecutar `launch-browser`; exigir la app de Codex y Browser disponible,
      e invocar `$issue-delivery-browser-review`. Permitir Playwright headless sólo para una story
      con brecha demostrada de `file-upload` o `hover`, sin cambiar reviewer ni modo.
@@ -194,12 +205,11 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
    inspeccionar la copia anotada y corregir bounds o captions antes del checkpoint. El motor
    preserva el original.
 
-El Browser de modo Codex no es elegible para otra aplicación ni UI nativa. Mantenerlo como primera
-opción para toda story. Si no puede ejecutar `file-upload` o activar un `hover` real, demostrar la
-brecha según `$issue-delivery-browser-review` y activar Playwright headless sólo para esa story. Un
-resultado incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear únicamente cuando
-Playwright headless tampoco pueda cubrirla. No degradar cobertura ni cambiar automáticamente a
-Superset o Cua.
+Leer [headless-assistance.md](references/headless-assistance.md). Mantener el reviewer del modo como
+primera opción para toda story. Si no puede ejecutar `file-upload` o mantener/demostrar un `hover`
+real, demostrar la brecha y activar Playwright headless sólo para esa story. Un resultado
+incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear cuando Playwright tampoco
+pueda cubrirla. No degradar cobertura ni cambiar automáticamente de reviewer o modo.
 
 Completar la fase con:
 

@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Deliver Linear issues from an approved spec through implementation, UI verification, pull request creation, and automated review convergence.",
   "author": {
     "name": "Benjamin Lillo"
@@ -18,12 +18,12 @@
   "interface": {
     "displayName": "Issue Delivery Orchestrator",
     "shortDescription": "Deliver Linear issues through a verified PR.",
-    "longDescription": "A resumable delivery workflow for Codex and Superset worktrees, with bundled planning, implementation, UI review, evidence, and PR blocker-triage skills.",
+    "longDescription": "A resumable delivery workflow for Codex, Superset, and standalone Vanilla worktrees, with bundled planning, implementation, UI review, evidence, and PR blocker-triage skills.",
     "developerName": "Benjamin Lillo",
     "category": "Productivity",
     "capabilities": [
       "Linear issue planning",
-      "Codex and Superset worktree modes",
+      "Codex, Superset, and Vanilla worktree modes",
       "Focused implementation validation",
       "Bounded headless UI capability fallback",
       "UI evidence publication",

@@ -129,6 +129,22 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(state), "codex")
         self.assertEqual(review_method(state), "codex-browser")
 
+    def test_vanilla_mode_selects_cua_reviewer(self):
+        state = create_state(
+            worktree=self.worktree,
+            run_id="run-vanilla",
+            issue={"id": "id", "identifier": "TS-1", "title": "Title"},
+            branch="benjamin/ts-1",
+            base="development",
+            created_from="vanilla:origin/development",
+            adopted_head="abc",
+            identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
+            mode="vanilla",
+        )
+
+        self.assertEqual(run_mode(state), "vanilla")
+        self.assertEqual(review_method(state), "cua-driver")
+
     def test_new_mode_cannot_change_reviewer_independently(self):
         with self.assertRaisesRegex(RunBlocked, "fixed by development mode"):
             select_review_method(self.state, "codex-browser")

@@ -139,6 +139,47 @@ class GitWorkspaceTests(unittest.TestCase):
                 "benjamin/ts-13-codex-mode",
             )
 
+    def test_vanilla_switches_base_checkout_to_linear_branch(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            remote = root / "remote.git"
+            seed = root / "seed"
+            checkout = root / "checkout"
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "development", str(seed))
+            git(seed, "config", "user.email", "test@example.com")
+            git(seed, "config", "user.name", "Test")
+            (seed / ".gitignore").write_text(".env\n.local-runtime/\n")
+            (seed / "file.txt").write_text("base\n")
+            git(seed, "add", ".gitignore", "file.txt")
+            git(seed, "commit", "-m", "base")
+            git(seed, "remote", "add", "origin", str(remote))
+            git(seed, "push", "-u", "origin", "development")
+            git(root, "clone", str(remote), str(checkout))
+            git(checkout, "switch", "development")
+            (checkout / "file.txt").write_text("discard me\n")
+            (checkout / ".env").write_text("preserve\n")
+
+            workspace = GitWorkspace(checkout)
+            workspace.fetch("development")
+            result = workspace.adopt_vanilla(
+                checkout,
+                "benjamin/ts-17-vanilla-mode",
+                "development",
+                "TS-17",
+            )
+
+            self.assertEqual(result.path, checkout.resolve())
+            self.assertEqual(result.branch, "benjamin/ts-17-vanilla-mode")
+            self.assertEqual(result.created_from, "vanilla:origin/development")
+            self.assertEqual(result.discarded_status, (" M file.txt",))
+            self.assertEqual((checkout / "file.txt").read_text(), "base\n")
+            self.assertEqual((checkout / ".env").read_text(), "preserve\n")
+            self.assertEqual(
+                git(checkout, "branch", "--show-current"),
+                "benjamin/ts-17-vanilla-mode",
+            )
+
     def test_codex_mode_cleans_stale_worktree_and_preserves_ignored_setup(self):
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

@@ -1,4 +1,4 @@
 interface:
   display_name: "Issue Delivery Orchestrator"
   short_description: "Deliver a Linear issue from spec through PR"
-  default_prompt: "Use $issue-delivery-orchestrator to deliver this Linear issue in Codex or Superset mode."
+  default_prompt: "Use $issue-delivery-orchestrator to deliver this Linear issue in Codex, Superset, or Vanilla mode."

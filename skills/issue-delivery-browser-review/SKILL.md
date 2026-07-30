@@ -21,8 +21,9 @@ el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, dec
    Chrome ni una sesión personal.
 5. Confirmar que el Local Runtime sea alcanzable desde Browser y que el sitio tenga permiso.
 6. Clasificar antes de interactuar qué stories exigen `file-upload` o un estado `hover`. Leer
-   [headless-assistance.md](references/headless-assistance.md), pero mantener Browser como primera
-   opción. No iniciar Playwright sólo porque una story contiene hover.
+   [headless-assistance.md](../issue-delivery-orchestrator/references/headless-assistance.md), pero
+   mantener Browser como primera opción. No iniciar Playwright sólo porque una story contiene
+   hover.
 7. Bloquear directamente sólo si la story exige otra aplicación, cámara, diálogo o UI nativa que
    Browser y Playwright headless tampoco puedan cubrir.
 8. Confirmar antes de probar que cada screenshot podrá persistirse como PNG bajo

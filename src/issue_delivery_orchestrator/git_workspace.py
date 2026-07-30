@@ -53,25 +53,61 @@ class GitWorkspace:
         base: str,
         issue: str,
     ) -> Worktree:
+        return self._adopt_switchable(
+            path,
+            expected_branch,
+            base,
+            issue,
+            mode="codex",
+            allowed_start_branches=set(),
+        )
+
+    def adopt_vanilla(
+        self,
+        path: Path,
+        expected_branch: str,
+        base: str,
+        issue: str,
+    ) -> Worktree:
+        return self._adopt_switchable(
+            path,
+            expected_branch,
+            base,
+            issue,
+            mode="vanilla",
+            allowed_start_branches={base},
+        )
+
+    def _adopt_switchable(
+        self,
+        path: Path,
+        expected_branch: str,
+        base: str,
+        issue: str,
+        *,
+        mode: str,
+        allowed_start_branches: set[str],
+    ) -> Worktree:
         candidate = self._validated_worktree(path)
         branch = run(["git", "branch", "--show-current"], cwd=candidate).stdout.strip()
         if branch:
-            if not _matches_issue_branch(branch, expected_branch, issue):
-                raise RunBlocked(
-                    f"Codex worktree branch {branch} does not match Linear branch "
-                    f"{expected_branch}; start the run from a detached Codex worktree"
+            if _matches_issue_branch(branch, expected_branch, issue):
+                self._require_ignored_runtime(candidate)
+                discarded_status = self._discard_initial_changes(candidate)
+                head, status = self._snapshot(candidate)
+                return Worktree(
+                    candidate,
+                    branch,
+                    f"{mode}:{branch}",
+                    head,
+                    status,
+                    discarded_status,
                 )
-            self._require_ignored_runtime(candidate)
-            discarded_status = self._discard_initial_changes(candidate)
-            head, status = self._snapshot(candidate)
-            return Worktree(
-                candidate,
-                branch,
-                f"codex:{branch}",
-                head,
-                status,
-                discarded_status,
-            )
+            if branch not in allowed_start_branches:
+                raise RunBlocked(
+                    f"{mode.capitalize()} worktree branch {branch} does not match "
+                    f"Linear branch {expected_branch}"
+                )
 
         occupied = self._branch_worktree(expected_branch)
         if occupied:
@@ -93,7 +129,7 @@ class GitWorkspace:
                 raise RunBlocked(f"Base branch {target} does not exist")
             switch = ["git", "switch", "-c", expected_branch, target]
 
-        self._require_safe_codex_history(candidate, target, base)
+        self._require_safe_switch_history(candidate, target, base, mode)
         self._require_ignored_runtime(candidate)
         discarded_status = self._discard_initial_changes(candidate)
         run(switch, cwd=candidate)
@@ -102,7 +138,7 @@ class GitWorkspace:
         return Worktree(
             candidate,
             expected_branch,
-            f"codex:{target}",
+            f"{mode}:{target}",
             head,
             status,
             discarded_status,
@@ -208,7 +244,13 @@ class GitWorkspace:
             )
         return status
 
-    def _require_safe_codex_history(self, path: Path, target: str, base: str) -> None:
+    def _require_safe_switch_history(
+        self,
+        path: Path,
+        target: str,
+        base: str,
+        mode: str,
+    ) -> None:
         safe_refs = [target]
         remote_base = f"origin/{base}"
         if self._ref_exists(f"refs/remotes/{remote_base}"):
@@ -224,7 +266,8 @@ class GitWorkspace:
         )
         if not head_is_preserved:
             raise RunBlocked(
-                f"Codex worktree has commits not contained in {target} or {remote_base}; "
+                f"{mode.capitalize()} worktree has commits not contained in "
+                f"{target} or {remote_base}; "
                 "preserve them before starting a new run"
             )
 

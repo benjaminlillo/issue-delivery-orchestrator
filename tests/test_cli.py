@@ -42,6 +42,14 @@ class CliModeTests(unittest.TestCase):
         self.assertEqual(args.mode, "codex")
         self.assertEqual(args.worktree, Path("/tmp/codex-worktree"))
 
+    def test_parses_explicit_vanilla_mode_and_worktree(self):
+        args = parser().parse_args(
+            ["TS-1", "--mode", "vanilla", "--worktree", "/tmp/checkout"]
+        )
+
+        self.assertEqual(args.mode, "vanilla")
+        self.assertEqual(args.worktree, Path("/tmp/checkout"))
+
     def test_parses_prepare_evidence_manifest(self):
         args = parser().parse_args(
             ["TS-1", "prepare-evidence", "--manifest", "validation/ui.json"]
@@ -60,6 +68,10 @@ class CliModeTests(unittest.TestCase):
                 _requested_worktree(None, "superset"),
                 Path("/tmp/superset"),
             )
+
+    def test_vanilla_mode_does_not_adopt_superset_environment(self):
+        with patch.dict(os.environ, {"SUPERSET_WORKSPACE_PATH": "/tmp/superset"}):
+            self.assertIsNone(_requested_worktree(None, "vanilla"))
 
     def test_detects_codex_from_path_marker(self):
         configuration = self._settings()
@@ -124,6 +136,18 @@ class CliModeTests(unittest.TestCase):
                 configuration,
             ),
             ("superset", "explicit"),
+        )
+
+    def test_explicit_vanilla_does_not_depend_on_path_markers(self):
+        configuration = self._settings()
+
+        self.assertEqual(
+            _new_run_mode(
+                "vanilla",
+                Path("/tmp/.codex/worktrees/TS-1"),
+                configuration,
+            ),
+            ("vanilla", "explicit"),
         )
 
     def test_ambiguous_path_requires_explicit_mode(self):

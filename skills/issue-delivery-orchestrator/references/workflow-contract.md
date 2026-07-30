@@ -129,31 +129,36 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 ## Persistencia
 
 - Todo run nuevo exige `--worktree`. `--mode codex|superset` es un override opcional: sin él, el
-  CLI detecta el modo mediante `SUPERSET_WORKSPACE_PATH`, las raíces configuradas en
-  `ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS`/`ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS`, o componentes
-  inequívocos de la ruta. No existe un default; una detección vacía o contradictoria bloquea. El
-  modo no cambia después de crear el estado.
+  CLI puede detectar esos dos modos mediante `SUPERSET_WORKSPACE_PATH`, raíces configuradas o
+  componentes inequívocos de la ruta. `--mode vanilla` es siempre explícito y nunca se infiere por
+  path o ambiente. No existe un default; una detección vacía o contradictoria bloquea. El modo no
+  cambia después de crear el estado.
 - Modo `codex`: la app crea primero un worktree del chat, normalmente detached; el CLI lo adopta,
   conecta la rama local/remota de Linear o crea la rama desde `origin/<base>`, y fija
   `reviewer.method=codex-browser`. Fijar el chat y no archivarlo ni hacer Handoff a Local antes del
   merge y cleanup; el estado ignorado del run permanece en ese worktree.
 - Modo `superset`: Superset crea primero el worktree en la rama de Linear; el CLI lo adopta mediante
   `--worktree` o `SUPERSET_WORKSPACE_PATH` y fija `reviewer.method=cua-driver`.
+- Modo `vanilla`: el usuario o su herramienta crea/prepara el checkout o worktree y ejecuta su
+  setup local antes del loop. El CLI lo adopta mediante `--worktree`, permite partir desde la rama
+  base, un detached HEAD seguro o la rama de la issue, conecta la rama de Linear y fija
+  `reviewer.method=cua-driver`.
 - El orquestador nunca crea worktrees ni delega el run a un thread que solicite otro. Prohibir
   `create_thread` con entorno worktree, `git worktree add` y mecanismos equivalentes. Si el actual
   no puede adoptarse, bloquear y pedir al usuario que abra manualmente otro para que la superficie
   ejecute su setup local.
 - La adopción valida mismo repositorio y `.local-runtime` ignorado. Superset exige branch exacta de
   Linear o prefijo truncado con el mismo ID. Codex sólo permite detached HEAD o esa misma branch.
-  Antes de iniciar un run nuevo, descartar cambios trackeados y archivos no trackeados no ignorados;
-  preservar `.env`, dependencias, `.local-runtime` y cualquier otro archivo ignorado. Registrar el
-  snapshot previo en `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta
-  limpieza al reanudar.
-- Browser sólo opera dentro de un run modo Codex abierto en la app. Cua sólo opera dentro de modo
-  Superset. Playwright headless puede asistir exclusivamente una story con brecha demostrada de
-  `file-upload` o `hover` en modo Codex, sobre el mismo SHA/runtime y con recibo bajo el run; sigue
-  declarando `codex-browser`. No cambiar provider o modo silenciosamente. Mantener compatibilidad
-  de lectura con `uploadAssistance` v1 para reanudar runs creados por la versión 0.3.
+  Vanilla permite además partir desde la branch base declarada. Antes de iniciar un run nuevo,
+  descartar cambios trackeados y archivos no trackeados no ignorados; preservar `.env`,
+  dependencias, `.local-runtime` y cualquier otro archivo ignorado. Registrar el snapshot previo en
+  `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta limpieza al reanudar.
+- Browser sólo opera dentro de un run modo Codex abierto en la app. Cua opera en modo Superset o
+  Vanilla. Playwright headless puede asistir exclusivamente una story con brecha demostrada de
+  `file-upload` o `hover`, sobre el mismo SHA/runtime y con recibo bajo el run; el provider continúa
+  siendo el reviewer principal. No cambiar provider o modo silenciosamente. Leer
+  [headless-assistance.md](headless-assistance.md) y mantener compatibilidad con
+  `uploadAssistance` v1 y recibos v2 de Codex Browser.
 - `adoptedHead` y `adoptedStatus` fijan el baseline limpio posterior a la adopción;
   `discardedInitialStatus` conserva la auditoría de lo eliminado.
 - `python3 <plugin-root>/scripts/issue-delivery <issue>` descubre runs actuales en todos los worktrees Git

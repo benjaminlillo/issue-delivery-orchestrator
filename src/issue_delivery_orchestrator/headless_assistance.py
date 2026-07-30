@@ -10,6 +10,7 @@ from .util import ensure_within, read_json
 
 
 SUPPORTED_KINDS = {"file-upload", "hover"}
+SUPPORTED_REVIEWERS = {"codex-browser", "cua-driver"}
 
 
 def validate_headless_assistance(
@@ -20,9 +21,10 @@ def validate_headless_assistance(
     screenshot_paths_by_story: dict[str, set[Path]],
 ) -> list[dict[str, Any]]:
     declared = _declared_assistance(manifest)
-    if declared and review_method(state) != "codex-browser":
+    reviewer = review_method(state)
+    if declared and reviewer not in SUPPORTED_REVIEWERS:
         raise OrchestrationError(
-            "Headless assistance is supported only in codex-browser runs"
+            f"Headless assistance is unsupported for reviewer {reviewer}"
         )
 
     scenario_ids = set(verification["scenarioIds"])
