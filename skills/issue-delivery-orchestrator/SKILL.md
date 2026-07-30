@@ -179,7 +179,8 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
    - `superset`: abrir el navegador dedicado mediante
      `python3 <plugin-root>/scripts/issue-delivery <issue> launch-browser --url <url-local>` e invocar `$issue-delivery-cua-review`.
    - `codex`: no ejecutar `launch-browser`; exigir la app de Codex y Browser disponible,
-     e invocar `$issue-delivery-browser-review`.
+     e invocar `$issue-delivery-browser-review`. Para stories con upload, permitir únicamente su
+     asistencia Playwright headless, sin cambiar reviewer ni modo.
 
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie declarada.
 5. Ningún reviewer edita código. Entregar findings a `$issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
@@ -193,9 +194,11 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
    inspeccionar la copia anotada y corregir bounds o captions antes del checkpoint. El motor
    preserva el original.
 
-El Browser de modo Codex no es elegible para otra aplicación, UI nativa, selector de archivos ni
-upload. Si una historia lo exige, bloquear antes de probar; no degradar cobertura ni cambiar
-automáticamente a Superset o Cua.
+El Browser de modo Codex no es elegible para otra aplicación ni UI nativa. Para uploads, detectar la
+necesidad por story antes de probar y aplicar el protocolo headless de
+`$issue-delivery-browser-review`; si el bloqueo aparece durante la interacción, activar el mismo
+fallback sólo para esa story. Bloquear únicamente cuando Playwright headless tampoco pueda cubrirla.
+No degradar cobertura ni cambiar automáticamente a Superset o Cua.
 
 Completar la fase con:
 

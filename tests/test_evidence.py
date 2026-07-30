@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -16,6 +17,7 @@ from issue_delivery_orchestrator.evidence import (
     publish_evidence,
 )
 from issue_delivery_orchestrator.png_codec import PngImage, encode_png
+from issue_delivery_orchestrator.state import run_root
 from issue_delivery_orchestrator.util import read_json
 
 
@@ -140,6 +142,175 @@ class EvidenceVerificationTests(unittest.TestCase):
         )
 
         self.assertIn("Browser integrado de Codex", body)
+
+    def test_pr_body_discloses_headless_upload_assistance(self):
+        body = _pr_body(
+            "<!-- marker -->",
+            [
+                {
+                    "storyId": "US-2",
+                    "title": "Uploaded state",
+                    "caption": "Verified",
+                    "githubUrl": "../upload.png",
+                }
+            ],
+            provider="codex-browser",
+            upload_assistance=[
+                {
+                    "storyId": "US-2",
+                    "scope": "upload-only",
+                    "driver": "playwright-headless",
+                }
+            ],
+        )
+
+        self.assertIn(
+            "Playwright headless limitado a uploads en US-2",
+            body,
+        )
+
+    def test_accepts_current_headless_upload_receipt_for_browser_run(self):
+        screenshot = self.worktree / "upload.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        state = {
+            "worktree": str(self.worktree),
+            "runId": "run-1",
+            "mode": {"name": "codex"},
+            "reviewer": {"method": "codex-browser"},
+            "runtimes": [{"runtimeId": "rt-1"}],
+        }
+        root = run_root(self.worktree, "run-1")
+        fixture = root / "validation" / "headless-upload" / "US-2" / "photo.png"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_bytes(b"fixture")
+        receipt = fixture.parent / "receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "receiptVersion": 1,
+                    "status": "PASS",
+                    "driver": "playwright-headless",
+                    "storyId": "US-2",
+                    "scope": "upload-only",
+                    "verifiedCommit": self.head,
+                    "runtimeId": "rt-1",
+                    "verifiedAt": "2026-07-30T12:00:00Z",
+                    "files": [
+                        {
+                            "path": str(fixture.relative_to(root)),
+                            "mimeType": "image/png",
+                            "size": fixture.stat().st_size,
+                            "sha256": hashlib.sha256(
+                                fixture.read_bytes()
+                            ).hexdigest(),
+                        }
+                    ],
+                    "observations": [
+                        "The four-file upload request completed successfully."
+                    ],
+                }
+            )
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest = self.manifest(provider="codex-browser")
+        manifest["verification"]["scenarioIds"] = ["US-2"]
+        manifest.update(
+            {
+                "evidenceVersion": 2,
+                "uploadAssistance": [
+                    {
+                        "storyId": "US-2",
+                        "receiptPath": str(receipt.relative_to(self.worktree)),
+                    }
+                ],
+                "screenshots": [
+                    {
+                        "storyId": "US-2",
+                        "path": "upload.png",
+                        "annotationReason": "The complete gallery is the accepted result.",
+                    }
+                ],
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest))
+
+        prepared = prepare_evidence(state, manifest_path)
+
+        self.assertEqual(prepared["uploadAssistance"][0]["storyId"], "US-2")
+        self.assertEqual(
+            prepared["verification"]["uploadAssistance"][0]["scope"],
+            "upload-only",
+        )
+
+    def test_rejects_stale_headless_upload_receipt(self):
+        screenshot = self.worktree / "upload.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        state = {
+            "worktree": str(self.worktree),
+            "runId": "run-1",
+            "mode": {"name": "codex"},
+            "reviewer": {"method": "codex-browser"},
+            "runtimes": [{"runtimeId": "rt-1"}],
+        }
+        root = run_root(self.worktree, "run-1")
+        fixture = root / "validation" / "headless-upload" / "US-2" / "photo.png"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_bytes(b"fixture")
+        receipt = fixture.parent / "receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "receiptVersion": 1,
+                    "status": "PASS",
+                    "driver": "playwright-headless",
+                    "storyId": "US-2",
+                    "scope": "full-story",
+                    "verifiedCommit": "stale-commit",
+                    "runtimeId": "rt-1",
+                    "verifiedAt": "2026-07-30T12:00:00Z",
+                    "files": [
+                        {
+                            "path": str(fixture.relative_to(root)),
+                            "mimeType": "image/png",
+                            "size": fixture.stat().st_size,
+                            "sha256": hashlib.sha256(
+                                fixture.read_bytes()
+                            ).hexdigest(),
+                        }
+                    ],
+                    "observations": ["The story reached its accepted final state."],
+                }
+            )
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest = self.manifest(provider="codex-browser")
+        manifest["verification"]["scenarioIds"] = ["US-2"]
+        manifest.update(
+            {
+                "evidenceVersion": 2,
+                "uploadAssistance": [
+                    {
+                        "storyId": "US-2",
+                        "receiptPath": str(receipt.relative_to(self.worktree)),
+                    }
+                ],
+                "screenshots": [
+                    {
+                        "storyId": "US-2",
+                        "path": "upload.png",
+                        "annotationReason": "The complete gallery is the accepted result.",
+                    }
+                ],
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest))
+
+        with self.assertRaisesRegex(OrchestrationError, "verifiedCommit"):
+            prepare_evidence(state, manifest_path)
 
     def test_evidence_target_is_content_addressed(self):
         screenshot = {

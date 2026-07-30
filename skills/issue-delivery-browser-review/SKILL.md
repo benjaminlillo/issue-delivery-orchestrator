@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-browser-review
-description: "Verificar historias UI y reparaciones mediante el Browser integrado de la app de Codex sobre un Local Runtime. Usar en runs de Issue Delivery Orchestrator en modo Codex; bloquear fuera del worktree/chat de Codex, si Browser no está disponible o si el flujo exige UI nativa o uploads."
+description: "Verificar historias UI y reparaciones mediante el Browser integrado de la app de Codex sobre un Local Runtime, usando Playwright headless sólo para stories bloqueadas por uploads. Usar en runs de Issue Delivery Orchestrator en modo Codex; bloquear fuera del worktree/chat de Codex, sin Browser o ante UI nativa no automatizable."
 ---
 
 # Codex Browser Revision
@@ -17,10 +17,12 @@ el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, dec
    `codex-browser`. Para estados legacy sin modo, aceptar sólo `codex-browser`.
 3. Exigir que la sesión ejecute en la app de Codex y tenga disponible
    `$browser:control-in-app-browser`. Bloquear sin cambiar automáticamente a Cua.
-4. Usar exclusivamente el Browser integrado, con un binding persistente propio. No usar la
-   extensión de Chrome ni una sesión personal.
+4. Usar Browser como revisor principal, con un binding persistente propio. No usar la extensión de
+   Chrome ni una sesión personal.
 5. Confirmar que el Local Runtime sea alcanzable desde Browser y que el sitio tenga permiso.
-6. Bloquear si una historia exige otra aplicación, diálogo nativo, selector de archivos o upload.
+6. Clasificar antes de interactuar qué stories exigen archivos. Para ellas leer y aplicar
+   [headless-upload.md](references/headless-upload.md). Bloquear directamente sólo si exigen otra
+   aplicación, cámara, diálogo o UI nativa que Playwright tampoco pueda cubrir.
 7. Confirmar antes de probar que cada screenshot podrá persistirse como PNG bajo
    `.local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/`. Si la superficie disponible
    sólo devuelve una imagen efímera y no permite guardarla allí, devolver `BLOCKED`.
@@ -41,6 +43,9 @@ el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, dec
 7. Mantener una sola pestaña principal por flujo; renovar el binding si la navegación reemplaza o
    cierra la pestaña.
 
+Para una story sin upload, no iniciar Playwright. Si aparece un selector de archivos no detectado en
+preflight, aplicar el fallback headless a esa story y continuar el mismo run sin cambiar provider.
+
 ## Verificar una reparación
 
 Exigir además el reporte original y el escenario `REPAIR-<n>` o las historias afectadas.
@@ -51,9 +56,11 @@ Exigir además el reporte original y el escenario `REPAIR-<n>` o las historias a
 4. Emitir PASS sólo con una observación y screenshots posteriores al último cambio.
 5. Invalidar el PASS ante cualquier edición posterior capaz de afectar el flujo.
 
-No sustituir la revisión por tests, inspección del código o llamadas directas a APIs. Si Browser no
-puede alcanzar o probar el escenario, devolver `BLOCKED`; el skill no cambia de modo, worktree ni
-reviewer.
+No sustituir la revisión por tests, inspección del código o llamadas directas a APIs. La única
+excepción es la asistencia headless definida para uploads, que debe interactuar con la UI real,
+producir un recibo ligado al SHA/runtime y conservar evidencia visual. Si Browser y esa asistencia
+no pueden alcanzar o probar el escenario, devolver `BLOCKED`; el skill no cambia de modo, worktree
+ni reviewer.
 
 ## Findings
 
@@ -90,6 +97,12 @@ Generar:
     "verifiedAt": "<ISO-8601>",
     "scenarioIds": ["REPAIR-1"]
   },
+  "uploadAssistance": [
+    {
+      "storyId": "US-002",
+      "receiptPath": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/headless-upload/US-002/receipt.json"
+    }
+  ],
   "screenshots": [
     {
       "storyId": "US-1",

@@ -13,6 +13,7 @@ from .annotations import (
 )
 from .errors import OrchestrationError
 from .state import review_method
+from .upload_assistance import validate_upload_assistance
 from .util import atomic_write_json, ensure_within, read_json, run
 
 
@@ -21,6 +22,7 @@ def prepare_evidence(state: dict[str, Any], manifest_path: Path) -> dict[str, An
     return {
         "manifest": str(prepared["manifest_path"].relative_to(prepared["worktree"])),
         "verification": prepared["verification"],
+        "uploadAssistance": prepared["upload_assistance"],
         "screenshots": [
             {
                 "storyId": item["storyId"],
@@ -46,6 +48,15 @@ def _prepare_evidence(
     manifest = read_json(manifest_path)
     verification = _verification(manifest, state, worktree)
     screenshots = _screenshots(manifest, worktree)
+    upload_assistance = validate_upload_assistance(
+        manifest,
+        state,
+        worktree,
+        verification,
+        {item["storyId"] for item in screenshots},
+    )
+    if upload_assistance:
+        verification["uploadAssistance"] = upload_assistance
     changed = False
     for raw, screenshot in zip(manifest["screenshots"], screenshots):
         if is_png(screenshot["path"]):
@@ -80,6 +91,7 @@ def _prepare_evidence(
         "worktree": worktree,
         "manifest_path": manifest_path,
         "verification": verification,
+        "upload_assistance": upload_assistance,
         "screenshots": screenshots,
     }
 

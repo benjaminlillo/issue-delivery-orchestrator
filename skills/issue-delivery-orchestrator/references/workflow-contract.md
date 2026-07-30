@@ -150,7 +150,9 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   snapshot previo en `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta
   limpieza al reanudar.
 - Browser sólo opera dentro de un run modo Codex abierto en la app. Cua sólo opera dentro de modo
-  Superset. No cambiar provider o modo silenciosamente.
+  Superset. Playwright headless puede asistir exclusivamente stories con uploads en modo Codex,
+  sobre el mismo SHA/runtime y con recibo bajo el run; sigue declarando `codex-browser`. No cambiar
+  provider o modo silenciosamente.
 - `adoptedHead` y `adoptedStatus` fijan el baseline limpio posterior a la adopción;
   `discardedInitialStatus` conserva la auditoría de lo eliminado.
 - `python3 <plugin-root>/scripts/issue-delivery <issue>` descubre runs actuales en todos los worktrees Git

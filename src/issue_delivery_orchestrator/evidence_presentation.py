@@ -21,6 +21,7 @@ def pr_body(
     assets: list[dict[str, Any]],
     *,
     provider: str = "cua-driver",
+    upload_assistance: list[dict[str, Any]] | None = None,
 ) -> str:
     items = []
     for asset in assets:
@@ -43,6 +44,16 @@ def pr_body(
         if provider == "codex-browser"
         else "Cua Driver"
     )
+    assisted_story_ids = [
+        str(item.get("storyId") or "").strip()
+        for item in upload_assistance or []
+        if str(item.get("storyId") or "").strip()
+    ]
+    if assisted_story_ids:
+        method += (
+            ", con Playwright headless limitado a uploads en "
+            + ", ".join(assisted_story_ids)
+        )
     annotation_notice = (
         " Los indicadores numerados son anotaciones de evidencia y no forman "
         "parte de la aplicación."

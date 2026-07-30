@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Deliver Linear issues from an approved spec through implementation, UI verification, pull request creation, and automated review convergence.",
   "author": {
     "name": "Benjamin Lillo"
@@ -25,6 +25,7 @@
       "Linear issue planning",
       "Codex and Superset worktree modes",
       "Focused implementation validation",
+      "Headless file-upload UI verification",
       "UI evidence publication",
       "GitHub review convergence"
     ],

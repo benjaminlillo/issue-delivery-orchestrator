@@ -87,6 +87,7 @@ def publish_evidence(
             marker,
             assets,
             provider=verification.get("provider", "cua-driver"),
+            upload_assistance=verification.get("uploadAssistance", []),
         )
         pr_comment_id = github.upsert_comment(int(pr["number"]), marker, pr_body)
 
@@ -157,6 +158,10 @@ def repair_github_evidence(
             provider=(receipt.get("verification") or {}).get(
                 "provider",
                 "cua-driver",
+            ),
+            upload_assistance=(receipt.get("verification") or {}).get(
+                "uploadAssistance",
+                [],
             ),
         ),
     )
