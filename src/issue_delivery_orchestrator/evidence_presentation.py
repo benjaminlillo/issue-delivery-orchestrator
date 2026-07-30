@@ -21,6 +21,7 @@ def pr_body(
     assets: list[dict[str, Any]],
     *,
     provider: str = "cua-driver",
+    headless_assistance: list[dict[str, Any]] | None = None,
     upload_assistance: list[dict[str, Any]] | None = None,
 ) -> str:
     items = []
@@ -44,16 +45,25 @@ def pr_body(
         if provider == "codex-browser"
         else "Cua Driver"
     )
-    assisted_story_ids = [
-        str(item.get("storyId") or "").strip()
-        for item in upload_assistance or []
-        if str(item.get("storyId") or "").strip()
-    ]
-    if assisted_story_ids:
-        method += (
-            ", con Playwright headless limitado a uploads en "
-            + ", ".join(assisted_story_ids)
-        )
+    assistance = list(headless_assistance or [])
+    if not assistance:
+        assistance = [
+            {**item, "kind": "file-upload"}
+            for item in upload_assistance or []
+        ]
+    grouped: dict[str, list[str]] = {}
+    for item in assistance:
+        story_id = str(item.get("storyId") or "").strip()
+        kind = str(item.get("kind") or "").strip()
+        if story_id and kind:
+            grouped.setdefault(kind, []).append(story_id)
+    if grouped:
+        labels = {"file-upload": "uploads", "hover": "hover"}
+        scopes = [
+            f"{labels.get(kind, kind)} en {', '.join(story_ids)}"
+            for kind, story_ids in grouped.items()
+        ]
+        method += ", con Playwright headless limitado a " + " y ".join(scopes)
     annotation_notice = (
         " Los indicadores numerados son anotaciones de evidencia y no forman "
         "parte de la aplicación."

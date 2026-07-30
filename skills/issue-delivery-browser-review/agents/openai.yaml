@@ -1,4 +1,4 @@
 interface:
   display_name: "Issue Delivery Browser Review"
-  short_description: "Verify UI flows with upload assistance"
-  default_prompt: "Use $issue-delivery-browser-review to verify these UI stories in Codex Browser and assist file uploads headlessly."
+  short_description: "Verify UI with bounded headless fallback"
+  default_prompt: "Use $issue-delivery-browser-review to verify these UI stories in Codex Browser and handle demonstrated upload or hover capability gaps headlessly."

@@ -7,7 +7,7 @@ The plugin is self-contained: its orchestration engine and workflow skills live 
 It supports two fixed workspace modes:
 
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser, with headless
-  Playwright assistance limited to stories that require file uploads.
+  Playwright assistance limited to demonstrated `file-upload` or `hover` capability gaps.
 - `superset`: adopt a Superset worktree and review UI through Cua Driver in a dedicated browser.
 
 The orchestrator never creates a worktree. Start the chat in a worktree prepared by Codex or
@@ -29,7 +29,8 @@ Existing runs are never cleaned when resumed.
 The Browser skill, Linear connector, Figma connector, GitHub CLI, Cua Driver, Playwright, and the
 target repository's runtime commands remain environment capabilities. The orchestrator checks them
 only when the selected flow needs them. Playwright is required in the target repository only when a
-Codex-mode story needs file uploads; the plugin does not install or add it to product code.
+Codex-mode story hits a supported Browser capability gap; the plugin does not install or add it to
+product code.
 
 ## Install
 
@@ -159,12 +160,14 @@ Final UI evidence uses deterministic numbered callouts to highlight the changed 
 regions. The annotated PNG is shown in Linear and GitHub while the untouched original remains
 available through an audit link. Global changes can explicitly omit a localized callout.
 
-In Codex mode, Browser remains the primary reviewer. A story that requires file uploads may use the
-target repository's existing Playwright installation in headless mode. The helper drives the real
-file input and upload flow without opening a desktop window, stores fixtures and receipts inside
-the ignored run directory, and remains tied to the same commit and Local Runtime. Persistent
-results return to Browser for final visual review; session-transient upload stories are completed
-and captured headlessly. The evidence gate rejects missing or stale upload receipts.
+In Codex mode, Browser remains the primary reviewer. If Browser demonstrably cannot operate a real
+file input or activate a required CSS hover state, only the affected story may use the target
+repository's existing Playwright installation in headless mode. Upload assistance drives the real
+file input; hover assistance uses the real pointer path, verifies `:hover`, captures the accepted
+state, moves away, and checks adjacent persistent state. Scripts, fixtures, screenshots, and
+receipts stay inside the ignored run directory and remain tied to the same commit and Local
+Runtime. The evidence gate rejects unsupported kinds, missing Browser attempts, altered artifacts,
+or stale receipts. Version 0.3 `uploadAssistance` receipts remain readable for preserved runs.
 
 ## Development
 

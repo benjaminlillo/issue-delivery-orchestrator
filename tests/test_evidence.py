@@ -169,6 +169,33 @@ class EvidenceVerificationTests(unittest.TestCase):
             body,
         )
 
+    def test_pr_body_discloses_headless_hover_assistance(self):
+        body = _pr_body(
+            "<!-- marker -->",
+            [
+                {
+                    "storyId": "US-1",
+                    "title": "Hover state",
+                    "caption": "Verified",
+                    "githubUrl": "../hover.png",
+                }
+            ],
+            provider="codex-browser",
+            headless_assistance=[
+                {
+                    "storyId": "US-1",
+                    "kind": "hover",
+                    "scope": "full-story",
+                    "driver": "playwright-headless",
+                }
+            ],
+        )
+
+        self.assertIn(
+            "Playwright headless limitado a hover en US-1",
+            body,
+        )
+
     def test_accepts_current_headless_upload_receipt_for_browser_run(self):
         screenshot = self.worktree / "upload.png"
         screenshot.write_bytes(
@@ -243,6 +270,258 @@ class EvidenceVerificationTests(unittest.TestCase):
             prepared["verification"]["uploadAssistance"][0]["scope"],
             "upload-only",
         )
+        self.assertEqual(
+            prepared["headlessAssistance"][0]["kind"],
+            "file-upload",
+        )
+
+    def test_accepts_hover_fallback_after_browser_capability_gap(self):
+        state = {
+            "worktree": str(self.worktree),
+            "runId": "run-1",
+            "mode": {"name": "codex"},
+            "reviewer": {"method": "codex-browser"},
+            "runtimes": [{"runtimeId": "rt-1"}],
+        }
+        root = run_root(self.worktree, "run-1")
+        story_root = root / "validation" / "headless-assistance" / "US-1"
+        story_root.mkdir(parents=True)
+        screenshot = story_root / "hover.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        receipt = story_root / "receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "receiptVersion": 2,
+                    "status": "PASS",
+                    "driver": "playwright-headless",
+                    "storyId": "US-1",
+                    "kind": "hover",
+                    "scope": "full-story",
+                    "verifiedCommit": self.head,
+                    "runtimeId": "rt-1",
+                    "verifiedAt": "2026-07-30T12:01:00Z",
+                    "browserAttempt": {
+                        "status": "CAPABILITY_GAP",
+                        "kind": "hover",
+                        "attemptedAt": "2026-07-30T12:00:00Z",
+                        "observation": (
+                            "element.matches(':hover') remained false after "
+                            "tab.cua.move."
+                        ),
+                    },
+                    "artifacts": [
+                        {
+                            "path": str(screenshot.relative_to(root)),
+                            "role": "evidence",
+                            "mimeType": "image/png",
+                            "size": screenshot.stat().st_size,
+                            "sha256": hashlib.sha256(
+                                screenshot.read_bytes()
+                            ).hexdigest(),
+                        }
+                    ],
+                    "observations": [
+                        "The target changed on hover and selection stayed unchanged.",
+                        "Moving the pointer away restored only the hover state.",
+                    ],
+                }
+            )
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest = self.manifest(provider="codex-browser")
+        manifest["verification"]["scenarioIds"] = ["US-1"]
+        manifest.update(
+            {
+                "evidenceVersion": 2,
+                "headlessAssistance": [
+                    {
+                        "storyId": "US-1",
+                        "kind": "hover",
+                        "receiptPath": str(receipt.relative_to(self.worktree)),
+                    }
+                ],
+                "screenshots": [
+                    {
+                        "storyId": "US-1",
+                        "path": str(screenshot.relative_to(self.worktree)),
+                        "annotationReason": (
+                            "The full control state demonstrates the accepted hover."
+                        ),
+                    }
+                ],
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest))
+
+        prepared = prepare_evidence(state, manifest_path)
+
+        assistance = prepared["verification"]["headlessAssistance"][0]
+        self.assertEqual(assistance["kind"], "hover")
+        self.assertEqual(assistance["scope"], "full-story")
+        self.assertEqual(
+            assistance["browserAttempt"]["status"],
+            "CAPABILITY_GAP",
+        )
+        self.assertEqual(prepared["uploadAssistance"], [])
+
+    def test_accepts_current_file_upload_fallback_with_browser_final_review(self):
+        screenshot = self.worktree / "uploaded-state.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        state = {
+            "worktree": str(self.worktree),
+            "runId": "run-1",
+            "mode": {"name": "codex"},
+            "reviewer": {"method": "codex-browser"},
+            "runtimes": [{"runtimeId": "rt-1"}],
+        }
+        root = run_root(self.worktree, "run-1")
+        story_root = root / "validation" / "headless-assistance" / "US-2"
+        fixture = story_root / "fixtures" / "photo.png"
+        fixture.parent.mkdir(parents=True)
+        fixture.write_bytes(b"fixture")
+        receipt = story_root / "receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "receiptVersion": 2,
+                    "status": "PASS",
+                    "driver": "playwright-headless",
+                    "storyId": "US-2",
+                    "kind": "file-upload",
+                    "scope": "operation-only",
+                    "verifiedCommit": self.head,
+                    "runtimeId": "rt-1",
+                    "verifiedAt": "2026-07-30T12:01:00Z",
+                    "browserAttempt": {
+                        "status": "CAPABILITY_GAP",
+                        "kind": "file-upload",
+                        "attemptedAt": "2026-07-30T12:00:00Z",
+                        "observation": "Browser could not operate the real file chooser.",
+                    },
+                    "artifacts": [
+                        {
+                            "path": str(fixture.relative_to(root)),
+                            "role": "fixture",
+                            "mimeType": "image/png",
+                            "size": fixture.stat().st_size,
+                            "sha256": hashlib.sha256(
+                                fixture.read_bytes()
+                            ).hexdigest(),
+                        }
+                    ],
+                    "observations": [
+                        "Playwright uploaded the fixture through the real file input.",
+                        "Browser reopened and visually verified the persisted result.",
+                    ],
+                }
+            )
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest = self.manifest(provider="codex-browser")
+        manifest["verification"]["scenarioIds"] = ["US-2"]
+        manifest.update(
+            {
+                "evidenceVersion": 2,
+                "headlessAssistance": [
+                    {
+                        "storyId": "US-2",
+                        "kind": "file-upload",
+                        "receiptPath": str(receipt.relative_to(self.worktree)),
+                    }
+                ],
+                "screenshots": [
+                    {
+                        "storyId": "US-2",
+                        "path": str(screenshot.relative_to(self.worktree)),
+                        "annotationReason": "The persisted gallery is the accepted result.",
+                    }
+                ],
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest))
+
+        prepared = prepare_evidence(state, manifest_path)
+
+        assistance = prepared["headlessAssistance"][0]
+        self.assertEqual(assistance["kind"], "file-upload")
+        self.assertEqual(assistance["scope"], "operation-only")
+        self.assertNotIn("legacy", assistance)
+
+    def test_rejects_hover_fallback_without_browser_attempt(self):
+        state = {
+            "worktree": str(self.worktree),
+            "runId": "run-1",
+            "mode": {"name": "codex"},
+            "reviewer": {"method": "codex-browser"},
+            "runtimes": [{"runtimeId": "rt-1"}],
+        }
+        root = run_root(self.worktree, "run-1")
+        story_root = root / "validation" / "headless-assistance" / "US-1"
+        story_root.mkdir(parents=True)
+        screenshot = story_root / "hover.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        receipt = story_root / "receipt.json"
+        receipt.write_text(
+            json.dumps(
+                {
+                    "receiptVersion": 2,
+                    "status": "PASS",
+                    "driver": "playwright-headless",
+                    "storyId": "US-1",
+                    "kind": "hover",
+                    "scope": "full-story",
+                    "verifiedCommit": self.head,
+                    "runtimeId": "rt-1",
+                    "verifiedAt": "2026-07-30T12:01:00Z",
+                    "artifacts": [
+                        {
+                            "path": str(screenshot.relative_to(root)),
+                            "role": "evidence",
+                            "mimeType": "image/png",
+                            "size": screenshot.stat().st_size,
+                            "sha256": hashlib.sha256(
+                                screenshot.read_bytes()
+                            ).hexdigest(),
+                        }
+                    ],
+                    "observations": ["The hover state was visible."],
+                }
+            )
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest = self.manifest(provider="codex-browser")
+        manifest["verification"]["scenarioIds"] = ["US-1"]
+        manifest.update(
+            {
+                "evidenceVersion": 2,
+                "headlessAssistance": [
+                    {
+                        "storyId": "US-1",
+                        "kind": "hover",
+                        "receiptPath": str(receipt.relative_to(self.worktree)),
+                    }
+                ],
+                "screenshots": [
+                    {
+                        "storyId": "US-1",
+                        "path": str(screenshot.relative_to(self.worktree)),
+                        "annotationReason": "The hover state spans the whole control.",
+                    }
+                ],
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest))
+
+        with self.assertRaisesRegex(OrchestrationError, "browserAttempt"):
+            prepare_evidence(state, manifest_path)
+
 
     def test_rejects_stale_headless_upload_receipt(self):
         screenshot = self.worktree / "upload.png"

@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-browser-review
-description: "Verificar historias UI y reparaciones mediante el Browser integrado de la app de Codex sobre un Local Runtime, usando Playwright headless sólo para stories bloqueadas por uploads. Usar en runs de Issue Delivery Orchestrator en modo Codex; bloquear fuera del worktree/chat de Codex, sin Browser o ante UI nativa no automatizable."
+description: "Verificar historias UI y reparaciones mediante el Browser integrado de la app de Codex sobre un Local Runtime, usando Playwright headless sólo ante una brecha demostrada de file-upload o hover. Usar en runs de Issue Delivery Orchestrator en modo Codex; bloquear fuera del worktree/chat de Codex, sin Browser o ante UI nativa no automatizable."
 ---
 
 # Codex Browser Revision
@@ -20,10 +20,12 @@ el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, dec
 4. Usar Browser como revisor principal, con un binding persistente propio. No usar la extensión de
    Chrome ni una sesión personal.
 5. Confirmar que el Local Runtime sea alcanzable desde Browser y que el sitio tenga permiso.
-6. Clasificar antes de interactuar qué stories exigen archivos. Para ellas leer y aplicar
-   [headless-upload.md](references/headless-upload.md). Bloquear directamente sólo si exigen otra
-   aplicación, cámara, diálogo o UI nativa que Playwright tampoco pueda cubrir.
-7. Confirmar antes de probar que cada screenshot podrá persistirse como PNG bajo
+6. Clasificar antes de interactuar qué stories exigen `file-upload` o un estado `hover`. Leer
+   [headless-assistance.md](references/headless-assistance.md), pero mantener Browser como primera
+   opción. No iniciar Playwright sólo porque una story contiene hover.
+7. Bloquear directamente sólo si la story exige otra aplicación, cámara, diálogo o UI nativa que
+   Browser y Playwright headless tampoco puedan cubrir.
+8. Confirmar antes de probar que cada screenshot podrá persistirse como PNG bajo
    `.local-runtime/issue-delivery-orchestrator/<run-id>/validation/ui/`. Si la superficie disponible
    sólo devuelve una imagen efímera y no permite guardarla allí, devolver `BLOCKED`.
 
@@ -43,8 +45,9 @@ el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, dec
 7. Mantener una sola pestaña principal por flujo; renovar el binding si la navegación reemplaza o
    cierra la pestaña.
 
-Para una story sin upload, no iniciar Playwright. Si aparece un selector de archivos no detectado en
-preflight, aplicar el fallback headless a esa story y continuar el mismo run sin cambiar provider.
+Si Browser no puede ejecutar una operación requerida, aplicar el protocolo de brecha de capacidad.
+No confundir un resultado incorrecto de la aplicación con una limitación del Browser: si la acción
+sí ocurrió pero la UI no cumple el criterio, devolver `FAIL` y reparar el producto.
 
 ## Verificar una reparación
 
@@ -57,10 +60,10 @@ Exigir además el reporte original y el escenario `REPAIR-<n>` o las historias a
 5. Invalidar el PASS ante cualquier edición posterior capaz de afectar el flujo.
 
 No sustituir la revisión por tests, inspección del código o llamadas directas a APIs. La única
-excepción es la asistencia headless definida para uploads, que debe interactuar con la UI real,
-producir un recibo ligado al SHA/runtime y conservar evidencia visual. Si Browser y esa asistencia
-no pueden alcanzar o probar el escenario, devolver `BLOCKED`; el skill no cambia de modo, worktree
-ni reviewer.
+excepción es la asistencia headless definida para brechas demostradas de `file-upload` o `hover`.
+Debe interactuar con la UI real, producir un recibo ligado al SHA/runtime y conservar evidencia
+visual. Si Browser y esa asistencia no pueden alcanzar o probar el escenario, devolver `BLOCKED`;
+el skill no cambia de modo, worktree ni reviewer.
 
 ## Findings
 
@@ -97,10 +100,11 @@ Generar:
     "verifiedAt": "<ISO-8601>",
     "scenarioIds": ["REPAIR-1"]
   },
-  "uploadAssistance": [
+  "headlessAssistance": [
     {
-      "storyId": "US-002",
-      "receiptPath": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/headless-upload/US-002/receipt.json"
+      "storyId": "US-001",
+      "kind": "hover",
+      "receiptPath": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/headless-assistance/US-001/receipt.json"
     }
   ],
   "screenshots": [

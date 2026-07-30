@@ -12,8 +12,8 @@ from .annotations import (
     validate_screenshot,
 )
 from .errors import OrchestrationError
+from .headless_assistance import validate_headless_assistance
 from .state import review_method
-from .upload_assistance import validate_upload_assistance
 from .util import atomic_write_json, ensure_within, read_json, run
 
 
@@ -22,7 +22,8 @@ def prepare_evidence(state: dict[str, Any], manifest_path: Path) -> dict[str, An
     return {
         "manifest": str(prepared["manifest_path"].relative_to(prepared["worktree"])),
         "verification": prepared["verification"],
-        "uploadAssistance": prepared["upload_assistance"],
+        "headlessAssistance": prepared["headless_assistance"],
+        "uploadAssistance": prepared["legacy_upload_assistance"],
         "screenshots": [
             {
                 "storyId": item["storyId"],
@@ -48,15 +49,25 @@ def _prepare_evidence(
     manifest = read_json(manifest_path)
     verification = _verification(manifest, state, worktree)
     screenshots = _screenshots(manifest, worktree)
-    upload_assistance = validate_upload_assistance(
+    screenshot_paths_by_story: dict[str, set[Path]] = {}
+    for screenshot in screenshots:
+        screenshot_paths_by_story.setdefault(screenshot["storyId"], set()).add(
+            screenshot["path"].resolve()
+        )
+    headless_assistance = validate_headless_assistance(
         manifest,
         state,
         worktree,
         verification,
-        {item["storyId"] for item in screenshots},
+        screenshot_paths_by_story,
     )
-    if upload_assistance:
-        verification["uploadAssistance"] = upload_assistance
+    legacy_upload_assistance = [
+        item for item in headless_assistance if item.get("legacy")
+    ]
+    if headless_assistance:
+        verification["headlessAssistance"] = headless_assistance
+    if legacy_upload_assistance:
+        verification["uploadAssistance"] = legacy_upload_assistance
     changed = False
     for raw, screenshot in zip(manifest["screenshots"], screenshots):
         if is_png(screenshot["path"]):
@@ -91,7 +102,8 @@ def _prepare_evidence(
         "worktree": worktree,
         "manifest_path": manifest_path,
         "verification": verification,
-        "upload_assistance": upload_assistance,
+        "headless_assistance": headless_assistance,
+        "legacy_upload_assistance": legacy_upload_assistance,
         "screenshots": screenshots,
     }
 
