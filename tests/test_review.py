@@ -11,10 +11,160 @@ from issue_delivery_orchestrator.review import (
     acknowledge_processed_blocker,
     assert_review_converged,
     publish_skip_summary,
+    wait_for_quiet_review,
+)
+from issue_delivery_orchestrator.review_budget import (
+    approve_review_extension,
+    record_review_repair,
+    request_review_extension,
+    review_repair_budget,
 )
 
 
 class ReviewFilterTests(unittest.TestCase):
+    def test_initializes_budget_for_a_legacy_run_without_counting_wait_snapshots(self):
+        state = {}
+
+        budget = review_repair_budget(state)
+
+        self.assertEqual(budget["approvedRepairs"], 5)
+        self.assertEqual(budget["usedRepairs"], 0)
+        self.assertEqual(state["reviewRepairBudget"]["repairs"], [])
+
+    def test_wait_snapshots_do_not_consume_or_cap_repair_budget(self):
+        with tempfile.TemporaryDirectory() as raw:
+            review_root = (
+                Path(raw)
+                / ".local-runtime/issue-delivery-orchestrator/run-1/review"
+            )
+            review_root.mkdir(parents=True)
+            for number in range(1, 6):
+                (review_root / f"round-{number:02d}.json").write_text("{}")
+            state = {
+                "worktree": raw,
+                "runId": "run-1",
+                "pr": {"url": "https://github.com/example/repo/pull/10"},
+                "artifacts": {},
+                "reviewRepairBudget": {
+                    "batchSize": 5,
+                    "approvedRepairs": 5,
+                    "repairs": [],
+                    "extensions": [],
+                },
+            }
+            client = Mock()
+            client.view.return_value = SimpleNamespace(number=10)
+            ticks = iter((0.0, 1.0, 1.0))
+
+            with (
+                patch(
+                    "issue_delivery_orchestrator.review.GitHubClient",
+                    return_value=client,
+                ),
+                patch(
+                    "issue_delivery_orchestrator.review.review_snapshot",
+                    return_value={"headSha": "abc", "botGeneralComments": []},
+                ),
+            ):
+                result = wait_for_quiet_review(
+                    state,
+                    quiet_seconds=1,
+                    max_seconds=1,
+                    poll_seconds=1,
+                    clock=lambda: next(ticks),
+                )
+
+            self.assertTrue((review_root / "round-06.json").is_file())
+            self.assertEqual(result["repairBudget"]["remainingRepairs"], 5)
+
+    def test_counts_distinct_pushed_fix_shas_and_renews_budget_after_approval(self):
+        with tempfile.TemporaryDirectory() as raw:
+            state = {
+                "worktree": raw,
+                "runId": "run-1",
+                "status": "active",
+                "currentPhase": "review-convergence",
+                "pr": {"url": "https://github.com/example/repo/pull/10"},
+                "artifacts": {},
+                "reviewRepairBudget": {
+                    "batchSize": 2,
+                    "approvedRepairs": 2,
+                    "repairs": [],
+                    "extensions": [],
+                },
+            }
+            client = Mock()
+
+            with (
+                patch(
+                    "issue_delivery_orchestrator.review_budget.GitHubClient",
+                    return_value=client,
+                ),
+                patch("issue_delivery_orchestrator.review_budget.run") as git_run,
+            ):
+                client.head_sha.return_value = "sha-1"
+                git_run.return_value = SimpleNamespace(stdout="sha-1\n")
+                first = record_review_repair(state, fixes=["blocker-1"])
+                duplicate = record_review_repair(state, fixes=["blocker-1"])
+
+                client.head_sha.return_value = "sha-2"
+                git_run.return_value = SimpleNamespace(stdout="sha-2\n")
+                second = record_review_repair(state, fixes=["blocker-2", "blocker-3"])
+
+                client.head_sha.return_value = "sha-3"
+                git_run.return_value = SimpleNamespace(stdout="sha-3\n")
+                with self.assertRaisesRegex(RunBlocked, "budget is exhausted"):
+                    record_review_repair(state, fixes=["blocker-4"])
+
+            self.assertTrue(first["recorded"])
+            self.assertFalse(duplicate["recorded"])
+            self.assertTrue(second["recorded"])
+            self.assertEqual(review_repair_budget(state)["usedRepairs"], 2)
+            self.assertEqual(review_repair_budget(state)["remainingRepairs"], 0)
+
+            request = request_review_extension(
+                state,
+                fixes=[
+                    {
+                        "title": "Public wiring",
+                        "reason": "The formatter path lacks coverage.",
+                    }
+                ],
+                artifact=(
+                    ".local-runtime/issue-delivery-orchestrator/run-1/"
+                    "review/extension-request-01.json"
+                ),
+            )
+            self.assertEqual(request["status"], "needs_user_decision")
+            self.assertEqual(request["blocker"]["requestedRepairs"], 2)
+
+            renewed = approve_review_extension(state)
+
+            self.assertEqual(state["status"], "active")
+            self.assertIsNone(state["blocker"])
+            self.assertEqual(renewed["approvedRepairs"], 4)
+            self.assertEqual(renewed["remainingRepairs"], 2)
+            self.assertEqual(renewed["extensionCount"], 1)
+
+    def test_rejects_extension_request_while_repairs_remain(self):
+        state = {
+            "status": "active",
+            "currentPhase": "review-convergence",
+            "reviewRepairBudget": {
+                "batchSize": 5,
+                "approvedRepairs": 5,
+                "repairs": [],
+                "extensions": [],
+            },
+        }
+
+        with self.assertRaisesRegex(RunBlocked, "5 repair\(s\) available"):
+            request_review_extension(
+                state,
+                fixes=[{"title": "Fix", "reason": "Valid blocker"}],
+                artifact="review/request.json",
+            )
+
     def test_includes_coderabbit_and_only_hellonstone_blockers(self):
         self.assertTrue(
             _is_relevant_bot(

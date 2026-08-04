@@ -37,7 +37,7 @@
       "hellonston"
     ],
     "blockerBot": "hellonston",
-    "maximumRounds": 5,
+    "repairBatchSize": 5,
     "quietSeconds": 600,
     "maximumWaitSeconds": 1200,
     "pollSeconds": 15

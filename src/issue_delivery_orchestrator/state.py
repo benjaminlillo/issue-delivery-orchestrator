@@ -66,6 +66,7 @@ def create_state(
     if mode not in DEVELOPMENT_MODES:
         raise OrchestrationError(f"Unsupported development mode: {mode}")
     reviewer_method = MODE_REVIEWERS[mode]
+    review_repair_batch_size = settings().review_repair_batch_size
     root = run_root(worktree, run_id)
     for child in (
         "agents",
@@ -100,6 +101,12 @@ def create_state(
         "ownedProcesses": [],
         "pr": None,
         "reviewAcknowledgements": [],
+        "reviewRepairBudget": {
+            "batchSize": review_repair_batch_size,
+            "approvedRepairs": review_repair_batch_size,
+            "repairs": [],
+            "extensions": [],
+        },
         "mode": {
             "name": mode,
             "selectedAt": now(),

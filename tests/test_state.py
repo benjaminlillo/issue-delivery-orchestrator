@@ -44,6 +44,8 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(self.state), "superset")
         self.assertEqual(review_method(self.state), "cua-driver")
         self.assertEqual(self.state["discardedInitialStatus"], [])
+        self.assertEqual(self.state["reviewRepairBudget"]["approvedRepairs"], 5)
+        self.assertEqual(self.state["reviewRepairBudget"]["repairs"], [])
 
     def test_finds_state_inside_additional_registered_worktree(self):
         separate_root = self.worktrees_root / "superset"

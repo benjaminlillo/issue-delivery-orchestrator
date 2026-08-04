@@ -274,7 +274,7 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
 
 ## 7. Convergencia remota
 
-Ejecutar hasta cinco rondas:
+Ejecutar rondas de observación según sea necesario:
 
 ```bash
 python3 <plugin-root>/scripts/issue-delivery <issue> wait-review
@@ -284,21 +284,68 @@ Cada ronda usa los tiempos y autores automatizados declarados por el perfil. En 
 esperar diez minutos de quietud desde el último cambio relevante, con un máximo de veinte minutos
 por ronda y polling cada quince segundos. Procesar sólo problemas concretos de los bots configurados
 y sólo la sección `BLOCKERS` del `blockerBot`; ignorar summaries, walkthroughs, sugerencias
-opcionales y comentarios humanos durante el ciclo automático.
+opcionales y comentarios humanos durante el ciclo automático. `wait-review` guarda un snapshot pero
+no consume presupuesto de reparación.
 
 1. Invocar `$issue-delivery-blocker-triage` con el snapshot.
 2. Si una solicitud contradice spec, ticket o decisión del Grill, registrar `NEEDS_USER_DECISION` y pausar.
 3. Si el usuario mantiene el spec, guardar `SKIP` pegajoso. Si acepta al reviewer, actualizar primero spec y tickets en Linear y recién después editar.
-4. Reparar cada `FIX` mediante `$issue-delivery-implement` y aplicar íntegramente la invariante de reparación y handoff. Usar un commit por causa raíz; agrupar sólo cambios íntimamente relacionados.
-5. Validar antes de un único push por ronda.
-6. Después de validar y pushear cada `FIX`, resolver su thread inline o reconocer su comentario
+4. Antes de editar por uno o más `FIX`, revisar `repairBudget` del snapshot o
+   `reviewRepairBudget` de `status`. TurboShop autoriza bloques de cinco reparaciones. Una
+   reparación es un push con al menos un `FIX` y un `headSha` nuevo; múltiples blockers agrupados
+   en el mismo push consumen una sola reparación. Esperas, refetches, `SKIP` y pushes sin `FIX` no
+   consumen presupuesto.
+5. Si no quedan reparaciones autorizadas, no editar. Crear dentro del run un JSON:
+
+   ```json
+   {
+     "fixes": [
+       {
+         "title": "Título breve",
+         "reason": "Por qué el blocker es válido y material.",
+         "source": "URL o ID del comentario"
+       }
+     ]
+   }
+   ```
+
+   Ejecutar:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> request-review-extension --input <ruta-json>
+   ```
+
+   Mostrar en el chat los `FIX` pendientes, el uso del presupuesto y `requestedRepairs` devuelto
+   por el comando —cinco en TurboShop—. Detenerse en `NEEDS_USER_DECISION`. No crear otra issue/run
+   y no usar `resume` para omitir este gate.
+6. Sólo después de una aprobación explícita e inequívoca del usuario, ejecutar:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> approve-review-extension
+   ```
+
+   Esto agrega otro bloque del mismo tamaño y reanuda el run preservando worktree, branch, PR,
+   spec, tickets, triage y evidencia. Volver a pedir aprobación al agotar cada bloque adicional.
+7. Con presupuesto disponible, reparar cada `FIX` mediante `$issue-delivery-implement` y aplicar
+   íntegramente la invariante de reparación y handoff. Usar un commit por causa raíz; agrupar sólo
+   cambios íntimamente relacionados.
+8. Validar y ejecutar el reviewer seleccionado antes de un único push por reparación. Después del
+   push registrar una sola vez el SHA y todos los `FIX` incluidos:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> record-review-repair \
+     --fix <id-o-titulo> [--fix <id-o-titulo> ...]
+   ```
+
+   El comando exige que `HEAD` coincida con el head remoto de la PR y no vuelve a contar el mismo
+   SHA. Después resolver cada thread inline o reconocer su comentario
    general del `blockerBot` con:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> acknowledge-blocker --comment-id <id> --decision FIX
    ```
 
-7. Cuando todo feedback automatizado todavía pendiente tenga decisión `SKIP` —sin `FIX` ni `NEEDS_USER_DECISION` restantes— crear dentro del run:
+9. Cuando todo feedback automatizado todavía pendiente tenga decisión `SKIP` —sin `FIX` ni `NEEDS_USER_DECISION` restantes— crear dentro del run:
 
    ```json
    {
@@ -321,7 +368,7 @@ opcionales y comentarios humanos durante el ciclo automático.
    El comando consulta ambas superficies en vivo y exige que el archivo cubra exactamente todos los
    blockers automatizados pendientes. Crea o actualiza idempotentemente un único comentario general
    de la PR bajo la identidad GitHub configurada. No incluir datos privados del ledger.
-8. Sólo después de publicar el resumen, resolver los threads inline con `SKIP` y reconocer cada
+10. Sólo después de publicar el resumen, resolver los threads inline con `SKIP` y reconocer cada
    comentario general del `blockerBot`:
 
    ```bash
@@ -330,10 +377,14 @@ opcionales y comentarios humanos durante el ciclo automático.
 
    `acknowledge-blocker` añade idempotentemente `+1` bajo la identidad configurada, registra el
    recibo y rechaza un `SKIP` sin resumen público.
-9. Monitorear Actions. Reparar sólo fallos causados o agravados por la branch.
-10. Ejecutar el reviewer seleccionado después del último cambio de la ronda, incluso si el FIX no estaba modelado como UI. Crear `REPAIR-<n>` cuando sea necesario, recalcular historias afectadas y volver a publicar evidencia invalidada.
+11. Monitorear Actions. Reparar sólo fallos causados o agravados por la branch. Tratar una
+    reparación de Actions como `FIX` remoto y aplicar los pasos 4–8, usando el nombre del check en
+    `--fix`.
+12. Ejecutar el reviewer seleccionado después del último cambio de la reparación, incluso si el FIX no estaba modelado como UI. Crear `REPAIR-<n>` cuando sea necesario, recalcular historias afectadas y volver a publicar evidencia invalidada.
 
-Terminar como `completed_with_base_failures` cuando sólo queden fallos demostrablemente heredados. Si después de la quinta ronda aparece un FIX válido nuevo, bloquear.
+Terminar como `completed_with_base_failures` cuando sólo queden fallos demostrablemente heredados.
+No abandonar una PR ni exigir una issue de seguimiento sólo por agotar un bloque de reparaciones;
+solicitar aprobación para extender el mismo run.
 
 Antes de aceptar la ronda final, ejecutar un refetch determinista de ambas superficies de
 review:

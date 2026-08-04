@@ -88,6 +88,25 @@ class GitHubClient:
         )
         return _pull_request(json.loads(result.stdout))
 
+    def head_sha(self, reference: str) -> str:
+        result = run(
+            [
+                "gh",
+                "pr",
+                "view",
+                reference,
+                "--json",
+                "headRefOid",
+                "--jq",
+                ".headRefOid",
+            ],
+            cwd=self.cwd,
+        )
+        head_sha = result.stdout.strip()
+        if not head_sha:
+            raise OrchestrationError(f"Could not resolve PR head SHA for {reference}")
+        return head_sha
+
     def create(self, head: str, title: str, body_file: Path) -> PullRequest:
         result = run(
             [

@@ -44,7 +44,7 @@ class ConfigTests(unittest.TestCase):
                         "review": {
                             "botNames": ["review-bot"],
                             "blockerBot": "review-bot",
-                            "maximumRounds": 2,
+                            "repairBatchSize": 2,
                             "quietSeconds": 30,
                             "maximumWaitSeconds": 90,
                             "pollSeconds": 5,
@@ -76,6 +76,7 @@ class ConfigTests(unittest.TestCase):
                 "developer@example.com",
             )
             self.assertEqual(configuration.github_expected_login, "developer")
+            self.assertEqual(configuration.review_repair_batch_size, 2)
             self.assertNotIn("LINEAR_API_KEY", public)
             self.assertNotIn("secret", json.dumps(public))
 
@@ -99,6 +100,34 @@ class ConfigTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(Exception, "runtime.root"):
                     settings()
+
+    def test_accepts_legacy_maximum_rounds_as_repair_batch_size(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            source = json.loads(
+                (
+                    Path(__file__).resolve().parents[1]
+                    / "profiles"
+                    / "turboshop.json"
+                ).read_text()
+            )
+            source["review"]["maximumRounds"] = source["review"].pop(
+                "repairBatchSize"
+            )
+            profile = root / "legacy.json"
+            profile.write_text(json.dumps(source))
+
+            with patch.dict(
+                os.environ,
+                {
+                    "ISSUE_DELIVERY_PROFILE": str(profile),
+                    "ISSUE_DELIVERY_ENV_FILE": "/missing/issue-delivery.env",
+                },
+                clear=True,
+            ):
+                configuration = settings()
+
+            self.assertEqual(configuration.review_repair_batch_size, 5)
 
 
 if __name__ == "__main__":

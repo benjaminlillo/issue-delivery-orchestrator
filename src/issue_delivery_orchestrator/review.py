@@ -10,6 +10,7 @@ from typing import Any, Callable
 from .config import settings
 from .errors import RunBlocked
 from .github import GitHubClient
+from .review_budget import review_repair_budget
 from .state import run_root, save_state
 from .util import atomic_write_json, run
 
@@ -27,11 +28,6 @@ def wait_for_quiet_review(
     pr = github.view(state["pr"]["url"])
     root = run_root(Path(state["worktree"]), state["runId"])
     rounds = sorted((root / "review").glob("round-*.json"))
-    maximum_rounds = settings().maximum_review_rounds
-    if len(rounds) >= maximum_rounds:
-        raise RunBlocked(
-            f"Remote review reached the maximum of {maximum_rounds} rounds"
-        )
     started = clock()
     quiet_since = started
     previous_fingerprint = ""
@@ -50,6 +46,7 @@ def wait_for_quiet_review(
     path = root / "review" / f"round-{len(rounds) + 1:02d}.json"
     latest["quietWindowSeconds"] = quiet_seconds
     latest["maximumWaitSeconds"] = max_seconds
+    latest["repairBudget"] = review_repair_budget(state)
     atomic_write_json(path, latest)
     state["artifacts"]["latestReviewSnapshot"] = str(path.relative_to(Path(state["worktree"])))
     save_state(state)

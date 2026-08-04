@@ -24,11 +24,31 @@ Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
 
 - Reparación por ticket: 3 ciclos.
 - Revisión UI-reparación: 5 ciclos.
-- Review remoto: valores del perfil activo. TurboShop usa 600 segundos de quietud, 1200 segundos
-  de espera máxima por ronda y polling cada 15 segundos.
+- Review remoto: las esperas no tienen un máximo acumulado ni consumen presupuesto. TurboShop usa
+  600 segundos de quietud, 1200 segundos de espera máxima por observación y polling cada 15
+  segundos. Las reparaciones remotas se autorizan en bloques de 5 `headSha` nuevos con al menos un
+  `FIX`.
 - Target de PR: siempre `git.prTarget` del perfil activo.
 
-Al alcanzar un límite, detener procesos propios, conservar estado y bloquear.
+Al alcanzar el límite de reparación por ticket o UI, detener procesos propios, conservar estado y
+bloquear. Al agotar un bloque remoto, solicitar decisión del usuario; una aprobación explícita
+agrega otro bloque en el mismo run.
+
+## Presupuesto de reparación remota
+
+`wait-review`, `review-gate`, `SKIP` y observaciones repetidas sobre el mismo SHA no cuentan como
+reparaciones. Después de validar y pushear uno o más `FIX`, ejecutar `record-review-repair` una vez;
+el comando exige que el `HEAD` local coincida con el head remoto de la PR y deduplica por SHA. Una
+reparación de Actions causada o agravada por la branch también cuenta como `FIX` remoto.
+
+Si `remainingRepairs` es cero y el triage encuentra un `FIX` válido, crear un request JSON con la
+lista de fixes y ejecutar `request-review-extension`. El run pasa a `NEEDS_USER_DECISION`, detiene
+procesos propios y conserva todos sus recursos. Mostrar al usuario los fixes pendientes y el
+presupuesto consumido. `resume` no puede atravesar este gate.
+
+Sólo ante aprobación explícita ejecutar `approve-review-extension`. El comando suma
+`repairBatchSize`, registra la aprobación y reanuda el mismo run. Si el usuario no aprueba, mantener
+el bloqueo. No crear una issue, branch o PR de seguimiento sólo por consumir el bloque.
 
 ## Gate obligatorio de reparación
 

@@ -33,7 +33,7 @@ class Settings:
     linear_keychain_service: str
     bot_names: tuple[str, ...]
     blocker_bot: str
-    maximum_review_rounds: int
+    review_repair_batch_size: int
     quiet_seconds: int
     maximum_wait_seconds: int
     poll_seconds: int
@@ -106,7 +106,10 @@ def settings() -> Settings:
         ),
         bot_names=tuple(name.lower() for name in _string_tuple(review, "botNames")),
         blocker_bot=_required_string(review, "blockerBot").lower(),
-        maximum_review_rounds=_positive_integer(review, "maximumRounds"),
+        review_repair_batch_size=_positive_integer(
+            review,
+            "repairBatchSize" if "repairBatchSize" in review else "maximumRounds",
+        ),
         quiet_seconds=_positive_integer(review, "quietSeconds"),
         maximum_wait_seconds=_positive_integer(review, "maximumWaitSeconds"),
         poll_seconds=_positive_integer(review, "pollSeconds"),

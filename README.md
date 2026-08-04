@@ -148,6 +148,12 @@ The default profile is [`profiles/turboshop.json`](profiles/turboshop.json). Poi
 `ISSUE_DELIVERY_PROFILE` at another JSON profile to adapt base/target branches, Local Runtime
 commands, review bots, evidence branch, and Linear markers without changing the engine.
 
+Remote review observations do not consume a fixed round limit. The profile's
+`review.repairBatchSize` controls how many distinct pushed FIX revisions are authorized at once
+(five for TurboShop). When that budget is exhausted and valid automated blockers remain, the run
+pauses for explicit user approval. Approval adds another equal-sized block and resumes the same
+worktree, branch, PR, and run; repeated waits or checks on the same SHA do not consume repairs.
+
 ## Start a run
 
 Open a new Codex session in the intended product worktree and invoke

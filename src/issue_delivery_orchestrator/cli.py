@@ -23,6 +23,12 @@ from .review import (
     publish_skip_summary,
     wait_for_quiet_review,
 )
+from .review_budget import (
+    approve_review_extension,
+    record_review_repair,
+    request_review_extension,
+    review_repair_budget,
+)
 from .runtime import (
     cleanup_runtimes,
     initialize_runtime,
@@ -130,6 +136,19 @@ def parser() -> argparse.ArgumentParser:
     review.add_argument("--max-seconds", type=int, default=configuration.maximum_wait_seconds)
     review.add_argument("--poll-seconds", type=int, default=configuration.poll_seconds)
 
+    repair = actions.add_parser("record-review-repair")
+    repair.add_argument(
+        "--fix",
+        action="append",
+        required=True,
+        help="Processed blocker ID, URL, or concise title; repeat for grouped FIXes",
+    )
+
+    extension = actions.add_parser("request-review-extension")
+    extension.add_argument("--input", type=Path, required=True)
+
+    actions.add_parser("approve-review-extension")
+
     acknowledgement = actions.add_parser("acknowledge-blocker")
     acknowledgement.add_argument("--comment-id", type=int, required=True)
     acknowledgement.add_argument("--decision", choices=("FIX", "SKIP"), required=True)
@@ -214,6 +233,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         block_run(state, args.reason, args.decision)
         return {"state": _public_state(state), "stoppedPids": stopped}
     if args.action == "resume":
+        if (state.get("blocker") or {}).get("kind") == "review_repair_budget":
+            raise RunBlocked(
+                "Review repair budget extensions require explicit user approval; "
+                "use approve-review-extension after the user approves"
+            )
         if args.phase:
             state["currentPhase"] = args.phase
         elif state.get("currentPhase") is None:
@@ -271,6 +295,25 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             max_seconds=args.max_seconds,
             poll_seconds=args.poll_seconds,
         )
+    if args.action == "record-review-repair":
+        return record_review_repair(state, fixes=args.fix)
+    if args.action == "request-review-extension":
+        request_path = _resolve_in_worktree(args.input, Path(state["worktree"]))
+        ensure_within(
+            request_path,
+            run_root(Path(state["worktree"]), state["runId"]),
+        )
+        fixes = _review_extension_fixes(request_path)
+        result = request_review_extension(
+            state,
+            fixes=fixes,
+            artifact=str(request_path.relative_to(Path(state["worktree"]))),
+        )
+        stopped = stop_owned_processes(state)
+        return {**result, "stoppedPids": stopped, "state": _public_state(state)}
+    if args.action == "approve-review-extension":
+        budget = approve_review_extension(state)
+        return {"budget": budget, "state": _public_state(state)}
     if args.action == "acknowledge-blocker":
         if not state.get("pr"):
             raise RunBlocked("Cannot acknowledge a blocker before a PR has been recorded")
@@ -650,6 +693,33 @@ def _parse_artifacts(items: list[str], worktree: Path) -> dict[str, str]:
     return artifacts
 
 
+def _review_extension_fixes(path: Path) -> list[dict[str, str]]:
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise RunBlocked(f"Could not read review extension request: {error}") from error
+    raw_fixes = payload.get("fixes") if isinstance(payload, dict) else None
+    if not isinstance(raw_fixes, list) or not raw_fixes:
+        raise RunBlocked("Review extension request must contain a non-empty 'fixes' array")
+    fixes: list[dict[str, str]] = []
+    for item in raw_fixes:
+        if not isinstance(item, dict):
+            raise RunBlocked("Every pending FIX must be an object")
+        title = " ".join(str(item.get("title") or "").split())
+        reason = " ".join(str(item.get("reason") or "").split())
+        source = " ".join(str(item.get("source") or "").split())
+        if not title or not reason:
+            raise RunBlocked("Every pending FIX requires title and reason")
+        fixes.append(
+            {
+                "title": title,
+                "reason": reason,
+                **({"source": source} if source else {}),
+            }
+        )
+    return fixes
+
+
 def _public_state(state: dict[str, Any]) -> dict[str, Any]:
     return {
         "runId": state["runId"],
@@ -673,6 +743,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "reviewerMethod": review_method(state),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),
+        "reviewRepairBudget": review_repair_budget(state),
         "runtimes": [item["runtimeId"] for item in state.get("runtimes", [])],
     }
 

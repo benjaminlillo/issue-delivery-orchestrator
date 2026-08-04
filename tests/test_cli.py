@@ -59,6 +59,19 @@ class CliModeTests(unittest.TestCase):
         self.assertEqual(args.action, "prepare-evidence")
         self.assertEqual(args.manifest, Path("validation/ui.json"))
 
+    def test_parses_review_repair_and_extension_commands(self):
+        repair = parser().parse_args(
+            ["TS-1", "record-review-repair", "--fix", "comment-1", "--fix", "thread-2"]
+        )
+        request = parser().parse_args(
+            ["TS-1", "request-review-extension", "--input", "review/request.json"]
+        )
+        approval = parser().parse_args(["TS-1", "approve-review-extension"])
+
+        self.assertEqual(repair.fix, ["comment-1", "thread-2"])
+        self.assertEqual(request.input, Path("review/request.json"))
+        self.assertEqual(approval.action, "approve-review-extension")
+
     def test_codex_mode_does_not_adopt_superset_environment(self):
         with patch.dict(os.environ, {"SUPERSET_WORKSPACE_PATH": "/tmp/superset"}):
             self.assertIsNone(_requested_worktree(None, "codex"))

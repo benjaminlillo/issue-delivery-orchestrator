@@ -1,7 +1,7 @@
 {
   "name": "issue-delivery-orchestrator",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "packageManager": "pnpm@9.14.2",
   "scripts": {
     "start": "python3 scripts/issue-delivery",
