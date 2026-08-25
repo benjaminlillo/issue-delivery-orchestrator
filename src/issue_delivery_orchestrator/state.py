@@ -21,12 +21,19 @@ PHASES = (
 )
 REVIEW_METHODS = ("cua-driver", "codex-browser")
 DEVELOPMENT_MODES = ("codex", "superset", "vanilla")
+HANDOFF_MODES = ("full", "manual-runtime")
 MODE_REVIEWERS = {
     "codex": "codex-browser",
     "superset": "cua-driver",
     "vanilla": "cua-driver",
 }
-RESUMABLE_STATUSES = {"active", "blocked", "needs_user_decision", "completed_preserved"}
+RESUMABLE_STATUSES = {
+    "active",
+    "blocked",
+    "needs_user_decision",
+    "awaiting_manual_review",
+    "completed_preserved",
+}
 
 
 def now() -> str:
@@ -61,10 +68,13 @@ def create_state(
     discarded_status: Iterable[str] = (),
     identities: dict[str, str],
     mode: str = "superset",
+    handoff: str = "full",
     profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if mode not in DEVELOPMENT_MODES:
         raise OrchestrationError(f"Unsupported development mode: {mode}")
+    if handoff not in HANDOFF_MODES:
+        raise OrchestrationError(f"Unsupported handoff mode: {handoff}")
     reviewer_method = MODE_REVIEWERS[mode]
     review_repair_batch_size = settings().review_repair_batch_size
     root = run_root(worktree, run_id)
@@ -109,6 +119,10 @@ def create_state(
         },
         "mode": {
             "name": mode,
+            "selectedAt": now(),
+        },
+        "handoff": {
+            "mode": handoff,
             "selectedAt": now(),
         },
         "reviewer": {
@@ -213,12 +227,41 @@ def block_run(state: dict[str, Any], reason: str, decision: bool = False) -> Non
     save_state(state)
 
 
-def resume_run(state: dict[str, Any]) -> None:
-    if state.get("status") not in {"blocked", "needs_user_decision", "completed_preserved"}:
+def resume_run(state: dict[str, Any], *, full_delivery: bool = False) -> None:
+    if state.get("status") not in {
+        "blocked",
+        "needs_user_decision",
+        "awaiting_manual_review",
+        "completed_preserved",
+    }:
         raise RunBlocked(f"Run is not resumable from status {state.get('status')}")
+    if full_delivery and not (
+        state.get("status") == "awaiting_manual_review"
+        and handoff_mode(state) == "manual-runtime"
+    ):
+        raise RunBlocked(
+            "--full-delivery is available only from an awaiting manual-runtime handoff"
+        )
+    if state.get("status") == "awaiting_manual_review":
+        handoff = state.get("manualHandoff")
+        if isinstance(handoff, dict):
+            handoff["status"] = "superseded"
+            handoff["supersededAt"] = now()
+    if full_delivery:
+        state["handoff"] = {
+            "mode": "full",
+            "selectedAt": now(),
+        }
     state["status"] = "active"
     state["blocker"] = None
     save_state(state)
+
+
+def handoff_mode(state: dict[str, Any]) -> str:
+    mode = str((state.get("handoff") or {}).get("mode") or "full")
+    if mode not in HANDOFF_MODES:
+        raise OrchestrationError(f"Run has unsupported handoff mode: {mode}")
+    return mode
 
 
 def review_method(state: dict[str, Any]) -> str:

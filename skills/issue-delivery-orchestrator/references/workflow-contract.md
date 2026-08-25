@@ -8,7 +8,7 @@
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
 | `refactor` | Diff de implementación | Cumplimiento AGENTS y gates de arquitectura validado |
 | `merge-target` | Último `origin/<target>` del perfil | Merge resuelto y validado |
-| `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados |
+| `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
 | `pr-creation` | Commits y evidencias | PR no draft hacia `<target>` |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
 
@@ -19,6 +19,26 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase <fase> -
 ```
 
 Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
+
+## Objetivos de entrega
+
+- `full` (default): ejecuta todas las fases y mantiene el gate obligatorio de Computer Use antes de
+  todo handoff.
+- `manual-runtime`: ejecuta Grill, Implement, Refactor e integración de la branch target; luego
+  inicializa el Local Runtime, levanta las apps necesarias y termina en
+  `status=awaiting_manual_review`, `currentPhase=manual-revision`. No ejecuta Computer Use,
+  evidencia, PR ni convergencia.
+
+El objetivo se fija al crear el run mediante `--handoff manual-runtime` y se persiste. Un run
+existente no puede cambiarlo durante bootstrap. Desde `awaiting_manual_review`, `resume` conserva el
+objetivo para correcciones y un nuevo recibo; `resume --full-delivery` realiza una transición
+explícita e irreversible al flujo completo.
+
+El handoff manual exige un runtime activo y un JSON bajo el directorio ignorado del run con al menos
+un servicio declarado por nombre. `manual-handoff` obtiene su URL del manifiesto —no acepta una URL
+arbitraria—, verifica HTTP 2xx/3xx, fija HEAD y escribe `validation/manual-handoff.json` con SHA,
+runtime, URLs, puertos, procesos vivos, logs declarados y comando de cleanup. No detiene procesos.
+Una URL meramente asignada pero no saludable no puede publicarse como disponible.
 
 ## Límites
 
@@ -64,7 +84,12 @@ El recibo de verificación debe registrar:
 - Resultado `PASS`.
 - Timestamp y paths de evidencia final.
 
-Un cambio posterior que pueda afectar el flujo invalida el recibo. No hacer handoff ni pedir verificación al usuario sin un recibo UI válido para el HEAD actual y emitido por el reviewer seleccionado. Si ese método no puede probar el escenario, el estado correcto es `blocked`, no `completed`; no cambiar de provider silenciosamente.
+Un cambio posterior que pueda afectar el flujo invalida el recibo. En `full`, no hacer handoff ni
+pedir verificación al usuario sin un recibo UI válido para el HEAD actual y emitido por el reviewer
+seleccionado. Si ese método no puede probar el escenario, el estado correcto es `blocked`, no
+`completed`; no cambiar de provider silenciosamente. En `manual-runtime`, esta exigencia se
+reemplaza únicamente por el recibo `manual-handoff.json`: éste demuestra salud técnica del runtime,
+no aceptación UI, y el handoff debe declararlo sin ambigüedad.
 
 ## Decisiones de review
 
@@ -190,5 +215,7 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   sin ese anuncio. Para `vanilla-fallback`, explicar que no se detectaron señales Codex/Superset.
 - `--new-run` crea otro sólo si la branch no está asociada a un worktree.
 - `runtime-init --fresh` permite registrar otro runtime sin limpiar los anteriores.
+- `manual-handoff` preserva procesos y runtime. El usuario decide cuándo ejecutar cleanup después
+  de su revisión y del merge.
 - Al finalizar el loop sólo se detienen procesos.
 - `cleanup` posterior al merge limpia todos los runtimes registrados y el perfil del navegador, no el worktree ni la branch.

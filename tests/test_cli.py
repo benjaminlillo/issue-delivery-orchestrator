@@ -51,6 +51,28 @@ class CliModeTests(unittest.TestCase):
         self.assertEqual(args.mode, "vanilla")
         self.assertEqual(args.worktree, Path("/tmp/checkout"))
 
+    def test_parses_manual_runtime_handoff(self):
+        args = parser().parse_args(
+            [
+                "TS-1",
+                "--worktree",
+                "/tmp/checkout",
+                "--handoff",
+                "manual-runtime",
+            ]
+        )
+
+        self.assertEqual(args.handoff, "manual-runtime")
+
+    def test_parses_manual_handoff_receipt_and_full_resume(self):
+        handoff = parser().parse_args(
+            ["TS-1", "manual-handoff", "--input", "validation/services.json"]
+        )
+        resume = parser().parse_args(["TS-1", "resume", "--full-delivery"])
+
+        self.assertEqual(handoff.input, Path("validation/services.json"))
+        self.assertTrue(resume.full_delivery)
+
     def test_parses_prepare_evidence_manifest(self):
         args = parser().parse_args(
             ["TS-1", "prepare-evidence", "--manifest", "validation/ui.json"]

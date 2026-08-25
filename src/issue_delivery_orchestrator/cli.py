@@ -17,6 +17,7 @@ from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
+from .manual_handoff import prepare_manual_handoff
 from .review import (
     acknowledge_processed_blocker,
     assert_review_converged,
@@ -38,12 +39,14 @@ from .runtime import (
 )
 from .state import (
     DEVELOPMENT_MODES,
+    HANDOFF_MODES,
     PHASES,
     REVIEW_METHODS,
     block_run,
     complete_phase,
     create_state,
     find_runs,
+    handoff_mode,
     new_run_id,
     resumable_run,
     review_method,
@@ -85,6 +88,11 @@ def parser() -> argparse.ArgumentParser:
         type=Path,
         help="Existing checkout or worktree to adopt for this run",
     )
+    result.add_argument(
+        "--handoff",
+        choices=HANDOFF_MODES,
+        help="Delivery target for a new run; defaults to full",
+    )
     actions = result.add_subparsers(dest="action")
 
     actions.add_parser("status")
@@ -105,9 +113,17 @@ def parser() -> argparse.ArgumentParser:
 
     resume = actions.add_parser("resume")
     resume.add_argument("--phase", choices=PHASES)
+    resume.add_argument(
+        "--full-delivery",
+        action="store_true",
+        help="Continue an awaiting manual handoff through UI review and PR convergence",
+    )
 
     runtime = actions.add_parser("runtime-init")
     runtime.add_argument("--fresh", action="store_true")
+
+    manual_handoff = actions.add_parser("manual-handoff")
+    manual_handoff.add_argument("--input", type=Path, required=True)
 
     process = actions.add_parser("register-process")
     process.add_argument("--pid", type=int, required=True)
@@ -206,12 +222,35 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     )
     if args.action == "status":
         return _public_state(state)
+    if handoff_mode(state) == "manual-runtime" and args.action in {
+        "launch-browser",
+        "prepare-evidence",
+        "publish-evidence",
+        "repair-evidence-links",
+        "ensure-pr",
+        "wait-review",
+        "record-review-repair",
+        "request-review-extension",
+        "approve-review-extension",
+        "acknowledge-blocker",
+        "publish-skip-summary",
+        "review-gate",
+    }:
+        raise RunBlocked(
+            "This action belongs to full delivery and is disabled for manual-runtime; "
+            "resume with --full-delivery to continue the automated loop"
+        )
     if args.action == "reviewer-select":
         selection = select_review_method(state, args.method)
         return {"reviewer": selection, "state": _public_state(state)}
     if args.action == "checkpoint":
         artifacts = _parse_artifacts(args.artifact, Path(state["worktree"]))
         if args.phase == "manual-revision":
+            if handoff_mode(state) == "manual-runtime":
+                raise RunBlocked(
+                    "This run stops before computer-use review; prepare manual-handoff "
+                    "or resume with --full-delivery"
+                )
             manifest = artifacts.get("ui-manifest")
             if not manifest:
                 raise RunBlocked(
@@ -238,14 +277,23 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 "Review repair budget extensions require explicit user approval; "
                 "use approve-review-extension after the user approves"
             )
+        if args.full_delivery and args.phase not in {None, "manual-revision"}:
+            raise RunBlocked(
+                "--full-delivery must continue from manual-revision; do not skip UI review"
+            )
         if args.phase:
             state["currentPhase"] = args.phase
         elif state.get("currentPhase") is None:
             state["currentPhase"] = "review-convergence"
-        resume_run(state)
+        resume_run(state, full_delivery=args.full_delivery)
         return _public_state(state)
     if args.action == "runtime-init":
         return initialize_runtime(state, fresh=args.fresh)
+    if args.action == "manual-handoff":
+        input_path = _resolve_in_worktree(args.input, Path(state["worktree"]))
+        ensure_within(input_path, run_root(Path(state["worktree"]), state["runId"]))
+        result = prepare_manual_handoff(state, input_path)
+        return {**result, "state": _public_state(state)}
     if args.action == "register-process":
         register_owned_process(
             state,
@@ -360,6 +408,11 @@ def bootstrap(
                 f"Run {previous['runId']} already uses {review_method(previous)}; "
                 "use reviewer-select before its first manual revision to change it"
             )
+        if args.handoff and args.handoff != handoff_mode(previous):
+            raise RunBlocked(
+                f"Run {previous['runId']} already uses {handoff_mode(previous)} handoff; "
+                "handoff mode cannot change during bootstrap"
+            )
         return {
             "resumed": True,
             "credentialSource": credential_source,
@@ -437,6 +490,7 @@ def bootstrap(
             "github": github_login,
         },
         mode=mode,
+        handoff=args.handoff or "full",
         profile=configuration.public_dict(),
     )
     return {
@@ -741,6 +795,8 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "status": state["status"],
         "currentPhase": state.get("currentPhase"),
         "reviewerMethod": review_method(state),
+        "handoffMode": handoff_mode(state),
+        "manualHandoff": state.get("manualHandoff"),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),
         "reviewRepairBudget": review_repair_budget(state),
@@ -765,8 +821,21 @@ def _next_action(state: dict[str, Any]) -> str:
         return "Ask the user to resolve the recorded decision gate."
     if state["status"] == "blocked":
         return "Resolve the recorded blocker, then run the resume action."
+    if state["status"] == "awaiting_manual_review":
+        return (
+            "Review the preserved Local Runtime URLs manually and prepare the PR yourself, "
+            "or resume with --full-delivery to continue the automated loop."
+        )
     if state["status"] == "completed_preserved":
         return "Wait for explicit human-review work or final cleanup after merge."
+    if (
+        state.get("currentPhase") == "manual-revision"
+        and handoff_mode(state) == "manual-runtime"
+    ):
+        return (
+            "Initialize the Local Runtime, start the required apps, verify their URLs, "
+            "and create the manual-runtime handoff receipt."
+        )
     if (
         state.get("currentPhase") == "manual-revision"
         and run_mode(state) == "codex"

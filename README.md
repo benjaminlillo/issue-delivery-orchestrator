@@ -3,6 +3,10 @@
 A Codex plugin for taking a Linear issue through specification, ticket slicing, implementation,
 focused validation, manual UI review, pull request creation, and automated review convergence.
 
+The default `full` delivery target runs that complete flow. An explicit `manual-runtime` target
+stops after implementation, refactor, and target-branch integration, then leaves a healthy isolated
+Local Runtime running so the user can review the UI and prepare the PR manually.
+
 The plugin is self-contained: its orchestration engine and workflow skills live in this repository.
 It supports three fixed workspace modes:
 
@@ -185,6 +189,26 @@ The deterministic engine can also be inspected directly:
 
 ```bash
 python3 scripts/issue-delivery --help
+```
+
+To request the manual review handoff when starting a new run:
+
+```bash
+python3 scripts/issue-delivery TS-123 --worktree /absolute/product/worktree \
+  --handoff manual-runtime
+```
+
+The conversational skill still starts only the required apps. It then records their healthy URLs,
+ports, active runtime, exact commit, optional logs, and cleanup command in
+`validation/manual-handoff.json`. The run finishes as `awaiting_manual_review`; Computer Use,
+screenshots, PR creation, pushes, and review convergence are deliberately not performed, and the
+runtime processes remain active.
+
+After a correction, `resume` preserves this target and requires a refreshed runtime receipt. To
+continue the same run through automatic UI review and PR convergence instead, use:
+
+```bash
+python3 scripts/issue-delivery TS-123 resume --full-delivery
 ```
 
 All run memory, receipts, logs, screenshots, and browser profiles are written under the ignored

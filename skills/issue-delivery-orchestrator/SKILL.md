@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-orchestrator
-description: "Orquestar de extremo a extremo una issue de Linear en modo Codex, Superset o Vanilla: adoptar el worktree, usar la rama de Linear, publicar spec/tickets, implementar, refactorizar, integrar la branch objetivo, revisar UI, crear la PR y converger bots y Actions. Usar también para ajustes posteriores; toda reparación requiere una nueva revisión UI antes del handoff."
+description: "Orquestar una issue de Linear en modo Codex, Superset o Vanilla: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores."
 ---
 
 # Issue Delivery Orchestrator
@@ -33,11 +33,15 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    delegar otro worktree mediante `create_thread`, subagentes, `git worktree add` o cualquier
    mecanismo equivalente. Si el worktree actual no es adoptable, bloquear en la misma sesión y
    pedir al usuario que abra manualmente otro con su setup local.
-4. Ejecutar, agregando `--mode <codex|superset|vanilla>` sólo cuando el usuario indique uno:
+4. Elegir el objetivo de entrega. Usar `full` por defecto. Sólo si el usuario pide detenerse tras la
+   implementación para revisar y preparar la PR manualmente, seleccionar `manual-runtime`.
+   Ejecutar, agregando `--mode <codex|superset|vanilla>` sólo cuando el usuario indique uno y
+   `--handoff manual-runtime` sólo para esa solicitud explícita:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
      [--mode <codex|superset|vanilla>] \
+     [--handoff manual-runtime] \
      [--base <branch>] [--new-run]
    ```
 
@@ -56,11 +60,12 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
      `$issue-delivery-cua-review`.
 
 6. Publicar inmediatamente en el chat, para runs nuevos y reanudados, los valores exactos de
-   `modeDecision` devueltos por el motor. Usar un mensaje autocontenido como:
+   `modeDecision` y `state.handoffMode` devueltos por el motor. Usar un mensaje autocontenido como:
 
    ```text
    Modo decidido: <mode> (fuente: <source>).
    Reviewer: <reviewer>.
+   Handoff: <full|manual-runtime>.
    Worktree adoptado: <worktree>.
    ```
 
@@ -126,7 +131,16 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
 
-Prohibir el handoff —incluido afirmar que está arreglado o pedir al usuario que lo verifique— hasta disponer de un PASS del reviewer del modo posterior al último cambio, con provider, SHA verificado y evidencia final. Si no está disponible o no puede verificar el flujo, bloquear y explicar el impedimento; no cambiar de modo o reviewer dentro del run.
+En `full`, prohibir el handoff —incluido afirmar que está arreglado o pedir al usuario que lo
+verifique— hasta disponer de un PASS del reviewer del modo posterior al último cambio, con
+provider, SHA verificado y evidencia final. Si no está disponible o no puede verificar el flujo,
+bloquear y explicar el impedimento; no cambiar de modo o reviewer dentro del run.
+
+La única excepción es un run creado explícitamente con `handoffMode=manual-runtime`. En ese modo,
+una corrección posterior exige `$issue-delivery-implement`, validación enfocada y refrescar el
+runtime/recibo de handoff, pero no Computer Use. Nunca afirmar que la UI fue revisada o aprobada:
+el usuario asumió explícitamente esa revisión. Para volver al flujo automático, ejecutar
+`resume --full-delivery`; desde ese momento vuelve a aplicar íntegramente el gate UI de `full`.
 
 ## 1. Grill
 
@@ -192,7 +206,50 @@ integrado exacto; si no es causado ni agravado por la branch, registrarlo como b
 
 Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase merge-target`.
 
+### Handoff manual con runtime
+
+Si `handoffMode=manual-runtime`, detener aquí el flujo automático de delivery y preparar el entorno
+para el usuario; no invocar Browser, Cua ni Playwright, no crear screenshots/evidencia, no crear ni
+pushear la branch, no crear una PR y no entrar a convergencia remota.
+
+1. Inicializar un runtime persistente con `runtime-init`.
+2. Levantar sólo las apps necesarias mediante los comandos del repositorio y registrar sus PID.
+3. Verificar las URLs desde el estado integrado final. Crear dentro del directorio ignorado del run
+   un input como:
+
+   ```json
+   {
+     "services": [
+       {"name": "web"},
+       {"name": "backend", "healthPath": "/health", "logPath": ".local-runtime/logs/backend.log"}
+     ]
+   }
+   ```
+
+   `name` debe coincidir con una entrada de `urls` del manifiesto del Local Runtime. `healthPath`
+   y `logPath` son opcionales; el log, si se declara, debe existir dentro del worktree.
+4. Ejecutar:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> manual-handoff --input <ruta-json>
+   ```
+
+   El motor consulta cada endpoint, rechaza servicios no saludables, fija el SHA y runtime activos,
+   escribe `validation/manual-handoff.json` y cambia el estado a `awaiting_manual_review` sin
+   completar `manual-revision`.
+5. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, logs disponibles,
+   path del recibo y `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
+   creada y PR no creada. Dejar todos los procesos activos; no ejecutar `stop-processes`, `block` ni
+   cleanup en este handoff.
+
+Si el usuario pide una corrección mientras el run está en `awaiting_manual_review`, ejecutar
+`resume`, reparar/validar, reiniciar o refrescar las apps afectadas y volver a emitir
+`manual-handoff`; el recibo anterior queda obsoleto. Si pide continuar con revisión automática y
+PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
+
 ## 5. Revisión manual
+
+Ejecutar esta sección sólo con `handoffMode=full`.
 
 1. Inicializar un runtime persistente:
 

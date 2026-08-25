@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-implement
-description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obediencia a AGENTS.md, seguimiento exacto del spec, validaciones enfocadas del repositorio y un commit local por ticket o causa raíz. Usar también ante ajustes dentro de Issue Delivery Orchestrator; exigir revisión UI antes del handoff."
+description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obediencia a AGENTS.md, seguimiento exacto del spec, validaciones enfocadas del repositorio y un commit local por ticket o causa raíz. Usar también ante ajustes dentro de Issue Delivery Orchestrator; exigir revisión UI en delivery full o refresco verificable del runtime en manual-runtime."
 ---
 
 # Implement
@@ -46,16 +46,24 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
 
 1. Convertir el reporte en un escenario de aceptación reproducible y listar las historias afectadas.
 2. Implementar y ejecutar la validación enfocada habitual.
-3. Marcar la salida como `UI_REVIEW_REQUIRED` y entregar el SHA candidato, escenario y superficies
-   afectadas al reviewer fijado por el modo.
-4. Invocar `$issue-delivery-cua-review` en modo `superset` o `vanilla`, o
+3. Leer `handoffMode` del estado del run. En `full`, marcar la salida como `UI_REVIEW_REQUIRED` y
+   entregar el SHA candidato, escenario y superficies afectadas al reviewer fijado por el modo. En
+   `manual-runtime`, marcarla como `MANUAL_RUNTIME_REFRESH_REQUIRED` y entregar el SHA y los
+   servicios afectados al orquestador.
+4. En `full`, invocar `$issue-delivery-cua-review` en modo `superset` o `vanilla`, o
    `$issue-delivery-browser-review` en modo `codex`, después del último cambio. Para runs legacy,
-   usar el `reviewerMethod` existente. No concluir, hacer handoff ni pedir al usuario que pruebe
-   mientras no exista un PASS de ese reviewer para el mismo SHA.
+   usar el `reviewerMethod` existente. No concluir ni hacer handoff mientras no exista un PASS de
+   ese reviewer para el mismo SHA. En `manual-runtime`, no invocar un reviewer: refrescar las apps,
+   verificar endpoints y exigir un nuevo `manual-handoff.json` sobre ese SHA antes de entregar los
+   links al usuario.
 5. Si la revisión falla, usar el finding como nueva entrada de reparación y repetir, hasta el límite de cinco ciclos administrado por `$issue-delivery-orchestrator`.
 6. Invalidar el PASS previo ante cualquier edición posterior capaz de afectar el flujo.
 
-No omitir la revisión UI porque el cambio parezca trivial, sea backend, provenga de review/Actions, tenga tests verdes o no estuviera modelado como historia UI. El skill padre debe crear un escenario `REPAIR-<n>` y verificar el comportamiento por la UI real; si eso es imposible, devolver `BLOCKED` en lugar de declarar éxito.
+En `full`, no omitir la revisión UI porque el cambio parezca trivial, sea backend, provenga de
+review/Actions, tenga tests verdes o no estuviera modelado como historia UI. El skill padre debe
+crear un escenario `REPAIR-<n>` y verificar el comportamiento por la UI real; si eso es imposible,
+devolver `BLOCKED` en lugar de declarar éxito. La excepción `manual-runtime` sólo sustituye ese gate
+por salud del runtime y un handoff honesto; nunca permite declarar la UI aprobada.
 
 ## Entregar
 
@@ -66,7 +74,8 @@ Antes del commit, devolver:
 - Comandos ejecutados y resultados.
 - Tests no ejecutados y razón.
 - Historias UI invalidadas por el cambio.
-- Estado del gate UI: `UI_REVIEW_REQUIRED`, `PASS` o `BLOCKED`, incluyendo el reviewer seleccionado.
+- Estado del gate: `UI_REVIEW_REQUIRED`, `MANUAL_RUNTIME_REFRESH_REQUIRED`, `PASS` o `BLOCKED`,
+  incluyendo reviewer o runtime según corresponda.
 
 Crear un commit descriptivo sólo cuando todo lo atribuible al ticket esté verde. Para una reparación de review, usar un commit por causa raíz; agrupar únicamente findings inseparables.
 

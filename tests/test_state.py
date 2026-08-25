@@ -8,8 +8,10 @@ from issue_delivery_orchestrator.state import (
     complete_phase,
     create_state,
     find_runs,
+    handoff_mode,
     load_state,
     review_method,
+    resume_run,
     run_mode,
     run_root,
     select_review_method,
@@ -43,6 +45,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(find_runs(self.worktrees_root, "TS-1")[0]["runId"], "run-1")
         self.assertEqual(run_mode(self.state), "superset")
         self.assertEqual(review_method(self.state), "cua-driver")
+        self.assertEqual(handoff_mode(self.state), "full")
         self.assertEqual(self.state["discardedInitialStatus"], [])
         self.assertEqual(self.state["reviewRepairBudget"]["approvedRepairs"], 5)
         self.assertEqual(self.state["reviewRepairBudget"]["repairs"], [])
@@ -150,6 +153,42 @@ class StateTests(unittest.TestCase):
     def test_new_mode_cannot_change_reviewer_independently(self):
         with self.assertRaisesRegex(RunBlocked, "fixed by development mode"):
             select_review_method(self.state, "codex-browser")
+
+    def test_manual_runtime_handoff_is_persisted_and_resumable(self):
+        state = create_state(
+            worktree=self.worktree,
+            run_id="run-manual",
+            issue={"id": "id", "identifier": "TS-1", "title": "Title"},
+            branch="benjamin/ts-1",
+            base="development",
+            created_from="origin/development",
+            adopted_head="abc",
+            identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
+            handoff="manual-runtime",
+        )
+        state["status"] = "awaiting_manual_review"
+        state["manualHandoff"] = {"status": "ready"}
+
+        resume_run(state)
+
+        self.assertEqual(handoff_mode(state), "manual-runtime")
+        self.assertEqual(state["status"], "active")
+        self.assertEqual(state["manualHandoff"]["status"], "superseded")
+
+    def test_manual_handoff_can_resume_into_full_delivery(self):
+        self.state["status"] = "awaiting_manual_review"
+        self.state["handoff"] = {"mode": "manual-runtime"}
+
+        resume_run(self.state, full_delivery=True)
+
+        self.assertEqual(handoff_mode(self.state), "full")
+
+    def test_full_delivery_transition_requires_awaiting_manual_handoff(self):
+        self.state["status"] = "blocked"
+        self.state["handoff"] = {"mode": "manual-runtime"}
+
+        with self.assertRaisesRegex(RunBlocked, "awaiting manual-runtime"):
+            resume_run(self.state, full_delivery=True)
 
 
 if __name__ == "__main__":
