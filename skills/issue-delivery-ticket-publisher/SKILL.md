@@ -88,6 +88,24 @@ For prefix `<prefix>`, replace only:
 <!-- <prefix>:tickets:end -->
 ```
 
-Preserve the spec block and all unrelated description content. Update Linear through the Linear
-connector, read it back, verify the exact block and post a short comment listing published ticket
-IDs. Do not alter `AGENTS.md` or create a repository copy.
+Preserve the spec block and all unrelated description content. Before operating with Linear:
+
+1. Resolve `<plugin-root>` as the directory containing `.codex-plugin/plugin.json` and invoke the
+   bundled `$linear-local` skill. If `codex-linear` is not already available, prepend
+   `<plugin-root>/bin` to `PATH`. Fail explicitly if either the skill or command is unavailable;
+   never continue with another identity or transport.
+2. Run `codex-linear doctor` and read the issue exclusively with
+   `codex-linear issue get <issue>`.
+3. Write the complete candidate description to a file inside the ignored run directory and publish
+   it exclusively with
+   `codex-linear issue update-description <issue> --description-file <path>`.
+4. Read the issue again with `codex-linear issue get <issue>` and verify that only the canonical
+   tickets block changed, while the spec block and all unrelated content remained byte-for-byte
+   unchanged.
+5. Write the approved ticket publication note to a file inside the ignored run directory and post
+   it exclusively with `codex-linear comment create <issue> --body-file <path>`, listing the
+   published ticket IDs.
+
+Do not use a Linear connector, Linear MCP, direct API call, or browser automation as a fallback.
+Any `$linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or comment
+failure is blocking. Do not alter `AGENTS.md` or create a repository copy.

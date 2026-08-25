@@ -1,0 +1,4 @@
+interface:
+  display_name: "Linear local"
+  short_description: "Acceso seguro a Linear con identidad fijada"
+  default_prompt: "Use $linear-local to access Linear with the locally pinned identity."

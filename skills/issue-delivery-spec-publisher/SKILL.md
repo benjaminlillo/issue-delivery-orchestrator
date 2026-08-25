@@ -41,12 +41,25 @@ canonical heading in the order produced by `$issue-delivery-grill`. Require the 
 
 ## Workflow
 
-1. Read the Linear issue and preserve its current description.
-2. Validate the already approved spec without changing its decisions.
-3. Replace only the canonical spec block; initialize only a missing tickets block.
-4. Update Linear through the Linear connector.
-5. Read the issue again and verify markers, body, preserved tickets and unrelated content.
-6. Post a short Linear comment identifying the published Spec ID.
+1. Resolve `<plugin-root>` as the directory containing `.codex-plugin/plugin.json`. Invoke the
+   bundled `$linear-local` skill. If `codex-linear` is not already available, prepend
+   `<plugin-root>/bin` to `PATH`. Fail explicitly if either the skill or command is unavailable;
+   never continue with another identity or transport.
+2. Run `codex-linear doctor`, then read the issue exclusively with
+   `codex-linear issue get <issue>`. Preserve its current description.
+3. Validate the already approved spec without changing its decisions.
+4. Replace only the canonical spec block; initialize only a missing tickets block.
+5. Write the complete candidate description to a file inside the ignored run directory and update
+   Linear exclusively with
+   `codex-linear issue update-description <issue> --description-file <path>`.
+6. Read the issue again with `codex-linear issue get <issue>` and verify that only the canonical
+   spec block changed, the tickets block was preserved or initialized as approved, and all
+   unrelated content remained byte-for-byte unchanged.
+7. Write the approved publication note to a file inside the ignored run directory and post it
+   exclusively with `codex-linear comment create <issue> --body-file <path>`, identifying the
+   published Spec ID.
 
 Do not write a repository copy, alter `AGENTS.md`, expose secrets, or publish without explicit user
-approval. Report the issue, Spec ID and which blocks were updated or initialized.
+approval. Do not use a Linear connector, Linear MCP, direct API call, or browser automation as a
+fallback. Any `$linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or
+comment failure is blocking. Report the issue, Spec ID and which blocks were updated or initialized.
