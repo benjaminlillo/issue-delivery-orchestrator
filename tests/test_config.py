@@ -77,6 +77,7 @@ class ConfigTests(unittest.TestCase):
             )
             self.assertEqual(configuration.github_expected_login, "developer")
             self.assertEqual(configuration.review_repair_batch_size, 2)
+            self.assertEqual(configuration.blocker_bots, ("review-bot",))
             self.assertNotIn("LINEAR_API_KEY", public)
             self.assertNotIn("secret", json.dumps(public))
 

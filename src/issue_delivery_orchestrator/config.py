@@ -32,7 +32,7 @@ class Settings:
     github_expected_login: str
     linear_keychain_service: str
     bot_names: tuple[str, ...]
-    blocker_bot: str
+    blocker_bots: tuple[str, ...]
     review_repair_batch_size: int
     quiet_seconds: int
     maximum_wait_seconds: int
@@ -43,11 +43,17 @@ class Settings:
     codex_worktree_roots: tuple[str, ...]
     superset_worktree_roots: tuple[str, ...]
 
+    @property
+    def blocker_bot(self) -> str:
+        """Legacy singular accessor for profiles and integrations not yet migrated."""
+        return self.blocker_bots[0]
+
     def public_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["profile_path"] = str(self.profile_path)
         payload["env_file"] = str(self.env_file) if self.env_file else None
         payload["repository"] = str(self.repository) if self.repository else None
+        payload["blocker_bot"] = self.blocker_bot
         return payload
 
 
@@ -78,6 +84,13 @@ def settings() -> Settings:
         raise OrchestrationError("runtime.root must be a safe relative path")
     if Path(runtime_namespace).is_absolute() or ".." in Path(runtime_namespace).parts:
         raise OrchestrationError("runtime.namespace must be a safe relative path")
+    blocker_bots = _blocker_bots(review)
+    bot_names = tuple(
+        dict.fromkeys(
+            name.lower()
+            for name in (*_string_tuple(review, "botNames"), *blocker_bots)
+        )
+    )
 
     return Settings(
         profile_name=_required_string(data, "name"),
@@ -104,8 +117,8 @@ def settings() -> Settings:
             os.environ.get("LINEAR_KEYCHAIN_SERVICE", "").strip()
             or _required_string(identity, "linearKeychainService")
         ),
-        bot_names=tuple(name.lower() for name in _string_tuple(review, "botNames")),
-        blocker_bot=_required_string(review, "blockerBot").lower(),
+        bot_names=bot_names,
+        blocker_bots=blocker_bots,
         review_repair_batch_size=_positive_integer(
             review,
             "repairBatchSize" if "repairBatchSize" in review else "maximumRounds",
@@ -176,6 +189,14 @@ def _string_tuple(data: dict[str, Any], key: str) -> tuple[str, ...]:
     if len(items) != len(value):
         raise OrchestrationError(f"Profile field {key} contains an empty value")
     return items
+
+
+def _blocker_bots(review: dict[str, Any]) -> tuple[str, ...]:
+    if "blockerBots" in review:
+        values = _string_tuple(review, "blockerBots")
+    else:
+        values = (_required_string(review, "blockerBot"),)
+    return tuple(dict.fromkeys(value.lower() for value in values))
 
 
 def _positive_integer(data: dict[str, Any], key: str) -> int:

@@ -108,7 +108,7 @@ runtime fresco, no aceptación UI, y el handoff debe declararlo sin ambigüedad.
 
 Los SKIP son pegajosos por causa raíz. Guardarlos mediante `$issue-delivery-blocker-triage` dentro de `.local-runtime/issue-delivery-orchestrator/<run-id>/blocker-triage/`, incluyendo un motivo público breve y sin información sensible.
 
-Después de cerrar cada comentario general del `blockerBot` con `FIX` validado/pusheado, ejecutar
+Después de cerrar cada comentario general de los `blockerBots` con `FIX` validado/pusheado, ejecutar
 `acknowledge-blocker --decision FIX`. El comando valida autor, PR y presencia de blockers reales,
 añade `+1` idempotente como la identidad GitHub configurada y persiste `reviewAcknowledgements`.
 
@@ -125,7 +125,7 @@ Antes de completar `review-convergence`, ejecutar `review-gate`. El gate vuelve 
 GitHub en vivo y exige simultáneamente:
 
 - cero `reviewThreads` inline no resueltos que contengan comentarios de bots configurados;
-- cero comentarios generales accionables del `blockerBot` sin reacción `+1` de la identidad
+- cero comentarios generales accionables de los `blockerBots` sin reacción `+1` de la identidad
   GitHub configurada;
 - cero reconocimientos `SKIP` que no estén incluidos en el resumen público.
 

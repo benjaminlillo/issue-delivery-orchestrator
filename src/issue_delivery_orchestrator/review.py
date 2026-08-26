@@ -102,7 +102,7 @@ def acknowledge_processed_blocker(
     if not _is_actionable_blocker_comment(comment):
         raise RunBlocked(
             f"Comment {comment_id} is not an actionable blocker comment from "
-            f"{settings().blocker_bot}"
+            f"{', '.join(settings().blocker_bots)}"
         )
     if decision not in {"FIX", "SKIP"}:
         raise RunBlocked("Processed blocker decision must be FIX or SKIP")
@@ -133,6 +133,7 @@ def acknowledge_processed_blocker(
     acknowledgement = {
         "commentId": comment_id,
         "commentUrl": comment.get("html_url"),
+        "author": (comment.get("user") or {}).get("login"),
         "decision": decision,
         "reaction": "+1",
         "created": created,
@@ -234,7 +235,7 @@ def publish_skip_summary(
         pending[comment_id] = {
             "commentId": comment_id,
             "url": acknowledgement.get("commentUrl"),
-            "author": settings().blocker_bot,
+            "author": acknowledgement.get("author") or "configured-blocker-bot",
         }
 
     expected_ids = set(pending)
@@ -371,7 +372,7 @@ def _pending_general_blockers(
     pending = []
     for comment in snapshot.get("botGeneralComments", []):
         author = str((comment.get("user") or {}).get("login") or "").lower()
-        if settings().blocker_bot not in author:
+        if not _is_blocker_bot(author):
             continue
         comment_id = int(comment["id"])
         if github.has_issue_comment_reaction(comment_id, content="+1"):
@@ -437,14 +438,14 @@ def _is_relevant_bot(comment: dict[str, Any]) -> bool:
     configuration = settings()
     if not any(name in author for name in configuration.bot_names):
         return False
-    if configuration.blocker_bot in author:
+    if _is_blocker_bot(author, configuration.blocker_bots):
         return _is_actionable_blocker_comment(comment)
     return True
 
 
 def _is_actionable_blocker_comment(comment: dict[str, Any]) -> bool:
     author = str((comment.get("user") or {}).get("login") or "").lower()
-    if settings().blocker_bot not in author:
+    if not _is_blocker_bot(author):
         return False
     body = str(comment.get("body") or "")
     match = re.search(
@@ -463,6 +464,14 @@ def _is_actionable_blocker_comment(comment: dict[str, Any]) -> bool:
             content,
         )
     )
+
+
+def _is_blocker_bot(
+    author: str,
+    blocker_bots: tuple[str, ...] | None = None,
+) -> bool:
+    names = blocker_bots if blocker_bots is not None else settings().blocker_bots
+    return any(name in author.lower() for name in names)
 
 
 def _bot_fingerprint(snapshot: dict[str, Any]) -> str:

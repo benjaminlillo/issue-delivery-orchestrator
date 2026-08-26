@@ -165,7 +165,7 @@ class ReviewFilterTests(unittest.TestCase):
                 artifact="review/request.json",
             )
 
-    def test_includes_coderabbit_and_only_hellonstone_blockers(self):
+    def test_includes_coderabbit_and_configured_blocker_bots(self):
         self.assertTrue(
             _is_relevant_bot(
                 {"user": {"login": "coderabbitai[bot]"}, "body": "Concrete issue"}
@@ -175,6 +175,14 @@ class ReviewFilterTests(unittest.TestCase):
             _is_relevant_bot(
                 {
                     "user": {"login": "Hellonston"},
+                    "body": "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
+                }
+            )
+        )
+        self.assertTrue(
+            _is_relevant_bot(
+                {
+                    "user": {"login": "x100-production[bot]"},
                     "body": "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
                 }
             )
@@ -225,7 +233,7 @@ class ReviewFilterTests(unittest.TestCase):
                 "id": 123,
                 "issue_url": "https://api.github.com/repos/example/repo/issues/10",
                 "html_url": "https://github.com/example/repo/pull/10#issuecomment-123",
-                "user": {"login": "Hellonston"},
+                "user": {"login": "x100-production[bot]"},
                 "body": "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
             }
             client.add_issue_comment_reaction.return_value = True
@@ -255,6 +263,10 @@ class ReviewFilterTests(unittest.TestCase):
             self.assertTrue(result["created"])
             self.assertFalse(duplicate["created"])
             self.assertEqual(state["reviewAcknowledgements"][0]["decision"], "FIX")
+            self.assertEqual(
+                state["reviewAcknowledgements"][0]["author"],
+                "x100-production[bot]",
+            )
             self.assertTrue(
                 state["reviewAcknowledgements"][0]["reactionCreatedInitially"]
             )
@@ -304,7 +316,7 @@ class ReviewFilterTests(unittest.TestCase):
                     {
                         "id": 123,
                         "html_url": f"{state['pr']['url']}#issuecomment-123",
-                        "user": {"login": "Hellonston"},
+                        "user": {"login": "x100-production[bot]"},
                     }
                 ],
             }

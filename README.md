@@ -179,6 +179,10 @@ Remote review observations do not consume a fixed round limit. The profile's
 pauses for explicit user approval. Approval adds another equal-sized block and resumes the same
 worktree, branch, PR, and run; repeated waits or checks on the same SHA do not consume repairs.
 
+Profiles can declare multiple general-comment blocker authors with `review.blockerBots`; matching
+is case-insensitive and accepts GitHub App logins such as `x100-production[bot]`. The legacy
+singular `review.blockerBot` remains supported for existing profiles.
+
 ## Start a run
 
 Open a new Codex session in the intended product worktree and invoke
