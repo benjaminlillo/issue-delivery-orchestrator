@@ -76,10 +76,10 @@ class StateTests(unittest.TestCase):
         self.assertEqual(found[0]["adoptedStatus"], [])
         self.assertEqual(found[0]["discardedInitialStatus"], [" M existing.txt"])
 
-    def test_advances_in_order_and_finishes_preserved(self):
+    def test_advances_in_order_and_waits_for_fresh_final_runtime(self):
         for phase in PHASES:
             complete_phase(self.state, phase)
-        self.assertEqual(self.state["status"], "completed_preserved")
+        self.assertEqual(self.state["status"], "awaiting_final_runtime_reset")
         self.assertIsNone(self.state["currentPhase"])
 
     def test_rejects_out_of_order_checkpoint(self):

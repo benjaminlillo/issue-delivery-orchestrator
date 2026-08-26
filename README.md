@@ -4,8 +4,10 @@ A Codex plugin for taking a Linear issue through specification, ticket slicing, 
 focused validation, manual UI review, pull request creation, and automated review convergence.
 
 The default `full` delivery target runs that complete flow. An explicit `manual-runtime` target
-stops after implementation, refactor, and target-branch integration, then leaves a healthy isolated
-Local Runtime running so the user can review the UI and prepare the PR manually.
+stops after implementation, refactor, and target-branch integration so the user can review the UI
+and prepare the PR manually. Both targets finish by stopping the runtime used during work or
+Computer Use, replacing it with a fresh isolated Local Runtime, restarting the required apps, and
+leaving their healthy URLs available for user testing.
 
 The plugin is self-contained: its orchestration engine and workflow skills live in this repository.
 It supports three fixed workspace modes:
@@ -198,13 +200,19 @@ python3 scripts/issue-delivery TS-123 --worktree /absolute/product/worktree \
   --handoff manual-runtime
 ```
 
-The conversational skill still starts only the required apps. It then records their healthy URLs,
-ports, active runtime, exact commit, optional logs, and cleanup command in
-`validation/manual-handoff.json`. The run finishes as `awaiting_manual_review`; Computer Use,
-screenshots, PR creation, pushes, and review convergence are deliberately not performed, and the
-runtime processes remain active.
+The conversational skill first stops all registered runtime processes, cleans the previous runtime
+resources, and creates a new Local Runtime. It starts only the required apps on that fresh runtime,
+then records their healthy URLs, ports, exact commit, optional logs, and cleanup command in
+`validation/final-runtime-handoff.json`. The run finishes as `awaiting_manual_review`; Computer
+Use, screenshots, PR creation, pushes, and review convergence are deliberately not performed, and
+only the fresh runtime processes remain active.
 
-After a correction, `resume` preserves this target and requires a refreshed runtime receipt. To
+The default `full` flow performs the same reset and health-checked handoff after Computer Use, PR
+creation, and remote review convergence. It reaches `completed_preserved` only after the fresh
+runtime is ready. The reset does not repeat Computer Use because it preserves the already reviewed
+commit; it only removes runtime/cache state before the user's own test.
+
+After a correction, `resume` preserves this target and requires another fresh runtime receipt. To
 continue the same run through automatic UI review and PR convergence instead, use:
 
 ```bash

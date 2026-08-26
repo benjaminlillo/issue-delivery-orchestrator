@@ -137,10 +137,11 @@ provider, SHA verificado y evidencia final. Si no está disponible o no puede ve
 bloquear y explicar el impedimento; no cambiar de modo o reviewer dentro del run.
 
 La única excepción es un run creado explícitamente con `handoffMode=manual-runtime`. En ese modo,
-una corrección posterior exige `$issue-delivery-implement`, validación enfocada y refrescar el
-runtime/recibo de handoff, pero no Computer Use. Nunca afirmar que la UI fue revisada o aprobada:
-el usuario asumió explícitamente esa revisión. Para volver al flujo automático, ejecutar
-`resume --full-delivery`; desde ese momento vuelve a aplicar íntegramente el gate UI de `full`.
+una corrección posterior exige `$issue-delivery-implement`, validación enfocada y reemplazar el
+runtime final por uno fresco con un nuevo recibo de handoff, pero no Computer Use. Nunca afirmar
+que la UI fue revisada o aprobada: el usuario asumió explícitamente esa revisión. Para volver al
+flujo automático, ejecutar `resume --full-delivery`; desde ese momento vuelve a aplicar
+íntegramente el gate UI de `full`.
 
 ## 1. Grill
 
@@ -212,8 +213,11 @@ Si `handoffMode=manual-runtime`, detener aquí el flujo automático de delivery 
 para el usuario; no invocar Browser, Cua ni Playwright, no crear screenshots/evidencia, no crear ni
 pushear la branch, no crear una PR y no entrar a convergencia remota.
 
-1. Inicializar un runtime persistente con `runtime-init`.
-2. Levantar sólo las apps necesarias mediante los comandos del repositorio y registrar sus PID.
+1. Ejecutar `runtime-reset`. El comando exige un worktree limpio y comprometido, detiene todos los
+   procesos registrados del run, limpia los recursos de sus runtimes anteriores, levanta un Local
+   Runtime nuevo y fija ese runtime al HEAD actual.
+2. Levantar otra vez sólo las apps necesarias sobre el nuevo runtime mediante los comandos del
+   repositorio y registrar sus PID.
 3. Verificar las URLs desde el estado integrado final. Crear dentro del directorio ignorado del run
    un input como:
 
@@ -231,20 +235,20 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
 4. Ejecutar:
 
    ```bash
-   python3 <plugin-root>/scripts/issue-delivery <issue> manual-handoff --input <ruta-json>
+   python3 <plugin-root>/scripts/issue-delivery <issue> runtime-handoff --input <ruta-json>
    ```
 
    El motor consulta cada endpoint, rechaza servicios no saludables, fija el SHA y runtime activos,
-   escribe `validation/manual-handoff.json` y cambia el estado a `awaiting_manual_review` sin
+   escribe `validation/final-runtime-handoff.json` y cambia el estado a `awaiting_manual_review` sin
    completar `manual-revision`.
 5. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, logs disponibles,
    path del recibo y `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
-   creada y PR no creada. Dejar todos los procesos activos; no ejecutar `stop-processes`, `block` ni
-   cleanup en este handoff.
+   creada y PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
+   `stop-processes`, `block` ni cleanup después de este handoff.
 
 Si el usuario pide una corrección mientras el run está en `awaiting_manual_review`, ejecutar
-`resume`, reparar/validar, reiniciar o refrescar las apps afectadas y volver a emitir
-`manual-handoff`; el recibo anterior queda obsoleto. Si pide continuar con revisión automática y
+`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps y `runtime-handoff`; el recibo
+anterior queda obsoleto. Si pide continuar con revisión automática y
 PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
 
 ## 5. Revisión manual
@@ -459,7 +463,20 @@ mismo gate y no puede omitirse aunque el snapshot de una ronda esté incompleto 
 También rechaza todo `SKIP` reconocido que no figure en un resumen público. Procesar todo
 resultado pendiente con `$issue-delivery-blocker-triage` antes de reintentar.
 
-El CLI detiene procesos propios y conserva worktree, rama, runtimes y estado.
+El checkpoint detiene los procesos del runtime usado durante la revisión y deja el run en
+`awaiting_final_runtime_reset`; todavía no está terminado. Ejecutar obligatoriamente:
+
+1. `runtime-reset` para detener y limpiar el runtime de revisión, y crear uno fresco sobre el mismo
+   HEAD.
+2. Levantar nuevamente sólo las apps necesarias y registrar sus PID.
+3. Crear el mismo input de servicios descrito en “Handoff manual con runtime”.
+4. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
+
+El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
+del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
+`completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
+cambiaron. Terminar mostrando los links del runtime fresco para prueba manual y dejar sus procesos
+activos. Conservar worktree, rama, runtimes y estado.
 
 ## Review humano posterior y cleanup
 

@@ -17,7 +17,8 @@ from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
-from .manual_handoff import prepare_manual_handoff
+from .runtime_handoff import prepare_runtime_handoff
+from .runtime_reset import reset_final_runtime
 from .review import (
     acknowledge_processed_blocker,
     assert_review_converged,
@@ -122,8 +123,13 @@ def parser() -> argparse.ArgumentParser:
     runtime = actions.add_parser("runtime-init")
     runtime.add_argument("--fresh", action="store_true")
 
-    manual_handoff = actions.add_parser("manual-handoff")
-    manual_handoff.add_argument("--input", type=Path, required=True)
+    actions.add_parser("runtime-reset")
+
+    runtime_handoff = actions.add_parser("runtime-handoff")
+    runtime_handoff.add_argument("--input", type=Path, required=True)
+
+    legacy_handoff = actions.add_parser("manual-handoff", help=argparse.SUPPRESS)
+    legacy_handoff.add_argument("--input", type=Path, required=True)
 
     process = actions.add_parser("register-process")
     process.add_argument("--pid", type=int, required=True)
@@ -248,7 +254,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         if args.phase == "manual-revision":
             if handoff_mode(state) == "manual-runtime":
                 raise RunBlocked(
-                    "This run stops before computer-use review; prepare manual-handoff "
+                    "This run stops before computer-use review; prepare runtime-reset "
+                    "and runtime-handoff "
                     "or resume with --full-delivery"
                 )
             manifest = artifacts.get("ui-manifest")
@@ -264,7 +271,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             assert_review_converged(state)
         complete_phase(state, args.phase, artifacts)
         stopped: list[int] = []
-        if state["status"] == "completed_preserved":
+        if state["status"] == "awaiting_final_runtime_reset":
             stopped = stop_owned_processes(state)
         return {"state": _public_state(state), "stoppedPids": stopped}
     if args.action == "block":
@@ -283,16 +290,22 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             )
         if args.phase:
             state["currentPhase"] = args.phase
-        elif state.get("currentPhase") is None:
+        elif state.get("currentPhase") is None and (
+            (state.get("blocker") or {}).get("previousStatus")
+            not in {"awaiting_final_runtime_reset", "preparing_final_runtime"}
+        ):
             state["currentPhase"] = "review-convergence"
         resume_run(state, full_delivery=args.full_delivery)
         return _public_state(state)
     if args.action == "runtime-init":
         return initialize_runtime(state, fresh=args.fresh)
-    if args.action == "manual-handoff":
+    if args.action == "runtime-reset":
+        result = reset_final_runtime(state)
+        return {**result, "state": _public_state(state)}
+    if args.action in {"runtime-handoff", "manual-handoff"}:
         input_path = _resolve_in_worktree(args.input, Path(state["worktree"]))
         ensure_within(input_path, run_root(Path(state["worktree"]), state["runId"]))
-        result = prepare_manual_handoff(state, input_path)
+        result = prepare_runtime_handoff(state, input_path)
         return {**result, "state": _public_state(state)}
     if args.action == "register-process":
         register_owned_process(
@@ -797,6 +810,8 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "reviewerMethod": review_method(state),
         "handoffMode": handoff_mode(state),
         "manualHandoff": state.get("manualHandoff"),
+        "finalRuntimeReset": state.get("finalRuntimeReset"),
+        "finalRuntimeHandoff": state.get("finalRuntimeHandoff"),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),
         "reviewRepairBudget": review_repair_budget(state),
@@ -828,13 +843,23 @@ def _next_action(state: dict[str, Any]) -> str:
         )
     if state["status"] == "completed_preserved":
         return "Wait for explicit human-review work or final cleanup after merge."
+    if state["status"] == "awaiting_final_runtime_reset":
+        return (
+            "Reset the reviewed runtime, start the required apps again, and publish "
+            "the final runtime handoff before completing the run."
+        )
+    if state["status"] == "preparing_final_runtime":
+        return (
+            "Start the required apps on the fresh active runtime, verify their URLs, "
+            "and publish runtime-handoff."
+        )
     if (
         state.get("currentPhase") == "manual-revision"
         and handoff_mode(state) == "manual-runtime"
     ):
         return (
-            "Initialize the Local Runtime, start the required apps, verify their URLs, "
-            "and create the manual-runtime handoff receipt."
+            "Reset the Local Runtime, start the required apps, verify their URLs, "
+            "and create the final runtime handoff receipt."
         )
     if (
         state.get("currentPhase") == "manual-revision"

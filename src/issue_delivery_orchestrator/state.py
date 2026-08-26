@@ -32,6 +32,8 @@ RESUMABLE_STATUSES = {
     "blocked",
     "needs_user_decision",
     "awaiting_manual_review",
+    "awaiting_final_runtime_reset",
+    "preparing_final_runtime",
     "completed_preserved",
 }
 
@@ -89,7 +91,7 @@ def create_state(
     ):
         (root / child).mkdir(parents=True, exist_ok=True)
     state = {
-        "version": 1,
+        "version": 2,
         "runId": run_id,
         "startedAt": now(),
         "updatedAt": now(),
@@ -211,16 +213,17 @@ def complete_phase(
         state["status"] = "active"
     else:
         state["currentPhase"] = None
-        state["status"] = "completed_preserved"
-        state["completedAt"] = now()
+        state["status"] = "awaiting_final_runtime_reset"
     save_state(state)
     return state
 
 
 def block_run(state: dict[str, Any], reason: str, decision: bool = False) -> None:
+    previous_status = state.get("status")
     state["status"] = "needs_user_decision" if decision else "blocked"
     state["blocker"] = {
         "phase": state.get("currentPhase"),
+        "previousStatus": previous_status,
         "reason": reason,
         "createdAt": now(),
     }
@@ -247,12 +250,22 @@ def resume_run(state: dict[str, Any], *, full_delivery: bool = False) -> None:
         if isinstance(handoff, dict):
             handoff["status"] = "superseded"
             handoff["supersededAt"] = now()
+    final_handoff = state.get("finalRuntimeHandoff")
+    if isinstance(final_handoff, dict):
+        final_handoff["status"] = "superseded"
+        final_handoff["supersededAt"] = now()
     if full_delivery:
         state["handoff"] = {
             "mode": "full",
             "selectedAt": now(),
         }
-    state["status"] = "active"
+    previous_status = (state.get("blocker") or {}).get("previousStatus")
+    state["status"] = (
+        previous_status
+        if previous_status
+        in {"awaiting_final_runtime_reset", "preparing_final_runtime"}
+        else "active"
+    )
     state["blocker"] = None
     save_state(state)
 

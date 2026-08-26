@@ -48,14 +48,14 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
 2. Implementar y ejecutar la validación enfocada habitual.
 3. Leer `handoffMode` del estado del run. En `full`, marcar la salida como `UI_REVIEW_REQUIRED` y
    entregar el SHA candidato, escenario y superficies afectadas al reviewer fijado por el modo. En
-   `manual-runtime`, marcarla como `MANUAL_RUNTIME_REFRESH_REQUIRED` y entregar el SHA y los
+   `manual-runtime`, marcarla como `FINAL_RUNTIME_RESET_REQUIRED` y entregar el SHA y los
    servicios afectados al orquestador.
 4. En `full`, invocar `$issue-delivery-cua-review` en modo `superset` o `vanilla`, o
    `$issue-delivery-browser-review` en modo `codex`, después del último cambio. Para runs legacy,
    usar el `reviewerMethod` existente. No concluir ni hacer handoff mientras no exista un PASS de
-   ese reviewer para el mismo SHA. En `manual-runtime`, no invocar un reviewer: refrescar las apps,
-   verificar endpoints y exigir un nuevo `manual-handoff.json` sobre ese SHA antes de entregar los
-   links al usuario.
+   ese reviewer para el mismo SHA. En `manual-runtime`, no invocar un reviewer: detener los
+   procesos previos, reemplazar el Local Runtime, levantar de nuevo las apps, verificar endpoints y
+   exigir un nuevo `final-runtime-handoff.json` sobre ese SHA antes de entregar los links al usuario.
 5. Si la revisión falla, usar el finding como nueva entrada de reparación y repetir, hasta el límite de cinco ciclos administrado por `$issue-delivery-orchestrator`.
 6. Invalidar el PASS previo ante cualquier edición posterior capaz de afectar el flujo.
 
@@ -74,7 +74,7 @@ Antes del commit, devolver:
 - Comandos ejecutados y resultados.
 - Tests no ejecutados y razón.
 - Historias UI invalidadas por el cambio.
-- Estado del gate: `UI_REVIEW_REQUIRED`, `MANUAL_RUNTIME_REFRESH_REQUIRED`, `PASS` o `BLOCKED`,
+- Estado del gate: `UI_REVIEW_REQUIRED`, `FINAL_RUNTIME_RESET_REQUIRED`, `PASS` o `BLOCKED`,
   incluyendo reviewer o runtime según corresponda.
 
 Crear un commit descriptivo sólo cuando todo lo atribuible al ticket esté verde. Para una reparación de review, usar un commit por causa raíz; agrupar únicamente findings inseparables.

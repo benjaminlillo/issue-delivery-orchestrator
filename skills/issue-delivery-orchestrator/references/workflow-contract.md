@@ -22,10 +22,10 @@ Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
 
 ## Objetivos de entrega
 
-- `full` (default): ejecuta todas las fases y mantiene el gate obligatorio de Computer Use antes de
-  todo handoff.
+- `full` (default): ejecuta todas las fases, mantiene el gate obligatorio de Computer Use y sólo
+  termina después de entregar un runtime final fresco y saludable.
 - `manual-runtime`: ejecuta Grill, Implement, Refactor e integración de la branch target; luego
-  inicializa el Local Runtime, levanta las apps necesarias y termina en
+  reemplaza el Local Runtime, levanta las apps necesarias y termina en
   `status=awaiting_manual_review`, `currentPhase=manual-revision`. No ejecuta Computer Use,
   evidencia, PR ni convergencia.
 
@@ -34,11 +34,20 @@ existente no puede cambiarlo durante bootstrap. Desde `awaiting_manual_review`, 
 objetivo para correcciones y un nuevo recibo; `resume --full-delivery` realiza una transición
 explícita e irreversible al flujo completo.
 
-El handoff manual exige un runtime activo y un JSON bajo el directorio ignorado del run con al menos
-un servicio declarado por nombre. `manual-handoff` obtiene su URL del manifiesto —no acepta una URL
-arbitraria—, verifica HTTP 2xx/3xx, fija HEAD y escribe `validation/manual-handoff.json` con SHA,
-runtime, URLs, puertos, procesos vivos, logs declarados y comando de cleanup. No detiene procesos.
-Una URL meramente asignada pero no saludable no puede publicarse como disponible.
+Todo handoff final usa la misma secuencia. `runtime-reset` exige un worktree limpio y comprometido,
+detiene todos los procesos registrados del run, ejecuta cleanup para todos sus runtimes anteriores
+y crea un Local Runtime nuevo. El estado pasa a `preparing_final_runtime`; el agente levanta
+nuevamente sólo las apps necesarias sobre ese runtime. Luego `runtime-handoff` lee un JSON bajo el
+directorio ignorado del run con al menos un servicio declarado por nombre, obtiene cada URL del
+manifiesto —no acepta URLs arbitrarias—, verifica HTTP 2xx/3xx y exige el mismo HEAD fijado por el reset. Escribe
+`validation/final-runtime-handoff.json` con SHA, runtime, URLs, puertos, procesos vivos, logs
+declarados y comando de cleanup. Una URL meramente asignada pero no saludable no puede publicarse.
+
+En `manual-runtime`, el handoff cambia a `awaiting_manual_review` y declara Computer Use y PR como
+no ejecutados. En `full`, completar `review-convergence` detiene los procesos usados para revisar y
+cambia a `awaiting_final_runtime_reset`; el handoff fresco posterior declara que Computer Use ya
+ocurrió sobre el mismo SHA y recién entonces cambia a `completed_preserved`. En ambos casos se dejan
+activos sólo los procesos del runtime final fresco para la prueba del usuario.
 
 ## Límites
 
@@ -88,8 +97,8 @@ Un cambio posterior que pueda afectar el flujo invalida el recibo. En `full`, no
 pedir verificación al usuario sin un recibo UI válido para el HEAD actual y emitido por el reviewer
 seleccionado. Si ese método no puede probar el escenario, el estado correcto es `blocked`, no
 `completed`; no cambiar de provider silenciosamente. En `manual-runtime`, esta exigencia se
-reemplaza únicamente por el recibo `manual-handoff.json`: éste demuestra salud técnica del runtime,
-no aceptación UI, y el handoff debe declararlo sin ambigüedad.
+reemplaza únicamente por el recibo `final-runtime-handoff.json`: éste demuestra salud técnica del
+runtime fresco, no aceptación UI, y el handoff debe declararlo sin ambigüedad.
 
 ## Decisiones de review
 
@@ -214,8 +223,11 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   `modeDecision.source`, `modeDecision.reviewer` y `modeDecision.worktree`. No continuar al Grill
   sin ese anuncio. Para `vanilla-fallback`, explicar que no se detectaron señales Codex/Superset.
 - `--new-run` crea otro sólo si la branch no está asociada a un worktree.
-- `runtime-init --fresh` permite registrar otro runtime sin limpiar los anteriores.
-- `manual-handoff` preserva procesos y runtime. El usuario decide cuándo ejecutar cleanup después
-  de su revisión y del merge.
-- Al finalizar el loop sólo se detienen procesos.
+- `runtime-init --fresh` sólo reemplaza el binding activo; el cierre normal debe usar
+  `runtime-reset` para detener procesos, limpiar recursos de los runtimes anteriores y dejar recibo
+  auditable.
+- `runtime-handoff` preserva los procesos del runtime final fresco. El usuario decide cuándo
+  ejecutar cleanup después de su revisión y del merge.
+- Al finalizar el loop se detienen los procesos previos, se levanta una instancia fresca sobre el
+  HEAD final y se dejan activas sólo sus apps declaradas.
 - `cleanup` posterior al merge limpia todos los runtimes registrados y el perfil del navegador, no el worktree ni la branch.

@@ -64,12 +64,14 @@ class CliModeTests(unittest.TestCase):
 
         self.assertEqual(args.handoff, "manual-runtime")
 
-    def test_parses_manual_handoff_receipt_and_full_resume(self):
+    def test_parses_runtime_reset_handoff_and_full_resume(self):
+        reset = parser().parse_args(["TS-1", "runtime-reset"])
         handoff = parser().parse_args(
-            ["TS-1", "manual-handoff", "--input", "validation/services.json"]
+            ["TS-1", "runtime-handoff", "--input", "validation/services.json"]
         )
         resume = parser().parse_args(["TS-1", "resume", "--full-delivery"])
 
+        self.assertEqual(reset.action, "runtime-reset")
         self.assertEqual(handoff.input, Path("validation/services.json"))
         self.assertTrue(resume.full_delivery)
 

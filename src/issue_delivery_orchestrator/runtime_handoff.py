@@ -15,19 +15,18 @@ from .state import handoff_mode, now, run_root, save_state
 from .util import atomic_write_json, read_json, run
 
 
-def prepare_manual_handoff(
+def prepare_runtime_handoff(
     state: dict[str, Any],
     input_path: Path,
     *,
     health_timeout_seconds: float = 10.0,
 ) -> dict[str, Any]:
-    if handoff_mode(state) != "manual-runtime":
-        raise RunBlocked("Manual runtime handoff was not selected for this run")
-    if state.get("status") != "active" or state.get("currentPhase") != "manual-revision":
-        raise RunBlocked(
-            "Manual runtime handoff is available only at the start of manual-revision"
-        )
+    if state.get("status") != "preparing_final_runtime":
+        raise RunBlocked("Reset the final runtime before publishing its handoff")
     runtime = _active_runtime(state)
+    reset = state.get("finalRuntimeReset") or {}
+    if reset.get("runtimeId") != runtime.get("runtimeId"):
+        raise RunBlocked("The active runtime does not match the final reset receipt")
     try:
         manifest = read_json(Path(runtime["manifestPath"]))
     except (OSError, json.JSONDecodeError) as error:
@@ -40,20 +39,20 @@ def prepare_manual_handoff(
     try:
         payload = read_json(input_path)
     except (OSError, json.JSONDecodeError) as error:
-        raise RunBlocked(f"Could not read manual handoff input: {error}") from error
+        raise RunBlocked(f"Could not read runtime handoff input: {error}") from error
     raw_services = payload.get("services") if isinstance(payload, dict) else None
     if not isinstance(raw_services, list) or not raw_services:
-        raise RunBlocked("Manual handoff input requires a non-empty 'services' array")
+        raise RunBlocked("Runtime handoff input requires a non-empty 'services' array")
 
     services: list[dict[str, Any]] = []
     names: set[str] = set()
     worktree = Path(state["worktree"])
     for item in raw_services:
         if not isinstance(item, dict):
-            raise RunBlocked("Every manual handoff service must be an object")
+            raise RunBlocked("Every runtime handoff service must be an object")
         name = str(item.get("name") or "").strip()
         if not name or name in names:
-            raise RunBlocked("Manual handoff service names must be non-empty and unique")
+            raise RunBlocked("Runtime handoff service names must be non-empty and unique")
         allocated_url = str(urls.get(name) or "").rstrip("/")
         if not allocated_url:
             raise RunBlocked(f"Runtime URL not found for service {name}")
@@ -75,20 +74,25 @@ def prepare_manual_handoff(
         )
         names.add(name)
 
-    dirty = run(
-        ["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree
-    ).stdout.strip()
+    dirty = run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree).stdout.strip()
     if dirty:
         raise RunBlocked(
-            "Manual runtime handoff requires a clean committed worktree; "
+            "Runtime handoff requires a clean committed worktree; "
             "commit or remove pending product changes first"
         )
     commit = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    if reset.get("verifiedCommit") != commit:
+        raise RunBlocked(
+            "HEAD changed after the final runtime reset; reset it again before handoff"
+        )
     runtime_id = runtime["runtimeId"]
-    receipt_path = run_root(worktree, state["runId"]) / "validation" / "manual-handoff.json"
+    receipt_path = run_root(worktree, state["runId"]) / "validation" / "final-runtime-handoff.json"
+    manual = handoff_mode(state) == "manual-runtime"
+    if not manual and not (state.get("pr") or {}).get("url"):
+        raise RunBlocked("Full delivery requires a recorded PR before runtime handoff")
     receipt = {
         "receiptVersion": 1,
-        "status": "READY_FOR_MANUAL_REVIEW",
+        "status": "READY_FOR_USER_TESTING",
         "verifiedCommit": commit,
         "runtimeId": runtime_id,
         "preparedAt": now(),
@@ -101,11 +105,11 @@ def prepare_manual_handoff(
             ]
         ),
         "cleanupWorkingDirectory": str(worktree.resolve()),
-        "computerUseReview": "NOT_RUN",
-        "pullRequest": "NOT_CREATED",
+        "computerUseReview": "NOT_RUN" if manual else "COMPLETED_BEFORE_RESET",
+        "pullRequest": "NOT_CREATED" if manual else state["pr"]["url"],
     }
     atomic_write_json(receipt_path, receipt)
-    state["manualHandoff"] = {
+    state["finalRuntimeHandoff"] = {
         "status": "ready",
         "verifiedCommit": commit,
         "runtimeId": runtime_id,
@@ -113,7 +117,11 @@ def prepare_manual_handoff(
         "preparedAt": receipt["preparedAt"],
         "services": services,
     }
-    state["status"] = "awaiting_manual_review"
+    if manual:
+        state["status"] = "awaiting_manual_review"
+    else:
+        state["status"] = "completed_preserved"
+        state["completedAt"] = now()
     state["blocker"] = None
     save_state(state)
     return {
@@ -134,7 +142,7 @@ def _active_runtime(state: dict[str, Any]) -> dict[str, Any]:
         None,
     )
     if not runtime:
-        raise RunBlocked("Initialize and start a Local Runtime before manual handoff")
+        raise RunBlocked("Initialize and start a Local Runtime before runtime handoff")
     return runtime
 
 
@@ -165,9 +173,7 @@ def _optional_worktree_file(raw_path: Any, worktree: Path, service: str) -> str 
     return str(resolved)
 
 
-def _live_runtime_processes(
-    state: dict[str, Any], manifest: dict[str, Any]
-) -> list[dict[str, Any]]:
+def _live_runtime_processes(state: dict[str, Any], manifest: dict[str, Any]) -> list[dict[str, Any]]:
     registry_path = manifest.get("processRegistryPath")
     if registry_path:
         candidate = Path(registry_path)
