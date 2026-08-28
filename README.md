@@ -52,8 +52,8 @@ supported primary-reviewer capability gap; the plugin does not install or add it
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
 - Cua Driver and its operating-system permissions for Superset or Vanilla UI review.
 - macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
-- A personal Linear API key stored in macOS Keychain. Linear publication never reads the token from
-  `.env` and fails closed if the pinned identity does not match.
+- A personal Linear API key exposed as `LINEAR_API_KEY`. Linear publication fails closed if the
+  variable is unavailable or the pinned identity does not match.
 
 If HTTPS Git credentials are not already configured:
 
@@ -143,14 +143,20 @@ checkout and blocks before discarding local changes; selecting `modo vanilla` ex
 the normal new-run cleanup contract. Contradictory Codex/Superset signals still require an explicit
 choice.
 
-The `.env` is user-owned and must not be committed. `LINEAR_API_KEY` remains supported by the
-deterministic orchestration engine, but the publication skills deliberately ignore it. They use
-the bundled `codex-linear` command, which reads only macOS Keychain under service
-`issue-delivery-orchestrator-linear` (or `LINEAR_KEYCHAIN_SERVICE`) and account
-`LINEAR_EXPECTED_EMAIL`. Existing `gh` authentication is used for GitHub, and its login must
-match `GITHUB_EXPECTED_LOGIN`.
+The `.env` is user-owned and must not be committed. Restrict it to the current user:
 
-After saving the API key in Keychain, pin and verify the intended Linear identity once:
+```bash
+chmod 600 ~/.config/issue-delivery-orchestrator/.env
+```
+
+Both the deterministic engine and bundled `codex-linear` command consume `LINEAR_API_KEY` only
+from their process environment. Locally, they load the personal file above into that environment;
+they do not search the product repository or worktree for credentials. In a sandbox, CI runner, or
+hosted environment such as Vercel, inject `LINEAR_API_KEY` and `LINEAR_EXPECTED_EMAIL` with that
+platform's secret/environment configuration instead of creating a file. Existing `gh`
+authentication is used for GitHub, and its login must match `GITHUB_EXPECTED_LOGIN`.
+
+After exposing the variables, pin and verify the intended Linear identity once:
 
 ```bash
 PATH="<installed-plugin-root>/bin:$PATH" codex-linear identity pin \
@@ -159,9 +165,10 @@ PATH="<installed-plugin-root>/bin:$PATH" codex-linear doctor
 ```
 
 The plugin bundles both `$linear-local` and the CLI fallback under `bin/codex-linear`; no manual
-edit inside the Codex plugin cache is required. During a run, publication stops explicitly if the
-skill, command, credential, or pinned identity is unavailable. It never falls back to Linear MCP,
-a connector, direct agent-side API calls, or browser automation.
+edit inside the Codex plugin cache is required. The agent never reads, prints, or passes the token
+as a command argument. During a run, publication stops explicitly if the skill, command,
+credential, or pinned identity is unavailable. It never falls back to Linear MCP, a connector,
+direct agent-side API calls, or browser automation.
 
 From a clone of this repository, inspect the effective non-secret configuration:
 

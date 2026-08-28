@@ -5,7 +5,6 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -18,7 +17,6 @@ API_URL = "https://api.linear.app/graphql"
 CONFIG_DIR = Path.home() / ".config" / "codex-linear"
 IDENTITY_FILE = CONFIG_DIR / "identity.json"
 ORCHESTRATOR_CONFIG_DIR = Path.home() / ".config" / "issue-delivery-orchestrator"
-DEFAULT_KEYCHAIN_SERVICE = "issue-delivery-orchestrator-linear"
 
 VIEWER_QUERY = """
 query CodexLinearViewer {
@@ -52,7 +50,7 @@ class LinearCliError(RuntimeError):
 @dataclass(frozen=True)
 class Credential:
     value: str
-    service: str
+    source: str
     account: str
 
 
@@ -78,54 +76,29 @@ def _load_orchestrator_environment() -> None:
         value = value.strip()
         if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
-        if key in {"LINEAR_EXPECTED_EMAIL", "LINEAR_KEYCHAIN_SERVICE"}:
+        if key in {"LINEAR_API_KEY", "LINEAR_EXPECTED_EMAIL"}:
             os.environ.setdefault(key, value)
 
 
-def _keychain_target() -> tuple[str, str]:
+def _read_environment_credential() -> Credential:
     _load_orchestrator_environment()
-    service = (
-        os.environ.get("LINEAR_KEYCHAIN_SERVICE", "").strip()
-        or DEFAULT_KEYCHAIN_SERVICE
-    )
+    value = os.environ.get("LINEAR_API_KEY", "").strip()
+    if not value:
+        raise LinearCliError(
+            "LINEAR_API_KEY is required in the environment or "
+            "~/.config/issue-delivery-orchestrator/.env"
+        )
     account = os.environ.get("LINEAR_EXPECTED_EMAIL", "").strip().lower()
     if not account:
         raise LinearCliError(
             "LINEAR_EXPECTED_EMAIL is required in the environment or "
             "~/.config/issue-delivery-orchestrator/.env"
         )
-    return service, account
+    return Credential(value=value, source="environment", account=account)
 
 
 def _json_dump(value: Any) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
-
-
-def _read_keychain() -> Credential:
-    if sys.platform != "darwin":
-        raise LinearCliError("macOS Keychain is required")
-    service, account = _keychain_target()
-    result = subprocess.run(
-        [
-            "/usr/bin/security",
-            "find-generic-password",
-            "-s",
-            service,
-            "-a",
-            account,
-            "-w",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    value = result.stdout.strip()
-    if result.returncode == 0 and value:
-        return Credential(value=value, service=service, account=account)
-    raise LinearCliError(
-        "Linear credential not found in Keychain; expected "
-        f"{service}/{account}"
-    )
 
 
 def _graphql(credential: Credential, query: str, variables: dict[str, Any]) -> dict[str, Any]:
@@ -397,17 +370,17 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> Any:
-    credential = _read_keychain()
+    credential = _read_environment_credential()
     if args.command == "whoami":
         return {
             "viewer": _viewer(credential),
-            "credential": {"service": credential.service, "account": credential.account},
+            "credential": {"source": credential.source, "account": credential.account},
         }
     if args.command == "doctor":
         viewer = _verify_identity(credential)
         return {
             "ok": True,
-            "credential": {"service": credential.service, "account": credential.account},
+            "credential": {"source": credential.source, "account": credential.account},
             "viewer": viewer,
             "identityPinned": True,
             "identityMatches": True,

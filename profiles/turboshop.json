@@ -28,8 +28,7 @@
   },
   "identity": {
     "linearExpectedEmail": "",
-    "githubExpectedLogin": "",
-    "linearKeychainService": "issue-delivery-orchestrator-linear"
+    "githubExpectedLogin": ""
   },
   "review": {
     "botNames": [

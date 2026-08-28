@@ -30,7 +30,6 @@ class Settings:
     runtime_cleanup_command: tuple[str, ...]
     linear_expected_email: str
     github_expected_login: str
-    linear_keychain_service: str
     bot_names: tuple[str, ...]
     blocker_bots: tuple[str, ...]
     review_repair_batch_size: int
@@ -113,10 +112,6 @@ def settings() -> Settings:
             os.environ.get("GITHUB_EXPECTED_LOGIN", "").strip()
             or str(identity.get("githubExpectedLogin") or "").strip()
         ),
-        linear_keychain_service=(
-            os.environ.get("LINEAR_KEYCHAIN_SERVICE", "").strip()
-            or _required_string(identity, "linearKeychainService")
-        ),
         bot_names=bot_names,
         blocker_bots=blocker_bots,
         review_repair_batch_size=_positive_integer(
@@ -143,10 +138,7 @@ def _load_environment() -> Path | None:
     config_home = Path(
         os.environ.get("ISSUE_DELIVERY_CONFIG_HOME", str(DEFAULT_CONFIG_HOME))
     ).expanduser()
-    candidates = [Path(explicit).expanduser()] if explicit else [
-        config_home / ".env",
-        PLUGIN_ROOT / ".env",
-    ]
+    candidates = [Path(explicit).expanduser()] if explicit else [config_home / ".env"]
     path = next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
     if not path:
         return None

@@ -39,7 +39,6 @@ class ConfigTests(unittest.TestCase):
                         "identity": {
                             "linearExpectedEmail": "",
                             "githubExpectedLogin": "",
-                            "linearKeychainService": "example-linear",
                         },
                         "review": {
                             "botNames": ["review-bot"],

@@ -1,12 +1,13 @@
 ---
 name: linear-local
-description: Access Linear through the local codex-linear CLI using a personal API key stored in macOS Keychain and a pinned user identity. Use for every Linear read or mutation performed by a skill, including reading, creating, assigning, updating, or commenting on issues and generating reports from Linear data. Never use a Linear MCP or expose the API key.
+description: Access Linear through the local codex-linear CLI using LINEAR_API_KEY from the environment and a pinned user identity. Use for every Linear read or mutation performed by a skill, including reading, creating, assigning, updating, or commenting on issues and generating reports from Linear data. Never use a Linear MCP or expose the API key.
 ---
 
 # Linear Local
 
 Use the local `codex-linear` command for every Linear operation. Do not use a
-Linear MCP, browser automation, direct HTTP calls, or `LINEAR_API_KEY`.
+Linear MCP, browser automation, or direct HTTP calls. Do not read or handle
+`LINEAR_API_KEY` yourself; only the bundled CLI may consume it.
 
 This plugin bundles the command under `<plugin-root>/bin/codex-linear`. If no
 `codex-linear` is already available, prepend `<plugin-root>/bin` to `PATH`
@@ -16,10 +17,10 @@ identity.
 
 ## Safety contract
 
-- Read the API key only through the CLI; never invoke `security` directly.
-- Read `LINEAR_EXPECTED_EMAIL` and optional `LINEAR_KEYCHAIN_SERVICE` from
-  the environment or `~/.config/issue-delivery-orchestrator/.env`. The CLI
-  never reads `LINEAR_API_KEY`.
+- Let the CLI read `LINEAR_API_KEY` and `LINEAR_EXPECTED_EMAIL` from the process
+  environment. It may populate those variables from the user-owned
+  `~/.config/issue-delivery-orchestrator/.env`; it must never load credentials
+  from the product repository or worktree.
 - Never print, log, persist, request, or pass the API key as an argument.
 - Require a pinned identity before every normal Linear read or mutation. The CLI
   performs this check automatically and fails closed when the authenticated user
@@ -64,4 +65,4 @@ identity-guarded.
 
 ## Resource
 
-- `scripts/linear_cli.py`: Keychain-backed Linear CLI implementation.
+- `scripts/linear_cli.py`: environment-backed, identity-guarded Linear CLI.

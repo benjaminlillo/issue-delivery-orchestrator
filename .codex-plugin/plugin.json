@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Deliver Linear issues through a verified PR or hand off a fresh healthy runtime for manual review.",
   "author": {
     "name": "Benjamin Lillo"
@@ -23,7 +23,7 @@
     "category": "Productivity",
     "capabilities": [
       "Linear issue planning",
-      "Keychain-backed Linear publication",
+      "Environment-backed Linear publication",
       "Codex, Superset, and Vanilla worktree modes",
       "Focused implementation validation",
       "Fresh final runtime handoff",
