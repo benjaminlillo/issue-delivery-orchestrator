@@ -86,6 +86,18 @@ class EvidenceVerificationTests(unittest.TestCase):
 
         self.assertEqual(receipt["provider"], "codex-browser")
 
+    def test_accepts_playwright_chrome_pass_for_conductor_cloud_run(self):
+        self.state["mode"] = {"name": "conductor-cloud"}
+        self.state["reviewer"] = {"method": "playwright-chrome"}
+
+        receipt = _verification(
+            self.manifest(provider="playwright-chrome"),
+            self.state,
+            self.worktree,
+        )
+
+        self.assertEqual(receipt["provider"], "playwright-chrome")
+
     def test_rejects_evidence_from_a_different_reviewer(self):
         self.state["mode"] = {"name": "codex"}
         self.state["reviewer"] = {"method": "codex-browser"}
@@ -142,6 +154,22 @@ class EvidenceVerificationTests(unittest.TestCase):
         )
 
         self.assertIn("Browser integrado de Codex", body)
+
+    def test_pr_body_names_conductor_cloud_provider(self):
+        body = _pr_body(
+            "<!-- marker -->",
+            [
+                {
+                    "storyId": "US-1",
+                    "title": "Cloud state",
+                    "caption": "Verified",
+                    "githubUrl": "../cloud.png",
+                }
+            ],
+            provider="playwright-chrome",
+        )
+
+        self.assertIn("Playwright con Chrome en Conductor Cloud", body)
 
     def test_pr_body_discloses_headless_upload_assistance(self):
         body = _pr_body(

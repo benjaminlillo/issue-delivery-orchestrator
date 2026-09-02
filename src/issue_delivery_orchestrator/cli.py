@@ -318,8 +318,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.action == "launch-browser":
         if review_method(state) != "cua-driver":
             raise RunBlocked(
-                "Dedicated Chrome is disabled in codex mode; "
-                "resume manual revision in the Codex app with Browser available"
+                "Dedicated Cua Chrome is available only for cua-driver runs; use the "
+                "reviewer fixed by the run mode"
             )
         return launch_browser(state, args.url)
     if args.action == "stop-processes":
@@ -447,7 +447,8 @@ def bootstrap(
     if args.reviewer:
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
-            "codex uses codex-browser; superset and vanilla use cua-driver"
+            "codex uses codex-browser; superset and vanilla use cua-driver; "
+            "conductor-cloud uses playwright-chrome"
         )
     if not requested_worktree:
         mode_hint = (
@@ -481,6 +482,13 @@ def bootstrap(
             args.base,
             issue.identifier,
             allow_discard=mode_source != "vanilla-fallback",
+        )
+    elif mode == "conductor-cloud":
+        worktree = workspace.adopt_conductor_cloud(
+            requested_worktree,
+            issue.branch_name,
+            args.base,
+            issue.identifier,
         )
     else:
         worktree = workspace.adopt(
@@ -627,6 +635,9 @@ def _verified_linear() -> tuple[LinearClient, str]:
 def _repository(explicit_worktree: Path | None, configured: Path | None) -> Path:
     candidates = [
         explicit_worktree,
+        Path(os.environ["CONDUCTOR_WORKSPACE_PATH"])
+        if os.environ.get("CONDUCTOR_WORKSPACE_PATH")
+        else None,
         Path(os.environ["SUPERSET_WORKSPACE_PATH"])
         if os.environ.get("SUPERSET_WORKSPACE_PATH")
         else None,
@@ -672,6 +683,13 @@ def _requested_worktree(explicit: Path | None, mode: str | None) -> Path | None:
         return explicit
     if mode in {"codex", "vanilla"}:
         return None
+    if mode == "conductor-cloud" or (
+        mode is None and os.environ.get("CONDUCTOR_IS_LOCAL", "").strip() == "0"
+    ):
+        raw = os.environ.get("CONDUCTOR_WORKSPACE_PATH") or os.environ.get(
+            "CONDUCTOR_ROOT_PATH"
+        )
+        return Path(raw) if raw else None
     raw = os.environ.get("SUPERSET_WORKSPACE_PATH")
     return Path(raw) if raw else None
 
@@ -682,9 +700,14 @@ def _new_run_mode(
     configuration: Settings,
 ) -> tuple[str, str]:
     if explicit:
+        if explicit == "conductor-cloud":
+            _is_conductor_cloud(worktree.expanduser().resolve())
         return explicit, "explicit"
 
     candidate = worktree.expanduser().resolve()
+    if _is_conductor_cloud(candidate):
+        return "conductor-cloud", "conductor-cloud-environment"
+
     superset_workspace = os.environ.get("SUPERSET_WORKSPACE_PATH", "").strip()
     if superset_workspace and candidate == Path(superset_workspace).expanduser().resolve():
         return "superset", "superset-environment"
@@ -708,6 +731,40 @@ def _new_run_mode(
         return marker_matches.pop(), "path-marker"
 
     return "vanilla", "vanilla-fallback"
+
+
+def _is_conductor_cloud(worktree: Path) -> bool:
+    is_local = os.environ.get("CONDUCTOR_IS_LOCAL", "").strip()
+    if is_local != "0":
+        return False
+    if not os.environ.get("CONDUCTOR_API_URL", "").strip():
+        raise RunBlocked(
+            "CONDUCTOR_IS_LOCAL=0 requires CONDUCTOR_API_URL for reliable "
+            "Conductor Cloud detection"
+        )
+    paths = [
+        Path(raw).expanduser().resolve()
+        for raw in (
+            os.environ.get("CONDUCTOR_WORKSPACE_PATH", "").strip(),
+            os.environ.get("CONDUCTOR_ROOT_PATH", "").strip(),
+        )
+        if raw
+    ]
+    if not paths:
+        raise RunBlocked(
+            "Conductor Cloud detection requires CONDUCTOR_WORKSPACE_PATH or "
+            "CONDUCTOR_ROOT_PATH"
+        )
+    if any(path != paths[0] for path in paths[1:]):
+        raise RunBlocked(
+            "CONDUCTOR_WORKSPACE_PATH and CONDUCTOR_ROOT_PATH identify different paths"
+        )
+    if worktree != paths[0]:
+        raise RunBlocked(
+            f"Requested worktree {worktree} does not match Conductor Cloud workspace "
+            f"{paths[0]}"
+        )
+    return True
 
 
 def _configured_mode_matches(
@@ -798,7 +855,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "workspaceMode": (
             "adopted"
             if str(state.get("createdFrom", "")).startswith(
-                ("adopted:", "codex:", "vanilla:")
+                ("adopted:", "codex:", "vanilla:", "conductor-cloud:")
             )
             else "private"
         ),

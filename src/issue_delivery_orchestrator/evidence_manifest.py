@@ -161,7 +161,11 @@ def _verification(
         raise OrchestrationError("Evidence publication requires UI verification status PASS")
     selected_provider = review_method(state)
     declared_provider = str(verification.get("provider") or "").strip()
-    if declared_provider and declared_provider not in {"cua-driver", "codex-browser"}:
+    if declared_provider and declared_provider not in {
+        "cua-driver",
+        "codex-browser",
+        "playwright-chrome",
+    }:
         raise OrchestrationError(
             f"Evidence verification has unsupported provider {declared_provider}"
         )
@@ -172,7 +176,7 @@ def _verification(
         )
     if not declared_provider and selected_provider != "cua-driver":
         raise OrchestrationError(
-            "codex-browser evidence must declare provider 'codex-browser'"
+            f"{selected_provider} evidence must declare provider '{selected_provider}'"
         )
     verified_commit = str(verification.get("verifiedCommit") or "").strip()
     head = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()

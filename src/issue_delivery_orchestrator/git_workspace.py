@@ -81,6 +81,23 @@ class GitWorkspace:
             allow_discard=allow_discard,
         )
 
+    def adopt_conductor_cloud(
+        self,
+        path: Path,
+        expected_branch: str,
+        base: str,
+        issue: str,
+    ) -> Worktree:
+        return self._adopt_switchable(
+            path,
+            expected_branch,
+            base,
+            issue,
+            mode="conductor-cloud",
+            allowed_start_branches={base},
+            allow_nonmatching_branch=True,
+        )
+
     def _adopt_switchable(
         self,
         path: Path,
@@ -91,6 +108,7 @@ class GitWorkspace:
         mode: str,
         allowed_start_branches: set[str],
         allow_discard: bool = True,
+        allow_nonmatching_branch: bool = False,
     ) -> Worktree:
         candidate = self._validated_worktree(path)
         branch = run(["git", "branch", "--show-current"], cwd=candidate).stdout.strip()
@@ -111,7 +129,7 @@ class GitWorkspace:
                     status,
                     discarded_status,
                 )
-            if branch not in allowed_start_branches:
+            if branch not in allowed_start_branches and not allow_nonmatching_branch:
                 raise RunBlocked(
                     f"{mode.capitalize()} worktree branch {branch} does not match "
                     f"Linear branch {expected_branch}"

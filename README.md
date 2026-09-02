@@ -10,16 +10,18 @@ Computer Use, replacing it with a fresh isolated Local Runtime, restarting the r
 leaving their healthy URLs available for user testing.
 
 The plugin is self-contained: its orchestration engine and workflow skills live in this repository.
-It supports three fixed workspace modes:
+It supports four fixed workspace modes:
 
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser, with headless
   Playwright assistance limited to demonstrated `file-upload` or `hover` capability gaps.
 - `superset`: adopt a Superset worktree and review UI through Cua Driver in a dedicated browser.
 - `vanilla`: adopt any user-prepared checkout or worktree from Codex CLI, without depending on a
   workspace host, and review UI through Cua Driver.
+- `conductor-cloud`: adopt the workspace created by Conductor Cloud and review UI headlessly through
+  the target repository's existing Playwright installation and the workspace's system Chrome.
 
 The orchestrator never creates a worktree. Start the session in a worktree prepared by Codex,
-Superset, or the user's normal Git tooling. Vanilla users must run the repository's local setup
+Superset, Conductor Cloud, or the user's normal Git tooling. Vanilla users must run the repository's local setup
 before starting the loop. A new run cleans tracked changes and untracked, non-ignored files before
 adoption while preserving ignored `.env`, dependency, and runtime files. Existing runs are never
 cleaned when resumed.
@@ -34,6 +36,7 @@ cleaned when resumed.
 - `$issue-delivery-blocker-triage`
 - `$issue-delivery-cua-review`
 - `$issue-delivery-browser-review`
+- `$issue-delivery-playwright-review`
 - `$linear-local`
 
 The Browser skill, Figma connector, GitHub CLI, Cua Driver, Playwright, and the target repository's
@@ -51,6 +54,8 @@ supported primary-reviewer capability gap; the plugin does not install or add it
 - Python 3.9 or newer.
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
 - Cua Driver and its operating-system permissions for Superset or Vanilla UI review.
+- For Conductor Cloud full delivery, Google Chrome in the workspace and Playwright already present
+  in the target repository. The plugin does not install either into product code.
 - macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
 - A personal Linear API key exposed as `LINEAR_API_KEY`. Linear publication fails closed if the
   variable is unavailable or the pinned identity does not match.
@@ -127,8 +132,10 @@ GITHUB_EXPECTED_LOGIN=your-github-login
 ISSUE_DELIVERY_REPOSITORY=/absolute/path/to/repository
 ```
 
-New runs detect their mode from `SUPERSET_WORKSPACE_PATH`, configured worktree roots, or
-unambiguous path components such as `.codex` and `superset-worktrees`. Configure custom roots when
+New runs first detect Conductor Cloud from its official `CONDUCTOR_IS_LOCAL=0`,
+`CONDUCTOR_API_URL`, and matching `CONDUCTOR_WORKSPACE_PATH`/`CONDUCTOR_ROOT_PATH` variables. They
+otherwise detect mode from `SUPERSET_WORKSPACE_PATH`, configured worktree roots, or unambiguous
+path components such as `.codex` and `superset-worktrees`. Configure custom roots when
 your tools use paths without those markers. Separate multiple roots with the operating system path
 separator (`:` on macOS/Linux and `;` on Windows):
 
@@ -137,10 +144,10 @@ ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS=/absolute/path/to/codex/worktrees
 ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS=/absolute/path/to/superset/worktrees
 ```
 
-An explicit mode always overrides detection. If no Codex or Superset signal matches, the loop
+An explicit mode always overrides detection. If no Codex, Superset, or Conductor Cloud signal matches, the loop
 selects Vanilla with `modeSource: vanilla-fallback`. A fallback Vanilla run requires a clean
 checkout and blocks before discarding local changes; selecting `modo vanilla` explicitly retains
-the normal new-run cleanup contract. Contradictory Codex/Superset signals still require an explicit
+the normal new-run cleanup contract. Contradictory workspace signals still require an explicit
 choice.
 
 The `.env` is user-owned and must not be committed. Restrict it to the current user:
@@ -194,9 +201,9 @@ singular `review.blockerBot` remains supported for existing profiles.
 
 Open a new Codex session in the intended product worktree and invoke
 `$issue-delivery-orchestrator` with a Linear issue. For a host-independent CLI run, start Codex CLI
-in the prepared checkout; Vanilla will be selected automatically when no Codex or Superset signal
-exists. The skill immediately states the chosen mode, decision source, reviewer, and worktree in
-the chat, then preserves that mode for the complete run.
+in the prepared checkout; Vanilla will be selected automatically when no Codex, Superset, or
+Conductor Cloud signal exists. The skill immediately states the chosen mode, decision source,
+reviewer, and worktree in the chat, then preserves that mode for the complete run.
 
 The deterministic engine can also be inspected directly:
 
@@ -249,6 +256,13 @@ fixtures, screenshots, and receipts stay inside the ignored run directory and re
 same commit and Local Runtime. The evidence gate rejects unsupported kinds, missing primary
 attempts, altered artifacts, or stale receipts. Version 0.3 `uploadAssistance` and version 0.4
 Codex Browser receipts remain readable for preserved runs.
+
+In Conductor Cloud mode, Playwright with system Chrome is the primary reviewer for complete
+stories, including uploads and hover. It interacts with the real UI, saves traces and final PNGs
+under the ignored run directory, and requires visual inspection of those PNGs before PASS. Browser
+Preview and Agentation remain optional human feedback surfaces: they are not counted as automatic
+verification and require no overlay or dependency in the product. Feedback sent back to the agent
+starts a normal `REPAIR-<n>` cycle and invalidates the affected evidence.
 
 ## Development
 

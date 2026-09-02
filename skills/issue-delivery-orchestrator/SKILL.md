@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-orchestrator
-description: "Orquestar una issue de Linear en modo Codex, Superset o Vanilla: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores."
+description: "Orquestar una issue de Linear en modo Codex, Superset, Vanilla o Conductor Cloud: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores."
 ---
 
 # Issue Delivery Orchestrator
@@ -26,27 +26,33 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    - `vanilla`: iniciar Codex CLI directamente en un checkout o worktree ya preparado por el
      usuario o su herramienta habitual. Ejecutar el setup local del repositorio antes del loop y
      seleccionar siempre `--mode vanilla`.
+   - `conductor-cloud`: iniciar la sesión dentro del workspace cloud que Conductor ya creó. El
+     entorno debe exponer `CONDUCTOR_IS_LOCAL=0`, `CONDUCTOR_API_URL` y
+     `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH`; el loop adopta ese workspace y no crea otro.
 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
    conservar esa ruta absoluta. No iniciar modo `codex` desde Local, modo `superset` desde otro
-   checkout ni modo `vanilla` fuera del checkout que se desea adoptar. No crear, solicitar ni
+   checkout, modo `vanilla` fuera del checkout que se desea adoptar ni `conductor-cloud` fuera del
+   workspace declarado por Conductor. No crear, solicitar ni
    delegar otro worktree mediante `create_thread`, subagentes, `git worktree add` o cualquier
    mecanismo equivalente. Si el worktree actual no es adoptable, bloquear en la misma sesión y
    pedir al usuario que abra manualmente otro con su setup local.
 4. Elegir el objetivo de entrega. Usar `full` por defecto. Sólo si el usuario pide detenerse tras la
    implementación para revisar y preparar la PR manualmente, seleccionar `manual-runtime`.
-   Ejecutar, agregando `--mode <codex|superset|vanilla>` sólo cuando el usuario indique uno y
+   Ejecutar, agregando `--mode <codex|superset|vanilla|conductor-cloud>` sólo cuando el usuario
+   indique uno y
    `--handoff manual-runtime` sólo para esa solicitud explícita:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
-     [--mode <codex|superset|vanilla>] \
+     [--mode <codex|superset|vanilla|conductor-cloud>] \
      [--handoff manual-runtime] \
      [--base <branch>] [--new-run]
    ```
 
 5. Confirmar `modeSource` y `developmentMode` en la respuesta. La detección usa, en orden:
-   `SUPERSET_WORKSPACE_PATH` coincidente, raíces configuradas y componentes inequívocos de la ruta
+   variables oficiales coincidentes de Conductor Cloud, `SUPERSET_WORKSPACE_PATH`, raíces
+   configuradas y componentes inequívocos de la ruta
    como `.codex` o `superset-worktrees`. Si no encuentra ninguna señal, elegir `vanilla` con
    `modeSource: vanilla-fallback`; si detecta señales contradictorias, pedir el modo al usuario. El
    modo determina el workspace y reviewer durante todo el run:
@@ -58,6 +64,9 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    - `vanilla` adopta el checkout/worktree indicado, permite partir desde `origin/<base>`,
      `detached HEAD` seguro o la rama de la issue, conecta la rama de Linear y usa
      `$issue-delivery-cua-review`.
+   - `conductor-cloud` adopta el workspace declarado por Conductor, permite partir desde una rama
+     temporal cuyo HEAD esté preservado en `origin/<base>` o desde la rama de la issue, conecta la rama de Linear y usa
+     `$issue-delivery-playwright-review` con el Chrome ya instalado en el workspace.
 
 6. Publicar inmediatamente en el chat, para runs nuevos y reanudados, los valores exactos de
    `modeDecision` y `state.handoffMode` devueltos por el motor. Usar un mensaje autocontenido como:
@@ -70,8 +79,8 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    ```
 
    No continuar al Grill ni presentar el modo sólo en logs o handoff final. Si `source` es
-   `vanilla-fallback`, decir expresamente que se eligió Vanilla porque no hubo señales Codex o
-   Superset. Si el motor bloquea la adopción del fallback por un checkout dirty, anunciar igualmente
+   `vanilla-fallback`, decir expresamente que se eligió Vanilla porque no hubo señales Codex,
+   Superset o Conductor Cloud. Si el motor bloquea la adopción del fallback por un checkout dirty, anunciar igualmente
    la decisión incluida en el error antes de pedir que se preserven o limpien los cambios.
 7. Usar la branch base del perfil por defecto. En modo Codex, crear una rama inexistente desde el
    último `origin/<base>`; reutilizar la rama local o remota de la issue cuando exista.
@@ -125,7 +134,8 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 3. Invocar `$issue-delivery-implement`, ejecutar la validación enfocada y dejar la branch en su estado final.
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
 5. Invocar siempre el reviewer fijado por el modo: `$issue-delivery-cua-review` en `superset` o
-   `vanilla`, o `$issue-delivery-browser-review` en `codex`, aunque el ajuste sea pequeño o los
+   `vanilla`, `$issue-delivery-browser-review` en `codex`, o
+   `$issue-delivery-playwright-review` en `conductor-cloud`, aunque el ajuste sea pequeño o los
    tests estén verdes.
 6. Si la revisión detecta un fallo, volver a `$issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
@@ -271,6 +281,9 @@ Ejecutar esta sección sólo con `handoffMode=full`.
    - `codex`: no ejecutar `launch-browser`; exigir la app de Codex y Browser disponible,
      e invocar `$issue-delivery-browser-review`. Permitir Playwright headless sólo para una story
      con brecha demostrada de `file-upload` o `hover`, sin cambiar reviewer ni modo.
+   - `conductor-cloud`: no ejecutar `launch-browser`; exigir las variables oficiales de Conductor,
+     Playwright en el repositorio objetivo y Chrome en el workspace, e invocar
+     `$issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
 
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie declarada.
 5. Ningún reviewer edita código. Entregar findings a `$issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
@@ -284,11 +297,14 @@ Ejecutar esta sección sólo con `handoffMode=full`.
    inspeccionar la copia anotada y corregir bounds o captions antes del checkpoint. El motor
    preserva el original.
 
-Leer [headless-assistance.md](references/headless-assistance.md). Mantener el reviewer del modo como
+En modos `codex`, `superset` y `vanilla`, leer
+[headless-assistance.md](references/headless-assistance.md). Mantener el reviewer del modo como
 primera opción para toda story. Si no puede ejecutar `file-upload` o mantener/demostrar un `hover`
 real, demostrar la brecha y activar Playwright headless sólo para esa story. Un resultado
 incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear cuando Playwright tampoco
-pueda cubrirla. No degradar cobertura ni cambiar automáticamente de reviewer o modo.
+pueda cubrirla. En `conductor-cloud`, Playwright con Chrome cubre la story completa como reviewer
+principal y no genera `headlessAssistance`. No degradar cobertura ni cambiar automáticamente de
+reviewer o modo.
 
 Completar la fase con:
 

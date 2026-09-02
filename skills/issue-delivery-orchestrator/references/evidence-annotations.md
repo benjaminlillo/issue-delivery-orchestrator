@@ -11,7 +11,7 @@ sea global y no exista una región honesta que destacar. No combinar ambos.
   "evidenceVersion": 2,
   "verification": {
     "status": "PASS",
-    "provider": "cua-driver",
+    "provider": "<cua-driver|codex-browser|playwright-chrome>",
     "verifiedCommit": "<sha>",
     "runtimeId": "<runtime-id>",
     "verifiedAt": "<ISO-8601>",

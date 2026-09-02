@@ -150,6 +150,22 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(state), "vanilla")
         self.assertEqual(review_method(state), "cua-driver")
 
+    def test_conductor_cloud_mode_selects_playwright_reviewer(self):
+        state = create_state(
+            worktree=self.worktree,
+            run_id="run-conductor",
+            issue={"id": "id", "identifier": "TS-1", "title": "Title"},
+            branch="benjamin/ts-1",
+            base="development",
+            created_from="conductor-cloud:origin/development",
+            adopted_head="abc",
+            identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
+            mode="conductor-cloud",
+        )
+
+        self.assertEqual(run_mode(state), "conductor-cloud")
+        self.assertEqual(review_method(state), "playwright-chrome")
+
     def test_new_mode_cannot_change_reviewer_independently(self):
         with self.assertRaisesRegex(RunBlocked, "fixed by development mode"):
             select_review_method(self.state, "codex-browser")

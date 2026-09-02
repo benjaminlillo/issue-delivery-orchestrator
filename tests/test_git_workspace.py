@@ -181,6 +181,41 @@ class GitWorkspaceTests(unittest.TestCase):
                 "benjamin/ts-17-vanilla-mode",
             )
 
+    def test_conductor_cloud_switches_workspace_to_linear_branch(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            remote = root / "remote.git"
+            seed = root / "seed"
+            checkout = root / "workspace"
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "development", str(seed))
+            git(seed, "config", "user.email", "test@example.com")
+            git(seed, "config", "user.name", "Test")
+            (seed / ".gitignore").write_text(".env\n.local-runtime/\n")
+            (seed / "file.txt").write_text("base\n")
+            git(seed, "add", ".gitignore", "file.txt")
+            git(seed, "commit", "-m", "base")
+            git(seed, "remote", "add", "origin", str(remote))
+            git(seed, "push", "-u", "origin", "development")
+            git(root, "clone", str(remote), str(checkout))
+            git(checkout, "switch", "development")
+            git(checkout, "switch", "-c", "conductor/workspace")
+            (checkout / ".env").write_text("preserve\n")
+
+            workspace = GitWorkspace(checkout)
+            workspace.fetch("development")
+            result = workspace.adopt_conductor_cloud(
+                checkout,
+                "benjamin/ts-18-conductor-cloud",
+                "development",
+                "TS-18",
+            )
+
+            self.assertEqual(result.path, checkout.resolve())
+            self.assertEqual(result.branch, "benjamin/ts-18-conductor-cloud")
+            self.assertEqual(result.created_from, "conductor-cloud:origin/development")
+            self.assertEqual((checkout / ".env").read_text(), "preserve\n")
+
     def test_inferred_vanilla_rejects_dirty_state_without_discarding(self):
         workspace = GitWorkspace(Path("/tmp/repository"))
         dirty = (" M tracked.txt", "?? scratch.txt")

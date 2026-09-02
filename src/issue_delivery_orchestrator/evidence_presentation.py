@@ -40,11 +40,12 @@ def pr_body(
             f"### {asset['storyId']} — {asset['title']}\n\n"
             f"![{asset['title']}]({github_url}){caption}"
         )
-    method = (
-        "Browser integrado de Codex"
-        if provider == "codex-browser"
-        else "Cua Driver"
-    )
+    methods = {
+        "codex-browser": "Browser integrado de Codex",
+        "cua-driver": "Cua Driver",
+        "playwright-chrome": "Playwright con Chrome en Conductor Cloud",
+    }
+    method = methods.get(provider, provider)
     assistance = list(headless_assistance or [])
     if not assistance:
         assistance = [

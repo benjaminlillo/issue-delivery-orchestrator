@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from issue_delivery_orchestrator.cli import (
+    _is_conductor_cloud,
     _mode_decision,
     _new_run_mode,
     _path_mode_markers,
@@ -50,6 +51,13 @@ class CliModeTests(unittest.TestCase):
 
         self.assertEqual(args.mode, "vanilla")
         self.assertEqual(args.worktree, Path("/tmp/checkout"))
+
+    def test_parses_explicit_conductor_cloud_mode(self):
+        args = parser().parse_args(
+            ["TS-1", "--mode", "conductor-cloud", "--worktree", "/tmp/workspace"]
+        )
+
+        self.assertEqual(args.mode, "conductor-cloud")
 
     def test_parses_manual_runtime_handoff(self):
         args = parser().parse_args(
@@ -111,6 +119,31 @@ class CliModeTests(unittest.TestCase):
         with patch.dict(os.environ, {"SUPERSET_WORKSPACE_PATH": "/tmp/superset"}):
             self.assertIsNone(_requested_worktree(None, "vanilla"))
 
+    def test_conductor_cloud_mode_adopts_conductor_workspace(self):
+        with patch.dict(
+            os.environ,
+            {"CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace"},
+            clear=True,
+        ):
+            self.assertEqual(
+                _requested_worktree(None, "conductor-cloud"),
+                Path("/tmp/conductor/workspace"),
+            )
+
+    def test_automatic_mode_adopts_conductor_cloud_workspace(self):
+        with patch.dict(
+            os.environ,
+            {
+                "CONDUCTOR_IS_LOCAL": "0",
+                "CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                _requested_worktree(None, None),
+                Path("/tmp/conductor/workspace"),
+            )
+
     def test_detects_codex_from_path_marker(self):
         configuration = self._settings()
 
@@ -137,6 +170,65 @@ class CliModeTests(unittest.TestCase):
                 ),
                 ("superset", "superset-environment"),
             )
+
+    def test_detects_conductor_cloud_from_official_environment(self):
+        configuration = self._settings()
+        environment = {
+            "CONDUCTOR_IS_LOCAL": "0",
+            "CONDUCTOR_API_URL": "https://api.conductor.build",
+            "CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace",
+            "CONDUCTOR_ROOT_PATH": "/tmp/conductor/workspace",
+        }
+        with patch.dict(os.environ, environment, clear=True):
+            self.assertEqual(
+                _new_run_mode(
+                    None,
+                    Path("/tmp/conductor/workspace"),
+                    configuration,
+                ),
+                ("conductor-cloud", "conductor-cloud-environment"),
+            )
+
+    def test_local_conductor_does_not_select_cloud_mode(self):
+        configuration = self._settings()
+        with patch.dict(
+            os.environ,
+            {
+                "CONDUCTOR_IS_LOCAL": "1",
+                "CONDUCTOR_API_URL": "https://api.conductor.build",
+                "CONDUCTOR_WORKSPACE_PATH": "/tmp/workspace",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                _new_run_mode(None, Path("/tmp/workspace"), configuration),
+                ("vanilla", "vanilla-fallback"),
+            )
+
+    def test_conductor_cloud_requires_matching_workspace(self):
+        with patch.dict(
+            os.environ,
+            {
+                "CONDUCTOR_IS_LOCAL": "0",
+                "CONDUCTOR_API_URL": "https://api.conductor.build",
+                "CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RunBlocked, "does not match Conductor Cloud"):
+                _is_conductor_cloud(Path("/tmp/another-workspace"))
+
+    def test_conductor_cloud_requires_complete_environment(self):
+        with patch.dict(
+            os.environ,
+            {
+                "CONDUCTOR_IS_LOCAL": "0",
+                "CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace",
+            },
+            clear=True,
+        ):
+            with self.assertRaisesRegex(RunBlocked, "requires CONDUCTOR_API_URL"):
+                _is_conductor_cloud(Path("/tmp/conductor/workspace"))
 
     def test_detects_superset_from_path_marker_without_environment(self):
         configuration = self._settings()
@@ -187,6 +279,24 @@ class CliModeTests(unittest.TestCase):
             ),
             ("vanilla", "explicit"),
         )
+
+    def test_explicit_conductor_cloud_still_requires_cloud_environment(self):
+        configuration = self._settings()
+
+        with self.assertRaisesRegex(RunBlocked, "requires CONDUCTOR_API_URL"):
+            with patch.dict(
+                os.environ,
+                {
+                    "CONDUCTOR_IS_LOCAL": "0",
+                    "CONDUCTOR_WORKSPACE_PATH": "/tmp/conductor/workspace",
+                },
+                clear=True,
+            ):
+                _new_run_mode(
+                    "conductor-cloud",
+                    Path("/tmp/conductor/workspace"),
+                    configuration,
+                )
 
     def test_mode_decision_exposes_values_required_for_chat_announcement(self):
         decision = _mode_decision(
