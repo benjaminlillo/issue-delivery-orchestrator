@@ -6,6 +6,7 @@ from unittest.mock import patch
 from issue_delivery_orchestrator.cli import (
     _is_conductor_cloud,
     _mode_decision,
+    _new_run_routing,
     _new_run_mode,
     _path_mode_markers,
     _requested_worktree,
@@ -16,6 +17,18 @@ from issue_delivery_orchestrator.errors import RunBlocked
 
 
 class CliModeTests(unittest.TestCase):
+    def test_new_runs_default_to_development_and_test(self):
+        self.assertEqual(
+            _new_run_routing(None, None),
+            ("development", "test"),
+        )
+
+    def test_explicit_prompt_routing_overrides_both_defaults(self):
+        self.assertEqual(
+            _new_run_routing("main", "production"),
+            ("main", "production"),
+        )
+
     def test_turboshop_review_waits_for_ten_quiet_minutes(self):
         profile = (
             Path(__file__).resolve().parents[1]
@@ -71,6 +84,14 @@ class CliModeTests(unittest.TestCase):
         )
 
         self.assertEqual(args.handoff, "manual-runtime")
+
+    def test_parses_explicit_base_and_target(self):
+        args = parser().parse_args(
+            ["TS-1", "--base", "main", "--target", "staging"]
+        )
+
+        self.assertEqual(args.base, "main")
+        self.assertEqual(args.target, "staging")
 
     def test_parses_runtime_reset_handoff_and_full_resume(self):
         reset = parser().parse_args(["TS-1", "runtime-reset"])
@@ -302,6 +323,8 @@ class CliModeTests(unittest.TestCase):
         decision = _mode_decision(
             {
                 "worktree": "/tmp/worktree",
+                "base": "development",
+                "target": "test",
                 "mode": {"name": "vanilla"},
                 "reviewer": {"method": "cua-driver"},
             },
@@ -314,6 +337,8 @@ class CliModeTests(unittest.TestCase):
                 "mode": "vanilla",
                 "source": "vanilla-fallback",
                 "reviewer": "cua-driver",
+                "base": "development",
+                "target": "test",
                 "worktree": str(Path("/tmp/worktree").resolve()),
             },
         )

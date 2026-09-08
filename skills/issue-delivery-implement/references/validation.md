@@ -36,8 +36,9 @@ Si un target requiere flags focalizados ya usados por el repositorio, conservar 
 
 ## Atribución a la branch target
 
-Ante una falla remota o dudosa, leer la branch target desde el perfil y reproducir el mismo comando
-sobre su SHA exacto integrado en un checkout desechable dentro del directorio del run. Clasificar:
+Ante una falla remota o dudosa, leer la branch target desde el estado persistido del run y
+reproducir el mismo comando sobre su SHA exacto integrado en un checkout desechable dentro del
+directorio del run. Clasificar:
 
 - `branch-caused`: sólo falla con la branch, o la branch lo agrava.
 - `base-failure`: mismo fallo y firma en el target integrado.

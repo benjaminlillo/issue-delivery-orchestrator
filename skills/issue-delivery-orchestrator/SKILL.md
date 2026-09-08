@@ -19,16 +19,18 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    del usuario o detectarlo desde el worktree actual:
 
    - `codex`: iniciar el chat en la app de Codex con **Worktree** seleccionado y elegir la base
-     solicitada, o la `defaultBase` del perfil. Codex crea el worktree antes de ejecutar el loop.
+     solicitada, o `development` cuando el prompt no indique otra. Codex crea el worktree antes de ejecutar el loop.
      Fijar el chat hasta el merge y cleanup final.
    - `superset`: crear en Superset el worktree sobre la rama entregada por Linear y abrir la sesión
-     dentro de ese workspace.
+     dentro de ese workspace. Al crearla, usar `development` como base salvo override explícito del
+     prompt.
    - `vanilla`: iniciar Codex CLI directamente en un checkout o worktree ya preparado por el
-     usuario o su herramienta habitual. Ejecutar el setup local del repositorio antes del loop y
-     seleccionar siempre `--mode vanilla`.
+     usuario o su herramienta habitual, basado en `development` salvo override explícito. Ejecutar
+     el setup local del repositorio antes del loop y seleccionar siempre `--mode vanilla`.
    - `conductor-cloud`: iniciar la sesión dentro del workspace cloud que Conductor ya creó. El
      entorno debe exponer `CONDUCTOR_IS_LOCAL=0`, `CONDUCTOR_API_URL` y
-     `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH`; el loop adopta ese workspace y no crea otro.
+     `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH`; usar `development` como base de creación
+     salvo override explícito. El loop adopta ese workspace y no crea otro.
 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
    conservar esa ruta absoluta. No iniciar modo `codex` desde Local, modo `superset` desde otro
@@ -47,7 +49,7 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
      [--mode <codex|superset|vanilla|conductor-cloud>] \
      [--handoff manual-runtime] \
-     [--base <branch>] [--new-run]
+     --base <branch-base> --target <branch-target> [--new-run]
    ```
 
 5. Confirmar `modeSource` y `developmentMode` en la respuesta. La detección usa, en orden:
@@ -75,6 +77,7 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    Modo decidido: <mode> (fuente: <source>).
    Reviewer: <reviewer>.
    Handoff: <full|manual-runtime>.
+   Routing: <base> -> <target>.
    Worktree adoptado: <worktree>.
    ```
 
@@ -82,8 +85,12 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    `vanilla-fallback`, decir expresamente que se eligió Vanilla porque no hubo señales Codex,
    Superset o Conductor Cloud. Si el motor bloquea la adopción del fallback por un checkout dirty, anunciar igualmente
    la decisión incluida en el error antes de pedir que se preserven o limpien los cambios.
-7. Usar la branch base del perfil por defecto. En modo Codex, crear una rama inexistente desde el
-   último `origin/<base>`; reutilizar la rama local o remota de la issue cuando exista.
+7. Resolver y anunciar el routing antes de continuar. Si el prompt no indica explícitamente otra
+   rama, usar `base=development` y `target=test`; pasar siempre ambos valores al CLI. No inferirlos
+   desde la branch actual, la default branch de GitHub, el perfil ni el contexto de una sesión
+   anterior. Sólo una instrucción explícita del usuario en el prompt autoriza otro `--base` u otro
+   `--target`. En modo Codex, crear una rama inexistente desde el último `origin/<base>`; reutilizar
+   la rama local o remota de la issue cuando exista, sin reescribir su historia.
 8. No cambiar modo, worktree ni reviewer después de crear el run. Obedecer `currentPhase`,
    `developmentMode` y `reviewerMethod`; no recrear un run preservado.
    En modo Codex, no usar Handoff a Local: el estado ignorado bajo `.local-runtime` debe permanecer
@@ -207,7 +214,7 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase refactor
 
 ## 4. Integrar la branch objetivo
 
-Leer `pr_target_branch` desde `issue-delivery config`. Ejecutar `git fetch origin <target>` y
+Leer `target` desde el estado persistido del run. Ejecutar `git fetch origin <target>` y
 mergear `origin/<target>` antes de revisión manual, incluso si la rama nació desde otra base.
 Resolver conflictos preservando spec y comportamiento de ambas ramas. Revalidar los proyectos
 afectados.
@@ -317,12 +324,17 @@ El checkpoint vuelve a preparar y validar las anotaciones.
 
 ## 6. PR
 
-Crear el body dentro del run y ejecutar:
+Crear el body dentro del run y ejecutar exclusivamente mediante el motor:
 
 ```bash
 python3 <plugin-root>/scripts/issue-delivery <issue> ensure-pr --body-file <ruta>
 python3 <plugin-root>/scripts/issue-delivery <issue> publish-evidence --manifest <ruta>
 ```
+
+No ejecutar `gh pr create`, una API de GitHub ni otro fallback directamente. Antes y después de
+`ensure-pr`, confirmar que `state.target` coincide con el routing anunciado; el motor debe bloquear
+si la PR resultante no apunta exactamente a ese target. Sin override explícito del prompt, exigir
+`target=test`; nunca aceptar silenciosamente `main` por ser la default branch de GitHub.
 
 Publicar cada PNG anotado en dos destinos distintos:
 
@@ -343,7 +355,7 @@ python3 <plugin-root>/scripts/issue-delivery <issue> repair-evidence-links
 
 Este comando debe rehostear exactamente las PNG ya aceptadas y actualizar el comentario idempotente; no autoriza a sustituirlas por capturas distintas.
 
-La PR debe ser normal, no draft, siempre hacia la branch target del perfil, sin asignar reviewers.
+La PR debe ser normal, no draft, siempre hacia `state.target`, sin asignar reviewers.
 Reutilizar una PR abierta compatible. Una PR cerrada sin merge requiere decisión; una ya mergeada
 exige issue/branch de seguimiento.
 

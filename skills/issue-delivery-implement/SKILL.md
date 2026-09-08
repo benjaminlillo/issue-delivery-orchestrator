@@ -37,7 +37,7 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 5. Ejecutar unit tests sólo para proyectos afectados que los expongan.
 6. No ejecutar lint, E2E ni validación de todo el repo salvo comando focalizado explícito del ticket.
 7. Reparar y repetir hasta tres ciclos. Si sigue rojo, devolver `BLOCKED` con logs reales.
-8. No reparar fallos demostrablemente presentes en el SHA integrado de la branch target del perfil;
+8. No reparar fallos demostrablemente presentes en el SHA integrado de la branch target del run;
    reportarlos como base failures.
 
 ## Reparaciones posteriores a Implement

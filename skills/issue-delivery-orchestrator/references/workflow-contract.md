@@ -7,7 +7,7 @@
 | `grill` | Issue, repo, AGENTS, diseños | Spec y tickets aprobados/publicados |
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
 | `refactor` | Diff de implementación | Cumplimiento AGENTS y gates de arquitectura validado |
-| `merge-target` | Último `origin/<target>` del perfil | Merge resuelto y validado |
+| `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
 | `pr-creation` | Commits y evidencias | PR no draft hacia `<target>` |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
@@ -57,7 +57,8 @@ activos sólo los procesos del runtime final fresco para la prueba del usuario.
   600 segundos de quietud, 1200 segundos de espera máxima por observación y polling cada 15
   segundos. Las reparaciones remotas se autorizan en bloques de 5 `headSha` nuevos con al menos un
   `FIX`.
-- Target de PR: siempre `git.prTarget` del perfil activo.
+- Routing por defecto: toda branch nueva nace desde `development` y toda PR apunta a `test`.
+  Sólo una instrucción explícita del prompt permite otro base o target; ambos se persisten en el run.
 
 Al alcanzar el límite de reparación por ticket o UI, detener procesos propios, conservar estado y
 bloquear. Al agotar un bloque remoto, solicitar decisión del usuario; una aprobación explícita
@@ -189,6 +190,10 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   Sin coincidencias selecciona Vanilla con
   `modeSource=vanilla-fallback`. Una detección contradictoria bloquea. El modo no cambia después de
   crear el estado.
+- El CLI usa `--base development --target test` por defecto, persiste `base` y `target`, y los
+  publica en `status`. El skill debe pasar ambos explícitamente después de resolver el prompt. No
+  usar la default branch remota, el perfil ni la branch actual como fallback. Los runs existentes
+  conservan su routing persistido; un estado legacy sin `target` conserva el target de su perfil.
 - Modo `codex`: la app crea primero un worktree del chat, normalmente detached; el CLI lo adopta,
   conecta la rama local/remota de Linear o crea la rama desde `origin/<base>`, y fija
   `reviewer.method=codex-browser`. Fijar el chat y no archivarlo ni hacer Handoff a Local antes del
@@ -228,6 +233,9 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   `discardedInitialStatus` conserva la auditoría de lo eliminado.
 - `python3 <plugin-root>/scripts/issue-delivery <issue>` descubre runs actuales en todos los worktrees Git
   registrados, y reanuda el más reciente preservado.
+- `ensure-pr` es la única vía autorizada para crear la PR. Usa `state.target` como `gh pr create
+  --base`, filtra PRs existentes por ese mismo target y rechaza cualquier head/base distinto. No
+  ejecutar `gh pr create` directamente ni permitir que GitHub elija `main` por omisión.
 - Un run existente nunca cambia de worktree por una actualización del orquestador.
 - Después de iniciar o reanudar, anunciar inmediatamente en el chat `modeDecision.mode`,
   `modeDecision.source`, `modeDecision.reviewer` y `modeDecision.worktree`. No continuar al Grill

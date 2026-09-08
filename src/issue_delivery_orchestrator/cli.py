@@ -10,7 +10,13 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .config import DEFAULT_CONFIG_HOME, Settings, settings
+from .config import (
+    DEFAULT_BASE_BRANCH,
+    DEFAULT_CONFIG_HOME,
+    DEFAULT_PR_TARGET_BRANCH,
+    Settings,
+    settings,
+)
 from .credentials import CredentialProvider
 from .errors import IdentityMismatch, OrchestrationError, RunBlocked
 from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
@@ -56,6 +62,7 @@ from .state import (
     run_root,
     save_state,
     select_review_method,
+    target_branch,
     now,
 )
 from .util import ensure_within, run
@@ -69,8 +76,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("issue", help="Linear issue ID or URL")
     result.add_argument(
         "--base",
-        default=configuration.default_base_branch,
-        help="Base branch for a new issue branch",
+        help=f"Base branch for a new issue branch; defaults to {DEFAULT_BASE_BRANCH}",
+    )
+    result.add_argument(
+        "--target",
+        help=f"Target branch for the pull request; defaults to {DEFAULT_PR_TARGET_BRANCH}",
     )
     result.add_argument("--new-run", action="store_true", help="Create a distinct run")
     result.add_argument("--run-id", help="Select an existing run explicitly")
@@ -411,6 +421,16 @@ def bootstrap(
     requested_worktree = _requested_worktree(args.worktree, args.mode)
     previous = resumable_run(worktrees, issue.identifier, registered_worktrees)
     if previous and not args.new_run:
+        if args.base and args.base != previous["base"]:
+            raise RunBlocked(
+                f"Run {previous['runId']} already uses base {previous['base']}; "
+                "branch routing cannot change during resume"
+            )
+        if args.target and args.target != target_branch(previous):
+            raise RunBlocked(
+                f"Run {previous['runId']} already targets {target_branch(previous)}; "
+                "branch routing cannot change during resume"
+            )
         if args.mode and args.mode != run_mode(previous):
             raise RunBlocked(
                 f"Run {previous['runId']} already uses {run_mode(previous)} mode; "
@@ -465,21 +485,22 @@ def bootstrap(
         requested_worktree,
         configuration,
     )
+    base, target = _new_run_routing(args.base, args.target)
 
     run_id = new_run_id()
-    workspace.fetch(args.base)
+    workspace.fetch(base)
     if mode == "codex":
         worktree = workspace.adopt_codex(
             requested_worktree,
             issue.branch_name,
-            args.base,
+            base,
             issue.identifier,
         )
     elif mode == "vanilla":
         worktree = workspace.adopt_vanilla(
             requested_worktree,
             issue.branch_name,
-            args.base,
+            base,
             issue.identifier,
             allow_discard=mode_source != "vanilla-fallback",
         )
@@ -487,7 +508,7 @@ def bootstrap(
         worktree = workspace.adopt_conductor_cloud(
             requested_worktree,
             issue.branch_name,
-            args.base,
+            base,
             issue.identifier,
         )
     else:
@@ -501,7 +522,8 @@ def bootstrap(
         run_id=run_id,
         issue=asdict(issue),
         branch=issue.branch_name,
-        base=args.base,
+        base=base,
+        target=target,
         created_from=worktree.created_from,
         adopted_head=worktree.adopted_head,
         adopted_status=worktree.adopted_status,
@@ -534,14 +556,14 @@ def ensure_pull_request(
     if not body_file.is_file():
         raise OrchestrationError(f"PR body file not found: {body_file}")
     linear, _ = _verified_linear()
-    github = GitHubClient(worktree)
+    target = target_branch(state)
+    github = GitHubClient(worktree, pr_target=target)
     github.verify_identity()
     branch = run(["git", "branch", "--show-current"], cwd=worktree).stdout.strip()
     if branch != state["branch"]:
         raise RunBlocked(f"Expected branch {state['branch']}, got {branch}")
 
     run(["git", "push", "-u", "origin", branch], cwd=worktree)
-    target = github.pr_target
     open_prs = github.find(branch, target, "open")
     created = False
     if open_prs:
@@ -692,6 +714,16 @@ def _requested_worktree(explicit: Path | None, mode: str | None) -> Path | None:
         return Path(raw) if raw else None
     raw = os.environ.get("SUPERSET_WORKSPACE_PATH")
     return Path(raw) if raw else None
+
+
+def _new_run_routing(
+    explicit_base: str | None,
+    explicit_target: str | None,
+) -> tuple[str, str]:
+    return (
+        explicit_base or DEFAULT_BASE_BRANCH,
+        explicit_target or DEFAULT_PR_TARGET_BRANCH,
+    )
 
 
 def _new_run_mode(
@@ -851,6 +883,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "title": state["issue"]["title"],
         "branch": state["branch"],
         "base": state["base"],
+        "target": target_branch(state),
         "worktree": state["worktree"],
         "workspaceMode": (
             "adopted"
@@ -884,6 +917,8 @@ def _mode_decision(
         "mode": run_mode(state),
         "source": source,
         "reviewer": review_method(state),
+        "base": state["base"],
+        "target": target_branch(state),
         "worktree": str(Path(state["worktree"]).resolve()),
     }
 

@@ -6,10 +6,41 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from issue_delivery_orchestrator.github import GitHubClient
+from issue_delivery_orchestrator.github import GitHubClient, PullRequest
 
 
 class GitHubEvidenceTests(unittest.TestCase):
+    def test_explicit_run_target_overrides_profile_target(self):
+        client = GitHubClient(Path("/tmp"), pr_target="test")
+
+        self.assertEqual(client.pr_target, "test")
+
+    def test_create_passes_persisted_target_to_github(self):
+        client = GitHubClient(Path("/tmp"), pr_target="test")
+        created = PullRequest(
+            number=1,
+            url="https://github.com/example/repo/pull/1",
+            state="OPEN",
+            merged_at=None,
+            is_draft=False,
+            head="feature",
+            base="test",
+        )
+        result = SimpleNamespace(
+            returncode=0,
+            stdout=f"{created.url}\n",
+            stderr="",
+        )
+
+        with (
+            patch("issue_delivery_orchestrator.github.run", return_value=result) as runner,
+            patch.object(client, "view", return_value=created),
+        ):
+            client.create("feature", "Title", Path("/tmp/body.md"))
+
+        command = runner.call_args.args[0]
+        self.assertEqual(command[command.index("--base") + 1], "test")
+
     def test_detects_current_user_reaction(self):
         client = GitHubClient(Path("/tmp"), expected_login="benjaminlillo")
         reactions = [

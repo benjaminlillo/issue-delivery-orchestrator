@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from .config import settings
+from .config import DEFAULT_PR_TARGET_BRANCH, settings
 from .errors import OrchestrationError, RunBlocked
 from .util import atomic_write_json, read_json
 
@@ -73,6 +73,7 @@ def create_state(
     mode: str = "superset",
     handoff: str = "full",
     profile: dict[str, Any] | None = None,
+    target: str = DEFAULT_PR_TARGET_BRANCH,
 ) -> dict[str, Any]:
     if mode not in DEVELOPMENT_MODES:
         raise OrchestrationError(f"Unsupported development mode: {mode}")
@@ -101,6 +102,7 @@ def create_state(
         "issue": issue,
         "branch": branch,
         "base": base,
+        "target": target,
         "createdFrom": created_from,
         "adoptedHead": adopted_head,
         "adoptedStatus": list(adopted_status),
@@ -276,6 +278,16 @@ def handoff_mode(state: dict[str, Any]) -> str:
     if mode not in HANDOFF_MODES:
         raise OrchestrationError(f"Run has unsupported handoff mode: {mode}")
     return mode
+
+
+def target_branch(state: dict[str, Any]) -> str:
+    stored_target = str(state.get("target") or "").strip()
+    if stored_target:
+        return stored_target
+    profile_target = str(
+        (state.get("profile") or {}).get("pr_target_branch") or ""
+    ).strip()
+    return profile_target or settings().pr_target_branch
 
 
 def review_method(state: dict[str, Any]) -> str:

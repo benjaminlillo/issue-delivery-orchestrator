@@ -21,10 +21,15 @@ It supports four fixed workspace modes:
   the target repository's existing Playwright installation and the workspace's system Chrome.
 
 The orchestrator never creates a worktree. Start the session in a worktree prepared by Codex,
-Superset, Conductor Cloud, or the user's normal Git tooling. Vanilla users must run the repository's local setup
+Superset, Conductor Cloud, or the user's normal Git tooling. Unless the prompt explicitly requests
+another source, prepare it from `development`. Vanilla users must run the repository's local setup
 before starting the loop. A new run cleans tracked changes and untracked, non-ignored files before
 adoption while preserving ignored `.env`, dependency, and runtime files. Existing runs are never
 cleaned when resumed.
+
+New runs use `development` as their base branch and `test` as their pull-request target. A different
+base or target must be explicitly requested and is then persisted for the whole run; GitHub's
+default branch is never used implicitly.
 
 ## Included skills
 
@@ -184,8 +189,9 @@ python3 scripts/issue-delivery config
 ```
 
 The default profile is [`profiles/turboshop.json`](profiles/turboshop.json). Point
-`ISSUE_DELIVERY_PROFILE` at another JSON profile to adapt base/target branches, Local Runtime
-commands, review bots, evidence branch, and Linear markers without changing the engine.
+`ISSUE_DELIVERY_PROFILE` at another JSON profile to adapt Local Runtime commands, review bots,
+evidence branch, and Linear markers without changing the engine. New-run base and PR target are
+selected from the prompt through `--base` and `--target`, with `development` and `test` as defaults.
 
 Remote review observations do not consume a fixed round limit. The profile's
 `review.repairBatchSize` controls how many distinct pushed FIX revisions are authorized at once
@@ -216,6 +222,13 @@ To request the manual review handoff when starting a new run:
 ```bash
 python3 scripts/issue-delivery TS-123 --worktree /absolute/product/worktree \
   --handoff manual-runtime
+```
+
+The equivalent full-delivery routing is explicit and defaults to:
+
+```bash
+python3 scripts/issue-delivery TS-123 --worktree /absolute/product/worktree \
+  --base development --target test
 ```
 
 The conversational skill first stops all registered runtime processes, cleans the previous runtime

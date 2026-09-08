@@ -12,6 +12,8 @@ from .errors import OrchestrationError
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROFILE = PLUGIN_ROOT / "profiles" / "turboshop.json"
 DEFAULT_CONFIG_HOME = Path.home() / ".config" / "issue-delivery-orchestrator"
+DEFAULT_BASE_BRANCH = "development"
+DEFAULT_PR_TARGET_BRANCH = "test"
 
 
 @dataclass(frozen=True)

@@ -15,6 +15,7 @@ from issue_delivery_orchestrator.state import (
     run_mode,
     run_root,
     select_review_method,
+    target_branch,
 )
 
 
@@ -46,6 +47,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(self.state), "superset")
         self.assertEqual(review_method(self.state), "cua-driver")
         self.assertEqual(handoff_mode(self.state), "full")
+        self.assertEqual(target_branch(self.state), "test")
         self.assertEqual(self.state["discardedInitialStatus"], [])
         self.assertEqual(self.state["reviewRepairBudget"]["approvedRepairs"], 5)
         self.assertEqual(self.state["reviewRepairBudget"]["repairs"], [])
@@ -149,6 +151,27 @@ class StateTests(unittest.TestCase):
 
         self.assertEqual(run_mode(state), "vanilla")
         self.assertEqual(review_method(state), "cua-driver")
+
+    def test_explicit_pr_target_is_persisted(self):
+        state = create_state(
+            worktree=self.worktree,
+            run_id="run-custom-target",
+            issue={"id": "id", "identifier": "TS-1", "title": "Title"},
+            branch="benjamin/ts-1",
+            base="main",
+            target="production",
+            created_from="origin/main",
+            adopted_head="abc",
+            identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
+        )
+
+        self.assertEqual(target_branch(state), "production")
+
+    def test_legacy_state_preserves_profile_target(self):
+        self.state.pop("target")
+        self.state["profile"] = {"pr_target_branch": "staging"}
+
+        self.assertEqual(target_branch(self.state), "staging")
 
     def test_conductor_cloud_mode_selects_playwright_reviewer(self):
         state = create_state(
