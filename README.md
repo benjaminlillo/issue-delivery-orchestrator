@@ -3,6 +3,11 @@
 A Codex plugin for taking a Linear issue through specification, ticket slicing, implementation,
 focused validation, manual UI review, pull request creation, and automated review convergence.
 
+Grill extracts the applicable architectural constraints from repository instructions, accepted
+ADRs, context maps, and domain documentation into the approved spec. Refactor begins with a
+conformance gate against that contract, repairing branch-caused violations and pausing for a user
+decision when the spec or sources conflict.
+
 The default `full` delivery target runs that complete flow. An explicit `manual-runtime` target
 stops after implementation, refactor, and target-branch integration so the user can review the UI
 and prepare the PR manually. Both targets finish by stopping the runtime used during work or

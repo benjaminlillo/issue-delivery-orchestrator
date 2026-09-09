@@ -72,10 +72,12 @@ not because implementation is difficult.
 2. Produce the smallest independently committable tickets that preserve dependency order.
 3. Cover every `Now` requirement and user story exactly where it is implemented; do not turn the
    fixed final UI-review phase into an implementation ticket.
-4. Use unique sequential IDs, valid dependency references and at least one focused validation
+4. Preserve the spec's `Architecture Constraints`. Reference the constraints relevant to each
+   ticket in `Implementation Notes`; do not reinterpret, weaken or duplicate them as new scope.
+5. Use unique sequential IDs, valid dependency references and at least one focused validation
    command per AFK ticket.
-5. Present the complete breakdown and obtain explicit approval before publishing.
-6. Immediately call out every HITL ticket with ID, title, reason, required action, dependencies and
+6. Present the complete breakdown and obtain explicit approval before publishing.
+7. Immediately call out every HITL ticket with ID, title, reason, required action, dependencies and
    approximate pause point.
 
 ## Publication contract

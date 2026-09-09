@@ -162,14 +162,18 @@ flujo automático, ejecutar `resume --full-delivery`; desde ese momento vuelve a
 
 ## 1. Grill
 
-1. Leer la issue, el repositorio y todos los `AGENTS.md` aplicables.
+1. Leer la issue, el repositorio, todos los `AGENTS.md` aplicables, ADRs aceptados, context maps y
+   documentación arquitectónica del dominio afectado.
 2. Invocar `$issue-delivery-grill` en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
 3. Si existe Figma, inspeccionarlo mediante su MCP. Si no es accesible, bloquear antes de implementar, salvo que el usuario entregue explícitamente un PNG o PDF como fallback.
 4. Etiquetar cada user story con una superficie verificable: `UI`, `API-assembled` o `command-test`.
-5. Obtener aprobación explícita del spec y del desglose.
-6. Invocar, en orden, `$issue-delivery-spec-publisher` y `$issue-delivery-ticket-publisher`.
-7. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
-8. Guardar snapshots aprobados dentro del run y completar:
+5. Exigir en el spec la tabla canónica `Architecture Constraints`, con fuente, regla,
+   aplicabilidad y verificación de Refactor para cada restricción material. Resolver antes de la
+   aprobación cualquier contradicción entre el spec y las fuentes del repositorio.
+6. Obtener aprobación explícita del spec y del desglose.
+7. Invocar, en orden, `$issue-delivery-spec-publisher` y `$issue-delivery-ticket-publisher`.
+8. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
+9. Guardar snapshots aprobados dentro del run y completar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase grill \
@@ -198,6 +202,16 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase implemen
 Leer [refactor-review.md](references/refactor-review.md) completamente. Revisar el diff de
 implementación contra los `AGENTS.md` aplicables y ejecutar cada gate de esa referencia.
 
+- Ejecutar primero el gate de conformidad arquitectónica contra el spec aprobado, sus
+  `Architecture Constraints`, los `AGENTS.md`, ADRs aceptados y documentación citada.
+- Clasificar cada hallazgo como `PASS`, `FIX`, `NEEDS_USER_DECISION` u `OUT_OF_SCOPE`. Reparar sólo
+  los `FIX`; si existe `NEEDS_USER_DECISION`, registrar `block --decision` y pausar sin completar
+  Refactor.
+- No rediseñar ni reinterpretar el spec durante Refactor. Una corrección que cambie comportamiento,
+  scope o una decisión aprobada requiere volver al usuario y reconciliar el spec antes de editar.
+- Para una spec legacy aprobada antes de este contrato y sin `Architecture Constraints`, construir
+  el snapshot local descrito en la referencia. No modificar Linear silenciosamente ni convertir
+  inferencias en decisiones aprobadas.
 - Allowlist: archivos cambiados por la implementación de este run y por commits preexistentes adoptados de la issue.
 - Salir del allowlist sólo para corregir una violación concreta de `AGENTS.md`; registrar regla, archivo y razón.
 - No hacer refactors especulativos.

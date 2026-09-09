@@ -30,11 +30,40 @@ archivo de producto que originó el cambio y la referencia concreta que debió a
 
 1. Construir el scope de Refactor desde los archivos de producto del diff de implementación y los
    commits adoptados de la issue. Mantener los tests en un conjunto separado de alineación.
-2. Identificar archivos de producto creados y modificados, su cantidad de líneas actual y, para
+2. Leer el spec aprobado completo y extraer su tabla `Architecture Constraints`. Releer todos los
+   `AGENTS.md`, ADRs aceptados, context maps y documentos citados por esas filas; registrar paths y
+   revisiones inspeccionadas. Para una spec legacy que no tenga la tabla, crear un snapshot local
+   bajo el directorio ignorado del run con esas fuentes y sólo las decisiones arquitectónicas ya
+   explícitas en el spec. No actualizar Linear ni inferir decisiones nuevas; cualquier ambigüedad
+   material es `NEEDS_USER_DECISION`.
+3. Identificar archivos de producto creados y modificados, su cantidad de líneas actual y, para
    archivos existentes, su cantidad de líneas en el baseline anterior al run.
-3. Clasificar los archivos de producto por responsabilidad: controller, service, repository,
+4. Clasificar los archivos de producto por responsabilidad: controller, service, repository,
    helper/utilidad, componente u otro.
-4. Inspeccionar implementaciones y llamadas reales; no aprobar por nombre de archivo.
+5. Inspeccionar implementaciones y llamadas reales; no aprobar por nombre de archivo.
+
+## Gate de conformidad arquitectónica
+
+Ejecutar este gate antes de los gates de capas, helpers, diseño y tamaño. Comparar el diff completo
+con cada `Architecture Constraint`, los `AGENTS.md` aplicables y las fuentes citadas. No usar esta
+fase para inventar una arquitectura mejor ni reabrir decisiones aprobadas.
+
+Registrar cada hallazgo con una de estas decisiones:
+
+- `PASS`: la implementación cumple la restricción y su verificación declarada.
+- `FIX`: la implementación introdujo o agravó una infracción objetiva y puede corregirse dentro
+  del spec, sin alterar comportamiento observable, scope ni una decisión aprobada.
+- `NEEDS_USER_DECISION`: el spec contradice una fuente aplicable, dos fuentes relevantes se
+  contradicen, o corregir exigiría cambiar comportamiento, scope o una decisión aprobada. No editar
+  para resolverlo unilateralmente; bloquear Refactor y pedir la decisión.
+- `OUT_OF_SCOPE`: la infracción es preexistente y no fue causada ni agravada por el run. Registrar
+  evidencia baseline/final y no repararla.
+
+Corregir cada `FIX`, repetir unit tests y typecheck afectados y volver a ejecutar este gate. Un
+`FIX` resuelto queda registrado con su commit y resultado final `PASS`. `OUT_OF_SCOPE` no habilita
+refactors vecinos. Este gate no amplía el allowlist: sólo una violación concreta de `AGENTS.md`
+permite modificar un archivo externo; cualquier otra reparación que lo requiera pasa a
+`NEEDS_USER_DECISION`.
 
 ## Gate de capas
 
@@ -123,6 +152,7 @@ Guardar un recibo Markdown bajo
 
 | Gate | Resultado | Evidencia | Cambios realizados |
 | --- | --- | --- | --- |
+| Conformidad arquitectónica | PASS | Constraints y fuentes inspeccionadas | FIX resueltos o None |
 | Controllers | PASS / FIXED / NOT_APPLICABLE | Paths y símbolos | Resumen |
 | Services | PASS / FIXED / NOT_APPLICABLE | Paths y símbolos | Resumen |
 | Repositories | PASS / FIXED / NOT_APPLICABLE | Paths y símbolos | Resumen |
@@ -132,6 +162,9 @@ Guardar un recibo Markdown bajo
 
 Incluir además:
 
+- ledger de hallazgos arquitectónicos con ID, constraint/fuente, código afectado, decisión
+  (`PASS`, `FIX`, `NEEDS_USER_DECISION`, `OUT_OF_SCOPE`), razón y resolución/commit;
+- indicación de contrato canónico o snapshot legacy y, para este último, path del snapshot local;
 - allowlist final;
 - tests excluidos del Refactor y tests ajustados únicamente para alinear referencias;
 - excepciones y exclusiones justificadas;
@@ -139,5 +172,5 @@ Incluir además:
 - comandos de unit tests y typecheck ejecutados después del último refactor;
 - resultado final y validaciones no ejecutadas.
 
-No emitir el checkpoint de Refactor mientras exista un gate `FAIL`, una excepción sin fuente o una
-validación atribuible al refactor pendiente.
+No emitir el checkpoint de Refactor mientras exista un gate `FAIL`, `FIX` sin resolver,
+`NEEDS_USER_DECISION`, una excepción sin fuente o una validación atribuible al refactor pendiente.

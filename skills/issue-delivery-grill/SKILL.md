@@ -16,7 +16,7 @@ Return the canonical spec in the conversation unless the user explicitly request
 
 ## Build repository awareness
 
-Read every applicable `AGENTS.md` before evaluating the proposal. Resolve the repository root, then inspect the relevant context map, domain documentation, ADRs, source task, owning code, schemas, routes, and existing tests.
+Read every applicable `AGENTS.md` before evaluating the proposal. Resolve the repository root, then inspect the relevant context map, domain documentation, accepted ADRs, source task, owning code, schemas, routes, and existing tests. Record the exact repository-relative path of each architectural source that materially constrains the change.
 
 Use repository exploration to answer factual questions instead of asking the user. Verify claims about current behavior and use canonical terminology from the code and documentation. Distinguish verified facts, user decisions, and inferences; never turn an inference into an agreed requirement.
 
@@ -85,7 +85,17 @@ this fixed closure phase into a separate implementation ticket.
 
 Define a high-level implementation architecture sufficient for an autonomous implementer. Cover the relevant owner, boundary, data flow, persistence, authorization, failure behavior, rollout, and testing decisions without prescribing a file-by-file patch.
 
-Call out conflicts with repository standards immediately. Prefer existing module boundaries and naming. Do not produce a premature architecture summary while blocking decisions remain unresolved.
+Extract the applicable architectural constraints from `AGENTS.md`, accepted ADRs, context maps and
+domain documentation. Treat an existing code pattern as evidence, not automatically as a rule.
+For every material constraint, record its source, the concrete rule, the part of the change it
+governs and how Refactor can verify it from the final diff. Do not copy unrelated repository
+guidance into the spec.
+
+Call out conflicts between the proposal, user choices and repository sources immediately. Apply
+the most specific applicable `AGENTS.md`; never silently override it from the spec. Resolve
+conflicting or obsolete documentation with the user before approval, or move dependent behavior
+out of `Now`. Prefer existing module boundaries and naming. Do not produce a premature architecture
+summary while blocking decisions remain unresolved.
 
 At the end of the interview, summarize the agreed architecture and compare it with the original source task. Surface obsolete requirements, changed invariants, new constraints, resolved ambiguities, API or data-model changes, permission or audit implications, and newly excluded scope.
 
@@ -129,6 +139,12 @@ transaction, error-handling, rollout, migration, and compatibility decisions.>
 | --- | --- | --- | --- | --- | --- |
 | ... | ... | ... | ... | ... | ... |
 
+## Architecture Constraints
+
+| Source | Constraint | Applies to | Refactor verification |
+| --- | --- | --- | --- |
+| `<repository-relative path or approved spec decision>` | ... | ... | ... |
+
 ## Testing Decisions
 
 | Risk owner | Existing evidence | Decision | Lowest sufficient seam | Unique signal | Superseded test |
@@ -142,7 +158,8 @@ transaction, error-handling, rollout, migration, and compatibility decisions.>
 <Source links, UI validation flows, screenshot expectations, rollout notes, or None.>
 ```
 
-Keep the exact `Testing Decisions` table header because the orchestrator validates it. Keep
+Keep the exact `Architecture Constraints` and `Testing Decisions` table headers because the
+orchestrator relies on them as the implementation and Refactor contract. Keep
 `Deferred`, `Rejected`, and `Out of Scope` semantically distinct:
 
 - `Deferred`: potentially valuable later, with a trigger.
@@ -160,6 +177,9 @@ Before presenting the spec, verify:
 - Every required heading appears once and in order.
 - `Now` contains no speculative capability.
 - Every changed seam has the required ownership record.
+- Every material architectural constraint has a precise source, applicability and verification.
+- No approved constraint silently contradicts an applicable `AGENTS.md`, accepted ADR or current
+  architecture document.
 - Every material risk has a coverage decision and unique signal.
 - No unresolved material decision remains.
 - The spec is internally consistent with repository rules and the source task.

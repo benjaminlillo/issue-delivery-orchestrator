@@ -5,7 +5,9 @@ description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obedie
 
 # Implement
 
-Implementar una unidad de trabajo a la vez. Exigir como entrada el spec vigente, ticket o finding, SHA inicial y criterios de aceptación. Leer todos los `AGENTS.md` aplicables antes de editar.
+Implementar una unidad de trabajo a la vez. Exigir como entrada el spec vigente —incluyendo
+`Architecture Constraints`—, ticket o finding, SHA inicial y criterios de aceptación. Leer todos
+los `AGENTS.md` y fuentes arquitectónicas citadas por el spec antes de editar.
 
 Leer [validation.md](references/validation.md) antes de calcular o ejecutar validaciones.
 
@@ -14,7 +16,9 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 1. Inspeccionar código, tests y patrones existentes.
 2. Verificar si el comportamiento ya está satisfecho. En ese caso devolver `NO_OP` con evidencia y validación; no crear commit vacío.
 3. Identificar la solución mínima compatible con el spec. No añadir abstracciones, compatibilidad ni defensas especulativas.
-4. Si el pedido contradice spec, ticket o una decisión aprobada, no editar. Devolver `NEEDS_USER_DECISION` con las fuentes en conflicto.
+4. Tratar las `Architecture Constraints` aprobadas como contrato vinculante. Si el pedido o el spec
+   contradicen un `AGENTS.md` aplicable o una fuente arquitectónica citada, no editar. Devolver
+   `NEEDS_USER_DECISION` con las fuentes en conflicto.
 5. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
 
 ## Implementar

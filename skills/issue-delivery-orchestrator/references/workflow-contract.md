@@ -4,9 +4,9 @@
 
 | Fase | Entrada obligatoria | Salida |
 |---|---|---|
-| `grill` | Issue, repo, AGENTS, diseños | Spec y tickets aprobados/publicados |
+| `grill` | Issue, repo, AGENTS, ADRs, context/docs, diseños | Spec con restricciones arquitectónicas y tickets aprobados/publicados |
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
-| `refactor` | Diff de implementación | Cumplimiento AGENTS y gates de arquitectura validado |
+| `refactor` | Diff, spec y fuentes arquitectónicas citadas | Conformidad arquitectónica, AGENTS y gates estructurales validados |
 | `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
 | `pr-creation` | Commits y evidencias | PR no draft hacia `<target>` |
@@ -100,6 +100,35 @@ seleccionado. Si ese método no puede probar el escenario, el estado correcto es
 `completed`; no cambiar de provider silenciosamente. En `manual-runtime`, esta exigencia se
 reemplaza únicamente por el recibo `final-runtime-handoff.json`: éste demuestra salud técnica del
 runtime fresco, no aceptación UI, y el handoff debe declararlo sin ambigüedad.
+
+## Contrato de arquitectura
+
+Grill debe extraer desde los `AGENTS.md` aplicables, ADRs aceptados, context maps y documentación
+del dominio sólo las restricciones materiales para el cambio. El spec las persiste en la tabla
+canónica `Architecture Constraints`, con fuente repository-relative o decisión aprobada,
+restricción, alcance y verificación observable en Refactor. Los patrones existentes son evidencia,
+no reglas por sí mismos.
+
+Implement recibe el spec completo para cada ticket y no puede reinterpretar esas restricciones.
+Refactor ejecuta primero el gate de conformidad arquitectónica y clasifica sus hallazgos como:
+
+- `PASS`: el diff cumple el contrato y las fuentes aplicables.
+- `FIX`: la branch introdujo o agravó una infracción reparable sin cambiar scope, comportamiento ni
+  una decisión aprobada.
+- `NEEDS_USER_DECISION`: el spec contradice una fuente aplicable, las fuentes se contradicen, o la
+  reparación alteraría una decisión aprobada. Bloquear antes de editar o completar Refactor.
+- `OUT_OF_SCOPE`: deuda preexistente no causada ni agravada por la branch. Registrar, no reparar.
+
+Este gate no amplía el allowlist. Sólo una infracción concreta de `AGENTS.md` permite salir de él;
+si otro `FIX` requiere modificar archivos externos, tratarlo como `NEEDS_USER_DECISION`. Tras cada
+`FIX`, repetir validación enfocada y volver a evaluar el gate. El checkpoint exige un recibo sin
+decisiones pendientes.
+
+Compatibilidad legacy: si un run preservado contiene una spec ya aprobada sin `Architecture
+Constraints`, no reabrir Grill ni mutar Linear automáticamente. Construir dentro del directorio
+ignorado del run un snapshot con las fuentes aplicables y únicamente las decisiones arquitectónicas
+explícitas que ya existan en el spec. Toda regla que requiera inferir una decisión nueva es
+`NEEDS_USER_DECISION`. El recibo debe indicar que usó este camino legacy.
 
 ## Decisiones de review
 
