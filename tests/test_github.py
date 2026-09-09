@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from issue_delivery_orchestrator.cli import ensure_pull_request
 from issue_delivery_orchestrator.github import GitHubClient, PullRequest
 
 
@@ -15,14 +16,14 @@ class GitHubEvidenceTests(unittest.TestCase):
 
         self.assertEqual(client.pr_target, "test")
 
-    def test_create_passes_persisted_target_to_github(self):
+    def test_create_passes_draft_and_persisted_target_to_github(self):
         client = GitHubClient(Path("/tmp"), pr_target="test")
         created = PullRequest(
             number=1,
             url="https://github.com/example/repo/pull/1",
             state="OPEN",
             merged_at=None,
-            is_draft=False,
+            is_draft=True,
             head="feature",
             base="test",
         )
@@ -39,7 +40,42 @@ class GitHubEvidenceTests(unittest.TestCase):
             client.create("feature", "Title", Path("/tmp/body.md"))
 
         command = runner.call_args.args[0]
+        self.assertIn("--draft", command)
         self.assertEqual(command[command.index("--base") + 1], "test")
+
+    def test_ensure_pr_preserves_existing_draft_and_ready_states(self):
+        for is_draft in (True, False):
+            with self.subTest(is_draft=is_draft), tempfile.TemporaryDirectory() as raw:
+                worktree = Path(raw).resolve()
+                body = worktree / "body.md"
+                body.touch()
+                state = {
+                    "worktree": str(worktree), "branch": "feature", "target": "test"
+                }
+                existing = PullRequest(
+                    number=1, url="https://github.com/example/repo/pull/1",
+                    state="OPEN", merged_at=None, is_draft=is_draft,
+                    head="feature", base="test",
+                )
+                with (
+                    patch("issue_delivery_orchestrator.cli._verified_linear",
+                          return_value=(None, "test")),
+                    patch("issue_delivery_orchestrator.cli.GitHubClient") as client,
+                    patch("issue_delivery_orchestrator.cli.run",
+                          return_value=SimpleNamespace(stdout="feature\n")) as runner,
+                    patch("issue_delivery_orchestrator.cli.save_state"),
+                    patch("issue_delivery_orchestrator.cli._public_state", return_value={}),
+                ):
+                    client.return_value.find.return_value = [existing]
+                    result = ensure_pull_request(state, body, None)
+
+                self.assertEqual(result["pr"]["is_draft"], is_draft)
+                client.return_value.create.assert_not_called()
+                self.assertEqual(
+                    [call.args[0] for call in runner.call_args_list],
+                    [["git", "branch", "--show-current"],
+                     ["git", "push", "-u", "origin", "feature"]],
+                )
 
     def test_detects_current_user_reaction(self):
         client = GitHubClient(Path("/tmp"), expected_login="benjaminlillo")

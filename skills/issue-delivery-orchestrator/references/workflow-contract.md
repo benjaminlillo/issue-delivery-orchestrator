@@ -9,7 +9,7 @@
 | `refactor` | Diff, spec y fuentes arquitectónicas citadas | Conformidad arquitectónica, AGENTS y gates estructurales validados |
 | `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
-| `pr-creation` | Commits y evidencias | PR no draft hacia `<target>` |
+| `pr-creation` | Commits y evidencias | PR creada como draft hacia `<target>` |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
 
 Completar una fase con:
@@ -19,6 +19,11 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase <fase> -
 ```
 
 Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
+
+Crear las PR nuevas con `--draft` y conservar ese estado durante la convergencia y el handoff.
+No convertirlas automáticamente a ready. Una PR existente reutilizada conserva su estado actual.
+Este cambio no altera bots, esperas, validaciones ni gates: si una integración requerida omite
+PRs draft, reportar el impedimento en lugar de cambiar el estado o afirmar que pasó.
 
 ## Objetivos de entrega
 

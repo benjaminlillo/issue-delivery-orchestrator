@@ -369,7 +369,12 @@ python3 <plugin-root>/scripts/issue-delivery <issue> repair-evidence-links
 
 Este comando debe rehostear exactamente las PNG ya aceptadas y actualizar el comentario idempotente; no autoriza a sustituirlas por capturas distintas.
 
-La PR debe ser normal, no draft, siempre hacia `state.target`, sin asignar reviewers.
+Crear la PR como draft, siempre hacia `state.target`, sin asignar reviewers. Mantenerla draft
+durante la convergencia y al entregar el resultado; no ejecutar `gh pr ready` automáticamente.
+Al reutilizar una PR existente, conservar su estado draft/ready. El usuario decide cuándo cambiarlo.
+Mantener los mismos bots, esperas, validaciones, evidencias y gates de convergencia. Si un check o
+review necesario no se ejecuta por ser draft, informar el impedimento sin convertirla a ready ni
+declarar esa verificación completada.
 Reutilizar una PR abierta compatible. Una PR cerrada sin merge requiere decisión; una ya mergeada
 exige issue/branch de seguimiento.
 

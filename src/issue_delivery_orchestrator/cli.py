@@ -593,9 +593,6 @@ def ensure_pull_request(
         )
         created = True
 
-    if pr.is_draft:
-        run(["gh", "pr", "ready", pr.url], cwd=worktree)
-        pr = github.view(pr.url)
     if pr.base != target or pr.head != branch:
         raise RunBlocked(
             f"PR routing mismatch: expected {branch} -> {target}, "
@@ -606,7 +603,7 @@ def ensure_pull_request(
     if created:
         linear.post_comment(
             state["issue"]["id"],
-            f"Pull request lista hacia `{target}`: {pr.url}",
+            f"Pull request draft creada hacia `{target}`: {pr.url}",
         )
     return {"created": created, "pr": asdict(pr), "state": _public_state(state)}
 

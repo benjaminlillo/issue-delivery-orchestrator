@@ -36,6 +36,10 @@ New runs use `development` as their base branch and `test` as their pull-request
 base or target must be explicitly requested and is then persisted for the whole run; GitHub's
 default branch is never used implicitly.
 
+New pull requests are created as drafts and remain drafts through automated review convergence
+and handoff. Existing pull requests retain their draft/ready state when reused. The user decides
+when to mark a PR ready for review; all existing review and validation requirements still apply.
+
 ## Included skills
 
 - `$issue-delivery-orchestrator`
