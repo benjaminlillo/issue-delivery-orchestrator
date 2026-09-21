@@ -12,6 +12,7 @@ from .config import settings
 from .errors import RunBlocked
 from .runtime import _alive
 from .state import handoff_mode, now, run_root, save_state
+from .token_usage import collect_token_usage
 from .util import atomic_write_json, read_json, run
 
 
@@ -90,8 +91,10 @@ def prepare_runtime_handoff(
     manual = handoff_mode(state) == "manual-runtime"
     if not manual and not (state.get("pr") or {}).get("url"):
         raise RunBlocked("Full delivery requires a recorded PR before runtime handoff")
+    token_usage = collect_token_usage(state)
     receipt = {
         "receiptVersion": 1,
+        "tokenUsage": token_usage,
         "status": "READY_FOR_USER_TESTING",
         "verifiedCommit": commit,
         "runtimeId": runtime_id,

@@ -50,7 +50,7 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
 
 1. Convertir el reporte en un escenario de aceptación reproducible y listar las historias afectadas.
 2. Implementar y ejecutar la validación enfocada habitual.
-3. Leer `handoffMode` del estado del run. En `full`, marcar la salida como `UI_REVIEW_REQUIRED` y
+3. Leer `handoffMode` del estado del run. Antes de cualquier revisión UI, el skill padre debe repetir `merge-target` cuando la reparación pueda haber quedado detrás de `target`, ejecutar el reviewer local independiente y exigir `local-review=PASS` para el HEAD final. En `full`, marcar la salida como `UI_REVIEW_REQUIRED` y
    entregar el SHA candidato, escenario y superficies afectadas al reviewer fijado por el modo. En
    `manual-runtime`, marcarla como `FINAL_RUNTIME_RESET_REQUIRED` y entregar el SHA y los
    servicios afectados al orquestador.

@@ -8,6 +8,7 @@
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
 | `refactor` | Diff, spec y fuentes arquitectónicas citadas | Conformidad arquitectónica, AGENTS y gates estructurales validados |
 | `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
+| `local-review` | HEAD integrado, spec y fuentes arquitectónicas | Recibo independiente `PASS` para el SHA exacto |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
 | `pr-creation` | Commits y evidencias | PR creada como draft hacia `<target>` |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
@@ -29,9 +30,9 @@ PRs draft, reportar el impedimento en lugar de cambiar el estado o afirmar que p
 
 - `full` (default): ejecuta todas las fases, mantiene el gate obligatorio de Computer Use y sólo
   termina después de entregar un runtime final fresco y saludable.
-- `manual-runtime`: ejecuta Grill, Implement, Refactor e integración de la branch target; luego
+- `manual-runtime`: ejecuta Grill, Implement, Refactor, integración de la branch target y revisión local independiente; luego
   reemplaza el Local Runtime, levanta las apps necesarias y termina en
-  `status=awaiting_manual_review`, `currentPhase=manual-revision`. No ejecuta Computer Use,
+  `status=awaiting_manual_review`, `currentPhase=manual-revision` después de superar `local-review`. No ejecuta Computer Use,
   evidencia, PR ni convergencia.
 
 El objetivo se fija al crear el run mediante `--handoff manual-runtime` y se persiste. Un run

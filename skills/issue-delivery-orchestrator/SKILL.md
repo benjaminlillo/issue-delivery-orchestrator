@@ -238,6 +238,64 @@ integrado exacto; si no es causado ni agravado por la branch, registrarlo como b
 
 Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase merge-target`.
 
+## 5. Revisión local independiente
+
+Ejecutar esta etapa después de integrar `target` y antes de iniciar el runtime o la revisión
+manual. No usar el historial de esta conversación para el reviewer. Lanzar un subagente nativo de
+Codex, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
+explícito con:
+
+- issue de Linear, spec y tickets aprobados;
+- SHA actual y `base`/`target` persistidos;
+- ruta del worktree y del directorio del run;
+- lista y contenido de los archivos modificados respecto de `origin/<target>`;
+- `AGENTS.md`, `CLAUDE.md`, ADRs aceptados, context maps y documentación del dominio aplicables.
+
+El prompt del reviewer debe exigir que lea por completo esas fuentes y que inspeccione el diff,
+imports, dependencias, tipos, interfaces y flujo de datos relacionado. Debe evaluar objetivo del
+ticket, regresiones y blast radius, arquitectura y patrones del proyecto, clean code y cambios
+fuera de scope. El reviewer no puede editar archivos, ejecutar comandos destructivos, crear otro
+worktree, publicar en GitHub/Linear ni cambiar el estado del run.
+
+Guardar un único recibo JSON en el directorio del run, por ejemplo
+`validation/local-review.json`, con este contrato mínimo:
+
+```json
+{
+  "receiptVersion": 1,
+  "reviewer": "codex-native-subagent",
+  "status": "PASS",
+  "verifiedCommit": "<HEAD>",
+  "base": "development",
+  "target": "test",
+  "checked": ["AGENTS.md", "CLAUDE.md", "ADR-001", "diff"],
+  "findings": [],
+  "summary": "..."
+}
+```
+
+Cada finding debe incluir categoría (`LOGIC`, `SECURITY`, `ARCHITECTURE`, `DATA`, `REGRESSION` o
+`SCOPE`), severidad, paths, evidencia y disposición. Usar `FIX` para una infracción concreta que
+puede repararse sin cambiar acuerdos; usar `NEEDS_USER_DECISION` si contradice una decisión
+aprobada o requiere cambiar scope; registrar problemas heredados como `OUT_OF_SCOPE`. No rebajar
+un finding para obtener `PASS`.
+
+Completar la etapa sólo con un recibo `PASS` para el HEAD exacto:
+
+```bash
+python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint \
+  --phase local-review --artifact local-review=validation/local-review.json
+```
+
+El motor rechaza recibos fuera del run, otro SHA, otro reviewer o estados `FIX`/
+`NEEDS_USER_DECISION`. Con `FIX`, entregar los findings a `$issue-delivery-implement`, validar,
+repetir Refactor y volver a integrar `target` cuando corresponda antes de ejecutar otra vez esta
+etapa. Con `NEEDS_USER_DECISION`, ejecutar `block --decision` y detenerse. Todo cambio posterior que
+pueda afectar el flujo invalida el recibo y exige repetir la revisión local y la revisión UI.
+
+En un run `manual-runtime`, esta etapa sí se ejecuta; después de su `PASS` continuar directamente
+con `runtime-reset` y `runtime-handoff`, sin Computer Use ni PR.
+
 ### Handoff manual con runtime
 
 Si `handoffMode=manual-runtime`, detener aquí el flujo automático de delivery y preparar el entorno
@@ -282,7 +340,7 @@ Si el usuario pide una corrección mientras el run está en `awaiting_manual_rev
 anterior queda obsoleto. Si pide continuar con revisión automática y
 PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
 
-## 5. Revisión manual
+## 6. Revisión manual
 
 Ejecutar esta sección sólo con `handoffMode=full`.
 
@@ -336,7 +394,7 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint \
 
 El checkpoint vuelve a preparar y validar las anotaciones.
 
-## 6. PR
+## 7. PR
 
 Crear el body dentro del run y ejecutar exclusivamente mediante el motor:
 
@@ -380,7 +438,7 @@ exige issue/branch de seguimiento.
 
 Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase pr-creation`.
 
-## 7. Convergencia remota
+## 8. Convergencia remota
 
 Ejecutar rondas de observación según sea necesario:
 
@@ -536,3 +594,14 @@ python3 <plugin-root>/scripts/issue-delivery <issue> cleanup
 ```
 
 Eliminar recursos de todos los runtimes y el perfil del navegador. Preservar worktree y branch local. Rechazar cleanup antes del merge salvo `--force` explícito del usuario.
+
+## Consumo de tokens
+
+El motor captura automáticamente la referencia inicial de Codex al crear o reanudar el run y
+recoge el consumo en `runtime-handoff`. Incluir `tokenUsage` del recibo en el reporte final:
+total, entrada, entrada desde caché (incluida en entrada), salida y cobertura. `complete` cubre
+sólo las sesiones Codex registradas y sus subagentes; no incluye bots externos ni el mensaje
+final posterior a `measuredAt`. Si es `partial` o `unavailable`, indicarlo sin convertir datos
+faltantes en cero. No contar tokens manualmente, consultar consumo por respuesta ni cargar
+transcripciones en el contexto. La medición no requiere procesos de seguimiento ni llamadas
+al modelo.

@@ -112,6 +112,9 @@ class RuntimeProcessTests(unittest.TestCase):
                 result = prepare_runtime_handoff(state, input_path)
 
             receipt = result["receipt"]
+            self.assertEqual(receipt["tokenUsage"], state["tokenUsage"])
+            persisted = json.loads(Path(result["receiptPath"]).read_text())
+            self.assertEqual(persisted["tokenUsage"], state["tokenUsage"])
             self.assertEqual(state["status"], "awaiting_manual_review")
             self.assertEqual(state["currentPhase"], "manual-revision")
             self.assertTrue(result["processesPreserved"])

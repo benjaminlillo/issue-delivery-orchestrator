@@ -23,6 +23,7 @@ from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
+from .local_review import validate_local_review
 from .runtime_handoff import prepare_runtime_handoff
 from .runtime_reset import reset_final_runtime
 from .review import (
@@ -65,6 +66,7 @@ from .state import (
     target_branch,
     now,
 )
+from .token_usage import attach_token_usage
 from .util import ensure_within, run
 
 
@@ -261,6 +263,15 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return {"reviewer": selection, "state": _public_state(state)}
     if args.action == "checkpoint":
         artifacts = _parse_artifacts(args.artifact, Path(state["worktree"]))
+        if args.phase == "local-review":
+            artifact = artifacts.get("local-review")
+            if not artifact:
+                raise RunBlocked("Local review requires the local-review artifact")
+            receipt = validate_local_review(state, artifact)
+            if receipt["status"] != "PASS":
+                raise RunBlocked(
+                    f"Local review is {receipt['status']}; resolve its findings before completing the phase"
+                )
         if args.phase == "manual-revision":
             if handoff_mode(state) == "manual-runtime":
                 raise RunBlocked(
@@ -446,6 +457,9 @@ def bootstrap(
                 f"Run {previous['runId']} already uses {handoff_mode(previous)} handoff; "
                 "handoff mode cannot change during bootstrap"
             )
+        if previous["status"] not in {"awaiting_manual_review", "completed_preserved"}:
+            attach_token_usage(previous)
+            save_state(previous)
         return {
             "resumed": True,
             "credentialSource": credential_source,
@@ -899,6 +913,8 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "manualHandoff": state.get("manualHandoff"),
         "finalRuntimeReset": state.get("finalRuntimeReset"),
         "finalRuntimeHandoff": state.get("finalRuntimeHandoff"),
+        "phaseSequence": state.get("phaseSequence"),
+        "tokenUsage": state.get("tokenUsage"),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),
         "reviewRepairBudget": review_repair_budget(state),

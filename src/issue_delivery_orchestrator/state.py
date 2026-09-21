@@ -7,10 +7,11 @@ from typing import Any, Iterable
 
 from .config import DEFAULT_PR_TARGET_BRANCH, settings
 from .errors import OrchestrationError, RunBlocked
+from .token_usage import attach_token_usage
 from .util import atomic_write_json, read_json
 
 
-PHASES = (
+PHASES_LEGACY = (
     "grill",
     "implement",
     "refactor",
@@ -19,6 +20,17 @@ PHASES = (
     "pr-creation",
     "review-convergence",
 )
+PHASES = (
+    "grill",
+    "implement",
+    "refactor",
+    "merge-target",
+    "local-review",
+    "manual-revision",
+    "pr-creation",
+    "review-convergence",
+)
+
 REVIEW_METHODS = ("cua-driver", "codex-browser", "playwright-chrome")
 DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud")
 HANDOFF_MODES = ("full", "manual-runtime")
@@ -37,6 +49,13 @@ RESUMABLE_STATUSES = {
     "preparing_final_runtime",
     "completed_preserved",
 }
+
+
+def phases_for_state(state: dict[str, Any]) -> tuple[str, ...]:
+    raw = state.get("phaseSequence")
+    if isinstance(raw, list) and raw:
+        return tuple(str(item) for item in raw)
+    return PHASES_LEGACY
 
 
 def now() -> str:
@@ -93,7 +112,8 @@ def create_state(
     ):
         (root / child).mkdir(parents=True, exist_ok=True)
     state = {
-        "version": 2,
+        "version": 3,
+        "phaseSequence": list(PHASES),
         "runId": run_id,
         "startedAt": now(),
         "updatedAt": now(),
@@ -136,6 +156,7 @@ def create_state(
         },
         "blocker": None,
     }
+    attach_token_usage(state, new_run=True)
     save_state(state)
     return state
 
@@ -207,12 +228,15 @@ def complete_phase(
         raise RunBlocked(
             f"Cannot complete phase {phase}; current phase is {state.get('currentPhase')}"
         )
-    index = PHASES.index(phase)
+    phases = phases_for_state(state)
+    if phase not in phases:
+        raise RunBlocked(f"Phase {phase} is not available in this run")
+    index = phases.index(phase)
     state["phases"].append({"phase": phase, "status": "completed", "completedAt": now()})
     state["artifacts"].update(artifacts or {})
     state["blocker"] = None
-    if index + 1 < len(PHASES):
-        state["currentPhase"] = PHASES[index + 1]
+    if index + 1 < len(phases):
+        state["currentPhase"] = phases[index + 1]
         state["status"] = "active"
     else:
         state["currentPhase"] = None
@@ -248,6 +272,9 @@ def resume_run(state: dict[str, Any], *, full_delivery: bool = False) -> None:
         raise RunBlocked(
             "--full-delivery is available only from an awaiting manual-runtime handoff"
         )
+    attach_token_usage(
+        state, resume=state.get("status") in {"awaiting_manual_review", "completed_preserved"}
+    )
     if state.get("status") == "awaiting_manual_review":
         handoff = state.get("manualHandoff")
         if isinstance(handoff, dict):
@@ -331,8 +358,9 @@ def select_review_method(state: dict[str, Any], method: str) -> dict[str, Any]:
         for item in state.get("phases", [])
     )
     current_phase = state.get("currentPhase")
-    manual_revision_index = PHASES.index("manual-revision")
-    selectable_phases = PHASES[: manual_revision_index + 1]
+    phases = phases_for_state(state)
+    manual_revision_index = phases.index("manual-revision")
+    selectable_phases = phases[: manual_revision_index + 1]
     if completed_manual_revision or current_phase not in selectable_phases:
         raise RunBlocked(
             "Reviewer method can only change before the first manual-revision checkpoint"
