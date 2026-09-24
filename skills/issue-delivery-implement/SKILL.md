@@ -44,6 +44,10 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 8. No reparar fallos demostrablemente presentes en el SHA integrado de la branch target del run;
    reportarlos como base failures.
 
+Si el orquestador te asignó únicamente implementar como worker de una etapa, entregar el commit,
+validaciones y gates pendientes al principal. El principal coordina las revisiones posteriores y
+el handoff con los modelos elegidos; no lanzarlos desde este worker.
+
 ## Reparaciones posteriores a Implement
 
 Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cualquiera sea su origen:

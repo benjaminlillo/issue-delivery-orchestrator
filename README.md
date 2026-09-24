@@ -293,3 +293,29 @@ corepack pnpm test
 ```
 
 The project requires Python 3.9+ and has no runtime Python package dependencies.
+
+### Modelos opcionales por etapa
+
+Elegir modelos al iniciar el run con flags repetibles, antes de cualquier subcomando:
+
+```bash
+python3 scripts/issue-delivery TS-123 --worktree /ruta/worktree \
+  --stage-model grill=gpt-6-astra --stage-model implement=gpt-6-sol \
+  --stage-model local-review=gpt-6-astra
+```
+
+Son IDs de ejemplo; deben estar disponibles en la herramienta nativa del entorno. Las etapas
+sin selección usan la sesión principal; Local Review sigue siendo un subagente independiente que
+hereda del principal. Un override delega el trabajo a un subagente nativo sin historial y con un
+paquete explícito de contexto. El principal conserva las aprobaciones y los comandos del motor.
+
+Para cambiar futuras invocaciones del mismo run:
+
+```bash
+python3 scripts/issue-delivery TS-123 --stage-model implement=inherit stage-models
+python3 scripts/issue-delivery TS-123 stage-plan --phase implement
+```
+
+La configuración se persiste al reanudar y no modifica modelos de bots externos ni configura
+razonamiento. Si el entorno no puede aplicar el modelo o las herramientas de una etapa, el loop
+se bloquea sin sustituirlos silenciosamente. Ver el [contrato de ejecución](skills/issue-delivery-orchestrator/references/stage-models.md).

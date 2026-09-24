@@ -66,6 +66,7 @@ from .state import (
     target_branch,
     now,
 )
+from .stage_models import parse_stage_models, stage_plan, update_stage_models
 from .token_usage import attach_token_usage
 from .util import ensure_within, run
 
@@ -106,9 +107,16 @@ def parser() -> argparse.ArgumentParser:
         choices=HANDOFF_MODES,
         help="Delivery target for a new run; defaults to full",
     )
+    result.add_argument(
+        "--stage-model", action="append", default=[], metavar="STAGE=MODEL",
+        help="Optional model per stage; repeat for several stages, use inherit to reset",
+    )
     actions = result.add_subparsers(dest="action")
 
     actions.add_parser("status")
+    actions.add_parser("stage-models", help="Read or update the run model selections")
+    plan = actions.add_parser("stage-plan", help="Resolve executor and spawn options for a stage")
+    plan.add_argument("--phase", required=True, choices=PHASES)
 
     reviewer = actions.add_parser(
         "reviewer-select",
@@ -213,6 +221,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
+    selections = parse_stage_models(args.stage_model)
+    if selections and args.action not in {None, "stage-models"}:
+        raise OrchestrationError("Use --stage-model with bootstrap or stage-models")
     configuration = settings()
     repository = _repository(args.worktree, configuration.repository)
     worktrees = Path(
@@ -238,6 +249,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         args.run_id,
         registered_worktrees,
     )
+    if args.action == "stage-models":
+        if selections:
+            update_stage_models(state, selections)
+        return {"stageModels": state.get("stageModels", {})}
+    if args.action == "stage-plan":
+        return stage_plan(state, args.phase)
     if args.action == "status":
         return _public_state(state)
     if handoff_mode(state) == "manual-runtime" and args.action in {
@@ -457,6 +474,9 @@ def bootstrap(
                 f"Run {previous['runId']} already uses {handoff_mode(previous)} handoff; "
                 "handoff mode cannot change during bootstrap"
             )
+        selections = parse_stage_models(args.stage_model)
+        if selections:
+            update_stage_models(previous, selections)
         if previous["status"] not in {"awaiting_manual_review", "completed_preserved"}:
             attach_token_usage(previous)
             save_state(previous)
@@ -550,6 +570,7 @@ def bootstrap(
         handoff=args.handoff or "full",
         profile=configuration.public_dict(),
     )
+    update_stage_models(state, parse_stage_models(args.stage_model))
     return {
         "resumed": False,
         "credentialSource": credential_source,
@@ -914,6 +935,8 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "finalRuntimeReset": state.get("finalRuntimeReset"),
         "finalRuntimeHandoff": state.get("finalRuntimeHandoff"),
         "phaseSequence": state.get("phaseSequence"),
+        "stageModels": state.get("stageModels", {}),
+        "stageExecution": stage_plan(state, state["currentPhase"]) if state.get("currentPhase") else None,
         "tokenUsage": state.get("tokenUsage"),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),

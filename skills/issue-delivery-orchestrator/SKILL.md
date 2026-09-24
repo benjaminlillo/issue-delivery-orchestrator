@@ -160,11 +160,20 @@ que la UI fue revisada o aprobada: el usuario asumió explícitamente esa revisi
 flujo automático, ejecutar `resume --full-delivery`; desde ese momento vuelve a aplicar
 íntegramente el gate UI de `full`.
 
+## Modelos por etapa
+
+Sin selección explícita, conservar el modelo de la sesión principal. Antes de ejecutar cualquier
+etapa, aplicar [stage-models.md](references/stage-models.md): `--stage-model STAGE=MODEL` persiste
+el override y `inherit` lo elimina. `stageExecution`/`stage-plan` indican si ejecutar en el principal
+o lanzar un subagente nativo. Los overrides no cambian el modelo del chat: el principal conserva
+preguntas, aprobaciones y gates; sólo delega el trabajo delimitado de la etapa. No elegir otro
+modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones posteriores.
+
 ## 1. Grill
 
 1. Leer la issue, el repositorio, todos los `AGENTS.md` aplicables, ADRs aceptados, context maps y
    documentación arquitectónica del dominio afectado.
-2. Invocar `$issue-delivery-grill` en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
+2. Invocar `$issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
 3. Si existe Figma, inspeccionarlo mediante su MCP. Si no es accesible, bloquear antes de implementar, salvo que el usuario entregue explícitamente un PNG o PDF como fallback.
 4. Etiquetar cada user story con una superficie verificable: `UI`, `API-assembled` o `command-test`.
 5. Exigir en el spec la tabla canónica `Architecture Constraints`, con fuente, regla,
@@ -242,7 +251,7 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
 
 Ejecutar esta etapa después de integrar `target` y antes de iniciar el runtime o la revisión
 manual. No usar el historial de esta conversación para el reviewer. Lanzar un subagente nativo de
-Codex, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
+Codex desde el principal, con `spawnOptions` de `stage-plan --phase local-review`, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
 explícito con:
 
 - issue de Linear, spec y tickets aprobados;
