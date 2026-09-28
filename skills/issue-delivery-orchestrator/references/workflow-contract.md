@@ -142,7 +142,7 @@ explícitas que ya existan en el spec. Toda regla que requiera inferir una decis
 - `SKIP`: inválido, ya cubierto, heredado, insignificante, especulativo o previamente descartado.
 - `NEEDS_USER_DECISION`: el cambio solicitado contradice un acuerdo aprobado. Nunca degradarlo a FIX o SKIP sin decisión.
 
-Los SKIP son pegajosos por causa raíz. Guardarlos mediante `$issue-delivery-blocker-triage` dentro de `.local-runtime/issue-delivery-orchestrator/<run-id>/blocker-triage/`, incluyendo un motivo público breve y sin información sensible.
+Los SKIP son pegajosos por causa raíz. Guardarlos mediante `issue-delivery-blocker-triage` dentro de `.local-runtime/issue-delivery-orchestrator/<run-id>/blocker-triage/`, incluyendo un motivo público breve y sin información sensible.
 
 Después de cerrar cada comentario general de los `blockerBots` con `FIX` validado/pusheado, ejecutar
 `acknowledge-blocker --decision FIX`. El comando valida autor, PR y presencia de blockers reales,

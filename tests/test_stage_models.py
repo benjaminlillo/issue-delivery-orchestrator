@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -15,6 +16,10 @@ class StageModelsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        os.environ.pop("CLAUDECODE", None)
         self.state = create_state(
             worktree=Path(self.tmp.name), run_id="models", issue={"identifier": "TS-1", "title": "Test"},
             branch="feature", base="development", created_from="origin/development",
@@ -46,6 +51,17 @@ class StageModelsTests(unittest.TestCase):
         update_stage_models(self.state, {"local-review": "inherit"})
         self.assertEqual(stage_plan(self.state, "local-review")["executor"], "native-subagent")
         self.assertNotIn("model", stage_plan(self.state, "local-review")["spawnOptions"])
+
+    def test_claude_code_spawns_fresh_agent_and_accepts_only_its_model_aliases(self):
+        os.environ["CLAUDECODE"] = "1"
+        with self.assertRaisesRegex(OrchestrationError, "implement=gpt-6-sol"):
+            update_stage_models(self.state, {"grill": "opus", "implement": "gpt-6-sol"})
+        self.assertNotIn("stageModels", self.state)
+        update_stage_models(self.state, {"implement": "sonnet", "grill": "inherit"})
+        plan = stage_plan(self.state, "implement")
+        self.assertEqual(plan["harness"], "claude")
+        self.assertEqual(plan["spawnOptions"], {"subagent_type": "general-purpose", "model": "sonnet"})
+        self.assertEqual(stage_plan(self.state, "local-review")["spawnOptions"], {"subagent_type": "general-purpose"})
 
     def test_invalid_flags_fail_before_mutation(self):
         for entries in (["implement"], ["unknown=model"], ["implement="], ["implement=two words"], ["implement=a", "implement=b"]):

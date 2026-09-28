@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from .errors import RunBlocked
+from .harness import native_reviewer
 from .state import run_root
 from .util import read_json
 
@@ -38,8 +39,9 @@ def validate_local_review(state: dict[str, Any], artifact: str) -> dict[str, Any
         raise RunBlocked(
             f"Local review receipt targets {commit or 'no commit'}, but HEAD is {actual}"
         )
-    if receipt.get("reviewer") != "codex-native-subagent":
-        raise RunBlocked("Local review receipt must identify codex-native-subagent")
+    reviewer = native_reviewer()
+    if receipt.get("reviewer") != reviewer:
+        raise RunBlocked(f"Local review receipt must identify {reviewer}")
     findings = receipt.get("findings", [])
     if not isinstance(findings, list):
         raise RunBlocked("Local review receipt findings must be an array")

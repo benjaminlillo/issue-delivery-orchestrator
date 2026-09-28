@@ -1,0 +1,13 @@
+{
+  "name": "issue-delivery-orchestrator",
+  "owner": {
+    "name": "Benjamin Lillo"
+  },
+  "plugins": [
+    {
+      "name": "issue-delivery-orchestrator",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

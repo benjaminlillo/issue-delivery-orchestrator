@@ -68,7 +68,7 @@ Devolver cada fallo con:
 - Severidad práctica.
 - Indicación de qué historias quedan invalidadas.
 
-El skill padre entrega estos findings a `$issue-delivery-implement`. Después de una reparación, volver a ejecutar sólo las historias invalidadas, pero siempre sobre el estado final de la branch.
+El skill padre entrega estos findings a `issue-delivery-implement`. Después de una reparación, volver a ejecutar sólo las historias invalidadas, pero siempre sobre el estado final de la branch.
 
 No entregar control al usuario para que verifique mientras exista un `FAIL` o `BLOCKED`. El handoff sólo queda habilitado con PASS sobre el SHA final.
 
@@ -80,7 +80,7 @@ Calcular bounds desde el árbol AX y screenshot de la misma llamada `get_window_
 coordenadas del PNG exacto sólo cuando AX no exponga una región útil. Ejecutar `prepare-evidence` e
 inspeccionar la copia anotada antes de devolver PASS.
 
-Generar un manifiesto JSON v2 compatible con `$issue-delivery-orchestrator`:
+Generar un manifiesto JSON v2 compatible con `issue-delivery-orchestrator`:
 
 ```json
 {

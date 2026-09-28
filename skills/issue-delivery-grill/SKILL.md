@@ -12,7 +12,7 @@ implementation tickets; ticket slicing belongs to the ticket-planning workflow a
 approved. Make clear that a published spec alone is not enough to start Issue Delivery
 Orchestrator: the Linear issue also needs a non-empty canonical tickets block.
 
-Return the canonical spec in the conversation unless the user explicitly requests a file or a Linear update. When the user requests publication to Linear, obtain the issue identifier or URL, finish and confirm the spec first, then invoke `$issue-delivery-spec-publisher` to preserve the destination markers and unrelated issue content. Do not update an external issue silently.
+Return the canonical spec in the conversation unless the user explicitly requests a file or a Linear update. When the user requests publication to Linear, obtain the issue identifier or URL, finish and confirm the spec first, then invoke `issue-delivery-spec-publisher` to preserve the destination markers and unrelated issue content. Do not update an external issue silently.
 
 ## Build repository awareness
 
@@ -168,7 +168,7 @@ orchestrator relies on them as the implementation and Refactor contract. Keep
 
 When no public seam changes, keep `### Changed seams` and state `None`; do not invent one.
 
-Output the spec body without orchestrator HTML markers. `$issue-delivery-spec-publisher` owns
+Output the spec body without orchestrator HTML markers. `issue-delivery-spec-publisher` owns
 insertion between the canonical markers and initialization of the tickets block.
 
 Before presenting the spec, verify:
@@ -188,10 +188,10 @@ Before presenting the spec, verify:
 
 Present the final spec and briefly identify any material change from the source task. Ask for approval before replacing an external source of truth.
 
-If the user approves a Linear publication, invoke `$issue-delivery-spec-publisher` with the destination. Preserve unrelated description content and the tickets block, and let that skill manage the mandatory HTML markers and comment.
+If the user approves a Linear publication, invoke `issue-delivery-spec-publisher` with the destination. Preserve unrelated description content and the tickets block, and let that skill manage the mandatory HTML markers and comment.
 
-After publishing the spec, report that `$issue-delivery-ticket-publisher` must produce the approved
-ticket block before `$issue-delivery-orchestrator` can enter Implement.
+After publishing the spec, report that `issue-delivery-ticket-publisher` must produce the approved
+ticket block before `issue-delivery-orchestrator` can enter Implement.
 
 Do not modify `AGENTS.md` during the interview. If the resulting decision creates a genuinely general architectural rule, explain it after the spec is complete and ask for explicit approval before editing `AGENTS.md`.
 

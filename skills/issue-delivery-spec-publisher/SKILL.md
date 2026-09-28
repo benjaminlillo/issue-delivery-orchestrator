@@ -6,7 +6,7 @@ description: Publish an approved Issue Delivery Orchestrator spec into its canon
 # Issue Delivery Spec Publisher
 
 Own only the Linear destination and format contract. The approved spec body must come from
-`$issue-delivery-grill`; do not rewrite architecture or scope while publishing.
+`issue-delivery-grill`; do not rewrite architecture or scope while publishing.
 
 ## Required input
 
@@ -29,14 +29,14 @@ Preserve all content outside the orchestrator blocks. If no tickets markers exis
 
 ```md
 <!-- <prefix>:tickets:start -->
-<!-- Tickets pending. Run $issue-delivery-ticket-publisher after approving the breakdown. -->
+<!-- Tickets pending. Run `issue-delivery-ticket-publisher` after approving the breakdown. -->
 <!-- <prefix>:tickets:end -->
 ```
 
 ## Validation
 
 Before publishing, require a non-empty `Spec ID`, title, and exactly one occurrence of every
-canonical heading in the order produced by `$issue-delivery-grill`. Require the exact
+canonical heading in the order produced by `issue-delivery-grill`. Require the exact
 `Architecture Constraints` and `Testing Decisions` table headers. Require every material
 architecture row to name its source, applicability and Refactor verification. Reject placeholders,
 unresolved material decisions and silent conflicts with an applicable repository source.
@@ -44,7 +44,7 @@ unresolved material decisions and silent conflicts with an applicable repository
 ## Workflow
 
 1. Resolve `<plugin-root>` as the directory containing `.codex-plugin/plugin.json`. Invoke the
-   bundled `$linear-local` skill. If `codex-linear` is not already available, prepend
+   bundled `linear-local` skill. If `codex-linear` is not already available, prepend
    `<plugin-root>/bin` to `PATH`. Fail explicitly if either the skill or command is unavailable;
    never continue with another identity or transport.
 2. Run `codex-linear doctor`, then read the issue exclusively with
@@ -63,5 +63,5 @@ unresolved material decisions and silent conflicts with an applicable repository
 
 Do not write a repository copy, alter `AGENTS.md`, expose secrets, or publish without explicit user
 approval. Do not use a Linear connector, Linear MCP, direct API call, or browser automation as a
-fallback. Any `$linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or
+fallback. Any `linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or
 comment failure is blocking. Report the issue, Spec ID and which blocks were updated or initialized.

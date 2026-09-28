@@ -93,7 +93,7 @@ For prefix `<prefix>`, replace only:
 Preserve the spec block and all unrelated description content. Before operating with Linear:
 
 1. Resolve `<plugin-root>` as the directory containing `.codex-plugin/plugin.json` and invoke the
-   bundled `$linear-local` skill. If `codex-linear` is not already available, prepend
+   bundled `linear-local` skill. If `codex-linear` is not already available, prepend
    `<plugin-root>/bin` to `PATH`. Fail explicitly if either the skill or command is unavailable;
    never continue with another identity or transport.
 2. Run `codex-linear doctor` and read the issue exclusively with
@@ -109,5 +109,5 @@ Preserve the spec block and all unrelated description content. Before operating 
    published ticket IDs.
 
 Do not use a Linear connector, Linear MCP, direct API call, or browser automation as a fallback.
-Any `$linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or comment
+Any `linear-local`, `codex-linear doctor`, read, mutation, re-read, verification, or comment
 failure is blocking. Do not alter `AGENTS.md` or create a repository copy.

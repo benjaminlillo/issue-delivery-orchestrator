@@ -1,8 +1,10 @@
 import json
+import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from issue_delivery_orchestrator.errors import RunBlocked
 from issue_delivery_orchestrator.local_review import validate_local_review
@@ -29,6 +31,10 @@ class LocalReviewTests(unittest.TestCase):
         self.path = run_root(self.worktree, "run-1") / "validation" / "local-review.json"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.addCleanup(self.tmp.cleanup)
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        os.environ.pop("CLAUDECODE", None)
 
     def write(self, **overrides):
         payload = {
@@ -52,6 +58,14 @@ class LocalReviewTests(unittest.TestCase):
         self.write(reviewer="codex-exec")
         with self.assertRaisesRegex(RunBlocked, "codex-native-subagent"):
             validate_local_review(self.state, str(self.path))
+
+    def test_claude_code_requires_its_own_native_reviewer(self):
+        os.environ["CLAUDECODE"] = "1"
+        self.write()
+        with self.assertRaisesRegex(RunBlocked, "claude-native-subagent"):
+            validate_local_review(self.state, str(self.path))
+        self.write(reviewer="claude-native-subagent")
+        self.assertEqual(validate_local_review(self.state, str(self.path))["status"], "PASS")
 
     def test_rejects_non_pass_checkpoint_and_outside_artifact(self):
         self.write(status="FIX")

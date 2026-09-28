@@ -33,7 +33,7 @@ class LinearLocalPackagingTests(unittest.TestCase):
 
     def test_publication_skills_use_only_protected_cli_commands(self) -> None:
         required = (
-            "$linear-local",
+            "`linear-local`",
             "codex-linear doctor",
             "codex-linear issue get <issue>",
             "codex-linear issue update-description <issue> --description-file <path>",

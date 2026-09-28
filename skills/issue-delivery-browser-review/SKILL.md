@@ -77,7 +77,7 @@ Por cada fallo, devolver:
 - Severidad práctica.
 - Historias invalidadas.
 
-No editar código. Entregar findings a `$issue-delivery-implement` y repetir sólo las historias invalidadas sobre el
+No editar código. Entregar findings a `issue-delivery-implement` y repetir sólo las historias invalidadas sobre el
 estado final de la branch. Prohibir el handoff mientras exista `FAIL` o `BLOCKED`.
 
 ## Evidencia final

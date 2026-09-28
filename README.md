@@ -1,6 +1,6 @@
 # Issue Delivery Orchestrator
 
-A Codex plugin for taking a Linear issue through specification, ticket slicing, implementation,
+A Codex and Claude Code plugin for taking a Linear issue through specification, ticket slicing, implementation,
 focused validation, manual UI review, pull request creation, and automated review convergence.
 
 Grill extracts the applicable architectural constraints from repository instructions, accepted
@@ -113,6 +113,23 @@ Run the marketplace command above once, restart the desktop app, select **Codex*
 plus button, and start a new chat. Local and repository marketplaces are supported in Codex and
 the ChatGPT desktop app, but not in the IDE extension.
 
+### Install with Claude Code
+
+The same repository is also a Claude Code marketplace:
+
+```bash
+claude plugin marketplace add benjaminlillo/issue-delivery-orchestrator
+claude plugin install issue-delivery-orchestrator@issue-delivery-orchestrator --scope user
+claude plugin list
+```
+
+Start a new Claude Code session. Skills are namespaced, for example
+`/issue-delivery-orchestrator:issue-delivery-orchestrator`. Local Review and per-stage models use
+Claude's `Agent` tool (`sonnet`, `opus`, `haiku`, or `fable`); token usage is reported as
+unavailable in Claude Code. To update, run `claude plugin marketplace update
+issue-delivery-orchestrator` and `claude plugin update
+issue-delivery-orchestrator@issue-delivery-orchestrator`.
+
 ### Update
 
 Refresh the Git marketplace snapshot and reinstall the current plugin version:
@@ -123,7 +140,8 @@ codex plugin add issue-delivery-orchestrator@issue-delivery-orchestrator
 ```
 
 Start a new CLI session or desktop chat after updating. Published plugin changes should increment
-the version in `.codex-plugin/plugin.json` so Codex does not reuse an older cached bundle.
+the version in `.codex-plugin/plugin.json` and `.claude-plugin/plugin.json` so neither client
+reuses an older cached bundle.
 
 These steps follow the official
 [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
@@ -304,7 +322,8 @@ python3 scripts/issue-delivery TS-123 --worktree /ruta/worktree \
   --stage-model local-review=gpt-6-astra
 ```
 
-Son IDs de ejemplo; deben estar disponibles en la herramienta nativa del entorno. Las etapas
+Son IDs de ejemplo; deben estar disponibles en la herramienta nativa del entorno. En Claude Code
+usar `sonnet`, `opus`, `haiku` o `fable`; el CLI rechaza otros valores. Las etapas
 sin selección usan la sesión principal; Local Review sigue siendo un subagente independiente que
 hereda del principal. Un override delega el trabajo a un subagente nativo sin historial y con un
 paquete explícito de contexto. El principal conserva las aprobaciones y los comandos del motor.

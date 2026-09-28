@@ -9,6 +9,11 @@ Operar como plano de control conversacional. Usar el CLI privado como motor dete
 
 Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o reanudar una ejecución.
 
+El plugin funciona en Codex y en Claude Code. Las skills hermanas se nombran sin prefijo: en Codex
+se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
+`issue-delivery-orchestrator:<skill>`. El motor detecta el host y lo informa como `harness` en
+`stage-plan`.
+
 ## Iniciar o reanudar
 
 1. Resolver `<plugin-root>` como el directorio que contiene `.codex-plugin/plugin.json`. Ejecutar
@@ -60,15 +65,15 @@ Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o 
    modo determina el workspace y reviewer durante todo el run:
 
    - `codex` adopta el worktree del chat, acepta su `detached HEAD`, lo conecta a la rama de Linear
-     y usa `$issue-delivery-browser-review`.
-   - `superset` adopta el worktree ya conectado a la rama de Linear y usa `$issue-delivery-cua-review`. También
+     y usa `issue-delivery-browser-review`.
+   - `superset` adopta el worktree ya conectado a la rama de Linear y usa `issue-delivery-cua-review`. También
      acepta `SUPERSET_WORKSPACE_PATH`.
    - `vanilla` adopta el checkout/worktree indicado, permite partir desde `origin/<base>`,
      `detached HEAD` seguro o la rama de la issue, conecta la rama de Linear y usa
-     `$issue-delivery-cua-review`.
+     `issue-delivery-cua-review`.
    - `conductor-cloud` adopta el workspace declarado por Conductor, permite partir desde una rama
      temporal cuyo HEAD esté preservado en `origin/<base>` o desde la rama de la issue, conecta la rama de Linear y usa
-     `$issue-delivery-playwright-review` con el Chrome ya instalado en el workspace.
+     `issue-delivery-playwright-review` con el Chrome ya instalado en el workspace.
 
 6. Publicar inmediatamente en el chat, para runs nuevos y reanudados, los valores exactos de
    `modeDecision` y `state.handoffMode` devueltos por el motor. Usar un mensaje autocontenido como:
@@ -138,13 +143,13 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 
 1. Reanudar el mismo run y worktree. Capturar el reporte exacto como escenario de aceptación de reparación.
 2. Identificar las historias afectadas. Si el caso no estaba en el spec, crear una historia temporal `REPAIR-<n>` dentro del estado ignorado del run con precondición, pasos y resultado esperado; no ampliar el spec remoto por un bug compatible con su intención.
-3. Invocar `$issue-delivery-implement`, ejecutar la validación enfocada y dejar la branch en su estado final.
+3. Invocar `issue-delivery-implement`, ejecutar la validación enfocada y dejar la branch en su estado final.
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
-5. Invocar siempre el reviewer fijado por el modo: `$issue-delivery-cua-review` en `superset` o
-   `vanilla`, `$issue-delivery-browser-review` en `codex`, o
-   `$issue-delivery-playwright-review` en `conductor-cloud`, aunque el ajuste sea pequeño o los
+5. Invocar siempre el reviewer fijado por el modo: `issue-delivery-cua-review` en `superset` o
+   `vanilla`, `issue-delivery-browser-review` en `codex`, o
+   `issue-delivery-playwright-review` en `conductor-cloud`, aunque el ajuste sea pequeño o los
    tests estén verdes.
-6. Si la revisión detecta un fallo, volver a `$issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
+6. Si la revisión detecta un fallo, volver a `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
 
@@ -154,7 +159,7 @@ provider, SHA verificado y evidencia final. Si no está disponible o no puede ve
 bloquear y explicar el impedimento; no cambiar de modo o reviewer dentro del run.
 
 La única excepción es un run creado explícitamente con `handoffMode=manual-runtime`. En ese modo,
-una corrección posterior exige `$issue-delivery-implement`, validación enfocada y reemplazar el
+una corrección posterior exige `issue-delivery-implement`, validación enfocada y reemplazar el
 runtime final por uno fresco con un nuevo recibo de handoff, pero no Computer Use. Nunca afirmar
 que la UI fue revisada o aprobada: el usuario asumió explícitamente esa revisión. Para volver al
 flujo automático, ejecutar `resume --full-delivery`; desde ese momento vuelve a aplicar
@@ -173,14 +178,14 @@ modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones
 
 1. Leer la issue, el repositorio, todos los `AGENTS.md` aplicables, ADRs aceptados, context maps y
    documentación arquitectónica del dominio afectado.
-2. Invocar `$issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
+2. Invocar `issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
 3. Si existe Figma, inspeccionarlo mediante su MCP. Si no es accesible, bloquear antes de implementar, salvo que el usuario entregue explícitamente un PNG o PDF como fallback.
 4. Etiquetar cada user story con una superficie verificable: `UI`, `API-assembled` o `command-test`.
 5. Exigir en el spec la tabla canónica `Architecture Constraints`, con fuente, regla,
    aplicabilidad y verificación de Refactor para cada restricción material. Resolver antes de la
    aprobación cualquier contradicción entre el spec y las fuentes del repositorio.
 6. Obtener aprobación explícita del spec y del desglose.
-7. Invocar, en orden, `$issue-delivery-spec-publisher` y `$issue-delivery-ticket-publisher`.
+7. Invocar, en orden, `issue-delivery-spec-publisher` y `issue-delivery-ticket-publisher`.
 8. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
 9. Guardar snapshots aprobados dentro del run y completar:
 
@@ -191,7 +196,7 @@ modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones
 
 ## 2. Implement
 
-Procesar tickets en su orden aprobado. Antes de cada uno, entregar a `$issue-delivery-implement` el spec completo, el ticket, el SHA inicial del ticket y su validación declarada.
+Procesar tickets en su orden aprobado. Antes de cada uno, entregar a `issue-delivery-implement` el spec completo, el ticket, el SHA inicial del ticket y su validación declarada.
 
 - Terminar primero los tickets AFK no bloqueados.
 - Pausar justo antes de un HITL y pedir la acción mínima al usuario.
@@ -250,8 +255,8 @@ Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> chec
 ## 5. Revisión local independiente
 
 Ejecutar esta etapa después de integrar `target` y antes de iniciar el runtime o la revisión
-manual. No usar el historial de esta conversación para el reviewer. Lanzar un subagente nativo de
-Codex desde el principal, con `spawnOptions` de `stage-plan --phase local-review`, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
+manual. No usar el historial de esta conversación para el reviewer. Lanzar un subagente nativo del
+host desde el principal, con `spawnOptions` de `stage-plan --phase local-review`, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
 explícito con:
 
 - issue de Linear, spec y tickets aprobados;
@@ -272,7 +277,7 @@ Guardar un único recibo JSON en el directorio del run, por ejemplo
 ```json
 {
   "receiptVersion": 1,
-  "reviewer": "codex-native-subagent",
+  "reviewer": "<harness>-native-subagent",
   "status": "PASS",
   "verifiedCommit": "<HEAD>",
   "base": "development",
@@ -296,8 +301,9 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint \
   --phase local-review --artifact local-review=validation/local-review.json
 ```
 
-El motor rechaza recibos fuera del run, otro SHA, otro reviewer o estados `FIX`/
-`NEEDS_USER_DECISION`. Con `FIX`, entregar los findings a `$issue-delivery-implement`, validar,
+`reviewer` es `codex-native-subagent` o `claude-native-subagent` según el `harness` de
+`stage-plan`. El motor rechaza recibos fuera del run, otro SHA, otro reviewer o estados `FIX`/
+`NEEDS_USER_DECISION`. Con `FIX`, entregar los findings a `issue-delivery-implement`, validar,
 repetir Refactor y volver a integrar `target` cuando corresponda antes de ejecutar otra vez esta
 etapa. Con `NEEDS_USER_DECISION`, ejecutar `block --decision` y detenerse. Todo cambio posterior que
 pueda afectar el flujo invalida el recibo y exige repetir la revisión local y la revisión UI.
@@ -363,18 +369,18 @@ Ejecutar esta sección sólo con `handoffMode=full`.
 3. Ramificar exclusivamente por `developmentMode`:
 
    - `superset`: abrir el navegador dedicado mediante
-     `python3 <plugin-root>/scripts/issue-delivery <issue> launch-browser --url <url-local>` e invocar `$issue-delivery-cua-review`.
+     `python3 <plugin-root>/scripts/issue-delivery <issue> launch-browser --url <url-local>` e invocar `issue-delivery-cua-review`.
    - `vanilla`: abrir el navegador dedicado mediante el mismo comando e invocar
-     `$issue-delivery-cua-review` desde el checkout adoptado.
+     `issue-delivery-cua-review` desde el checkout adoptado.
    - `codex`: no ejecutar `launch-browser`; exigir la app de Codex y Browser disponible,
-     e invocar `$issue-delivery-browser-review`. Permitir Playwright headless sólo para una story
+     e invocar `issue-delivery-browser-review`. Permitir Playwright headless sólo para una story
      con brecha demostrada de `file-upload` o `hover`, sin cambiar reviewer ni modo.
    - `conductor-cloud`: no ejecutar `launch-browser`; exigir las variables oficiales de Conductor,
      Playwright en el repositorio objetivo y Chrome en el workspace, e invocar
-     `$issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
+     `issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
 
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie declarada.
-5. Ningún reviewer edita código. Entregar findings a `$issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
+5. Ningún reviewer edita código. Entregar findings a `issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
 6. Permitir como máximo cinco ciclos revisión-reparación.
 7. Leer
    [evidence-annotations.md](references/evidence-annotations.md). Conservar únicamente capturas
@@ -462,7 +468,7 @@ y sólo la sección `BLOCKERS` de los `blockerBots`; ignorar summaries, walkthro
 opcionales y comentarios humanos durante el ciclo automático. `wait-review` guarda un snapshot pero
 no consume presupuesto de reparación.
 
-1. Invocar `$issue-delivery-blocker-triage` con el snapshot.
+1. Invocar `issue-delivery-blocker-triage` con el snapshot.
 2. Si una solicitud contradice spec, ticket o decisión del Grill, registrar `NEEDS_USER_DECISION` y pausar.
 3. Si el usuario mantiene el spec, guardar `SKIP` pegajoso. Si acepta al reviewer, actualizar primero spec y tickets en Linear y recién después editar.
 4. Antes de editar por uno o más `FIX`, revisar `repairBudget` del snapshot o
@@ -501,7 +507,7 @@ no consume presupuesto de reparación.
 
    Esto agrega otro bloque del mismo tamaño y reanuda el run preservando worktree, branch, PR,
    spec, tickets, triage y evidencia. Volver a pedir aprobación al agotar cada bloque adicional.
-7. Con presupuesto disponible, reparar cada `FIX` mediante `$issue-delivery-implement` y aplicar
+7. Con presupuesto disponible, reparar cada `FIX` mediante `issue-delivery-implement` y aplicar
    íntegramente la invariante de reparación y handoff. Usar un commit por causa raíz; agrupar sólo
    cambios íntimamente relacionados.
 8. Validar y ejecutar el reviewer seleccionado antes de un único push por reparación. Después del
@@ -575,7 +581,7 @@ comentario general accionable de los `blockerBots` sin `+1` de la identidad GitH
 no participan del gate automático. El checkpoint de `review-convergence` vuelve a ejecutar el
 mismo gate y no puede omitirse aunque el snapshot de una ronda esté incompleto o desactualizado.
 También rechaza todo `SKIP` reconocido que no figure en un resumen público. Procesar todo
-resultado pendiente con `$issue-delivery-blocker-triage` antes de reintentar.
+resultado pendiente con `issue-delivery-blocker-triage` antes de reintentar.
 
 El checkpoint detiene los procesos del runtime usado durante la revisión y deja el run en
 `awaiting_final_runtime_reset`; todavía no está terminado. Ejecutar obligatoriamente:
@@ -613,4 +619,4 @@ sólo las sesiones Codex registradas y sus subagentes; no incluye bots externos 
 final posterior a `measuredAt`. Si es `partial` o `unavailable`, indicarlo sin convertir datos
 faltantes en cero. No contar tokens manualmente, consultar consumo por respuesta ni cargar
 transcripciones en el contexto. La medición no requiere procesos de seguimiento ni llamadas
-al modelo.
+al modelo. En Claude Code todavía no se mide: informar `unavailable` sin bloquear el run.

@@ -33,15 +33,19 @@ UI con `manual-revision`, aunque `currentPhase` sea `review-convergence`.
 
 - `executor=principal-session`: ejecutar en esta conversación como hasta ahora.
 - `executor=native-subagent`: el principal lanza directamente un subagente nativo con
-  `spawnOptions`. En esta superficie corresponde a `collaboration.spawn_agent`, con
-  `fork_turns="none"` y el `model` explícito cuando exista. No usar `fork_turns="all"` para un
-  override. Sin modelo explícito, heredar del principal; no del último implementador. El nivel de
+  `spawnOptions`, según `harness`:
+  - `codex`: `collaboration.spawn_agent` con `fork_turns="none"` y el `model` explícito cuando
+    exista. No usar `fork_turns="all"` para un override.
+  - `claude`: herramienta `Agent` con `subagent_type="general-purpose"` y el `model` explícito
+    cuando exista. No usar forks que copien la conversación.
+  Sin modelo explícito, heredar del principal; no del último implementador. El nivel de
   razonamiento sigue el comportamiento del host; este selector no lo modifica.
 - Anunciar etapa, modelo explícito o herencia y executor antes de empezar. Comprobar que el modelo
   solicitado esté disponible en la herramienta nativa; un modelo desconocido, un override ignorado
   o herramientas requeridas inaccesibles deben producir `BLOCKED`, sin fallback silencioso.
-  El CLI valida sintaxis y etapas, no la disponibilidad de modelos del proveedor.
-- No crear sesiones Conductor, worktrees, procesos `codex exec` ni modificar configuración global.
+  El CLI valida sintaxis y etapas, no la disponibilidad de modelos del proveedor. En Claude Code
+  sólo acepta los alias `sonnet`, `opus`, `haiku` y `fable`, los únicos que admite `Agent`.
+- No crear sesiones Conductor, worktrees, procesos `codex exec`/`claude -p` ni modificar configuración global.
   No lanzar agentes de prueba para descubrir modelos. Todos los workers nacen del principal para
   mantener la herencia y la atribución de tokens.
 - Un worker ejecuta sólo el trabajo asignado y devuelve resultado, SHA, validaciones, artifacts y

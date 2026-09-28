@@ -63,7 +63,7 @@ Por cada story:
 Browser Preview y Agentation son superficies opcionales para revisión humana. No cuentan como PASS
 automático ni se requiere instalar overlays en la aplicación. Si el usuario devuelve una anotación
 o reporte desde Browser Preview, entregarlo al orquestador como escenario `REPAIR-<n>`: invalidar la
-evidencia afectada, reparar mediante `$issue-delivery-implement` y repetir esta revisión sobre el
+evidencia afectada, reparar mediante `issue-delivery-implement` y repetir esta revisión sobre el
 nuevo SHA.
 
 ## Reparaciones y findings
@@ -81,7 +81,7 @@ Por cada fallo, devolver:
 - Screenshot o trace relevante.
 - Severidad práctica e historias invalidadas.
 
-No editar código. Entregar findings a `$issue-delivery-implement` y repetir las stories invalidadas
+No editar código. Entregar findings a `issue-delivery-implement` y repetir las stories invalidadas
 sobre el estado final. Si una precondición técnica falta, devolver `BLOCKED`; si la aplicación no
 cumple, devolver `FAIL`.
 
