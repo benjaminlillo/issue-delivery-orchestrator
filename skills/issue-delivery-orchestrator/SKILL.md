@@ -96,6 +96,10 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    anterior. Sólo una instrucción explícita del usuario en el prompt autoriza otro `--base` u otro
    `--target`. En modo Codex, crear una rama inexistente desde el último `origin/<base>`; reutilizar
    la rama local o remota de la issue cuando exista, sin reescribir su historia.
+   En el mismo anuncio, informar `tokenMeasurement` de la salida de bootstrap o resume: con
+   `ready`, indicar que se medirá el consumo y en qué host; con `partial` o `unavailable`, avisar
+   explícitamente que el consumo no se podrá medir completo y citar sus `issues`. Es un aviso, no
+   un bloqueo: continuar salvo que el usuario decida reiniciar la sesión.
 8. No cambiar modo, worktree ni reviewer después de crear el run. Obedecer `currentPhase`,
    `developmentMode` y `reviewerMethod`; no recrear un run preservado.
    En modo Codex, no usar Handoff a Local: el estado ignorado bajo `.local-runtime` debe permanecer
@@ -612,11 +616,14 @@ Eliminar recursos de todos los runtimes y el perfil del navegador. Preservar wor
 
 ## Consumo de tokens
 
-El motor captura automáticamente la referencia inicial de Codex al crear o reanudar el run y
-recoge el consumo en `runtime-handoff`. Incluir `tokenUsage` del recibo en el reporte final:
-total, entrada, entrada desde caché (incluida en entrada), salida y cobertura. `complete` cubre
-sólo las sesiones Codex registradas y sus subagentes; no incluye bots externos ni el mensaje
-final posterior a `measuredAt`. Si es `partial` o `unavailable`, indicarlo sin convertir datos
-faltantes en cero. No contar tokens manualmente, consultar consumo por respuesta ni cargar
-transcripciones en el contexto. La medición no requiere procesos de seguimiento ni llamadas
-al modelo. En Claude Code todavía no se mide: informar `unavailable` sin bloquear el run.
+El motor detecta el host por su variable de sesión (`CODEX_THREAD_ID` o
+`CLAUDE_CODE_SESSION_ID`), comprueba al crear o reanudar el run que puede leer sus registros y lo
+informa en `tokenMeasurement`. Si ambas variables están presentes, la sesión es ambigua y no se
+mide. En `runtime-handoff` recoge el consumo de cada sesión registrada con el lector de su host
+y lo suma, aunque el run se haya reanudado en otro host. Incluir `tokenUsage` del recibo en el
+reporte final: total, entrada, entrada desde caché y, en Claude Code, escritura en caché (ambas
+incluidas en entrada), salida y cobertura. `complete` cubre sólo las sesiones registradas y sus
+subagentes; no incluye bots externos, llamadas internas del host ni el mensaje final posterior a
+`measuredAt`. Si es `partial` o `unavailable`, indicarlo sin convertir datos faltantes en cero.
+No contar tokens manualmente, consultar consumo por respuesta ni cargar transcripciones en el
+contexto. La medición no requiere procesos de seguimiento ni llamadas al modelo.

@@ -3,6 +3,9 @@
   "owner": {
     "name": "Benjamin Lillo"
   },
+  "metadata": {
+    "description": "Issue Delivery Orchestrator plugin for Claude Code."
+  },
   "plugins": [
     {
       "name": "issue-delivery-orchestrator",

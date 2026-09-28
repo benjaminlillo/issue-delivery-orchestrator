@@ -8,8 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .harness import detect_host
+
 
 FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens", "total_tokens")
+# Claude Code also reports cache writes; they are included in input_tokens.
+CACHE_WRITE = "cache_creation_input_tokens"
 
 
 def _now() -> str:
@@ -95,21 +99,60 @@ def _cursor(thread_id: str) -> dict[str, Any]:
 
 
 def attach_token_usage(state: dict[str, Any], *, new_run: bool = False, resume: bool = False) -> None:
+    """Register the current session and record whether its usage can be measured."""
     tracking = state.setdefault("tokenUsageTracking", {
         "roots": [], "sessions": {}, "issues": [], "startedAt": _now(),
     })
-    if not new_run and not tracking["roots"]:
+    if not new_run and not tracking["roots"] and not (tracking.get("claude") or {}).get("sessions"):
         _issue(tracking, "No baseline for the earlier part of this run")
-    thread_id = os.environ.get("CODEX_THREAD_ID")
-    if not thread_id:
-        _issue(tracking, "CODEX_THREAD_ID unavailable")
+    host, session_id = detect_host()
+    if resume and host in {"codex", "claude"}:
+        _freeze_other_host(tracking, host)
+    if host == "codex":
+        registered = _attach_codex(tracking, session_id, resume)
+    elif host == "claude":
+        registered = _attach_claude(tracking, session_id, resume)
+    else:
+        registered = False
+        _issue(tracking, (
+            "Ambiguous session: both Codex and Claude Code session variables are set"
+            if host == "ambiguous" else "No Codex or Claude Code session detected"
+        ))
+    tracking["startCheck"] = {
+        "status": "unavailable" if not registered else "partial" if tracking["issues"] else "ready",
+        "harness": host,
+        "sessionId": session_id,
+        "checkedAt": _now(),
+        "issues": list(tracking["issues"]),
+    }
+
+
+def _freeze_other_host(tracking: dict[str, Any], host: str) -> None:
+    """A resume in another host ends measurement of the previous host's sessions."""
+    if host == "claude":
+        tracking["activeRoots"] = []
+        for cursor in tracking["sessions"].values():
+            cursor["frozen"] = True
         return
+    claude = tracking.get("claude") or {}
+    _close_claude_windows(claude)
+
+
+def _close_claude_windows(claude: dict[str, Any]) -> None:
+    # Usage between the last collection and this resume belongs to no run.
+    closed_at = claude.get("lastCollectedAt") or _now()
+    for session in claude.get("sessions", {}).values():
+        if session["windows"][-1][1] is None:
+            session["windows"][-1][1] = closed_at
+
+
+def _attach_codex(tracking: dict[str, Any], thread_id: str, resume: bool) -> bool:
     if not resume and (thread_id in tracking["roots"] or thread_id in tracking["sessions"]):
-        return
+        return bool(tracking["sessions"].get(thread_id, {}).get("baselineReady"))
     home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex").expanduser().resolve()
     if tracking.get("codexHome") and tracking["codexHome"] != str(home):
         _issue(tracking, "Codex home changed; additional session not measured")
-        return
+        return False
     tracking["codexHome"] = str(home)
     if thread_id not in tracking["roots"]:
         tracking["roots"].append(thread_id)
@@ -136,6 +179,103 @@ def attach_token_usage(state: dict[str, Any], *, new_run: bool = False, resume: 
         _issue(tracking, "Codex session index unavailable at start")
         cursor = tracking["sessions"].setdefault(thread_id, _cursor(thread_id))
         cursor["baselineReady"] = False
+    return bool(tracking["sessions"].get(thread_id, {}).get("baselineReady"))
+
+
+def _claude_home() -> Path:
+    return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude").expanduser().resolve()
+
+
+def _claude_log(home: Path, session_id: str) -> Path:
+    matches = sorted((home / "projects").glob(f"*/{session_id}.jsonl"))
+    if len(matches) != 1:
+        raise ValueError("not found" if not matches else "found in several projects")
+    return matches[0]
+
+
+def _attach_claude(tracking: dict[str, Any], session_id: str | None, resume: bool) -> bool:
+    if not session_id:
+        _issue(tracking, "CLAUDE_CODE_SESSION_ID unavailable")
+        return False
+    claude = tracking.setdefault("claude", {"sessions": {}})
+    home = _claude_home()
+    if claude.get("home") and claude["home"] != str(home):
+        _issue(tracking, "Claude Code config directory changed; additional session not measured")
+        return False
+    session = claude["sessions"].get(session_id)
+    if session and not resume and session["windows"][-1][1] is None:
+        return True
+    try:
+        path = _claude_log(home, session_id)
+    except (OSError, ValueError) as error:
+        _issue(tracking, f"Claude Code session log {error}")
+        return False
+    claude["home"] = str(home)
+    if resume:
+        _close_claude_windows(claude)
+    session = claude["sessions"].setdefault(session_id, {"path": str(path), "windows": []})
+    if not session["windows"] or session["windows"][-1][1] is not None:
+        session["windows"].append([_now(), None])
+    return True
+
+
+def _claude_counts(usage: Any) -> dict[str, int]:
+    if not isinstance(usage, dict):
+        raise ValueError("Unsupported token counters")
+    values = {
+        "input_tokens": usage.get("input_tokens"),
+        "output_tokens": usage.get("output_tokens"),
+        "cache_read": usage.get("cache_read_input_tokens", 0),
+        CACHE_WRITE: usage.get(CACHE_WRITE, 0),
+    }
+    if any(type(value) is not int or value < 0 for value in values.values()):
+        raise ValueError("Unsupported token counters")
+    input_tokens = values["input_tokens"] + values["cache_read"] + values[CACHE_WRITE]
+    return {
+        "input_tokens": input_tokens,
+        "cached_input_tokens": values["cache_read"],
+        "output_tokens": values["output_tokens"],
+        "total_tokens": input_tokens + values["output_tokens"],
+        CACHE_WRITE: values[CACHE_WRITE],
+    }
+
+
+def _claude_messages(log: Path) -> dict[str, tuple[datetime, dict[str, int]]]:
+    """Read one usage record per API message from a session and its subagents."""
+    messages: dict[str, tuple[datetime, dict[str, int]]] = {}
+    for path in (log, *sorted((log.parent / log.stem / "subagents").rglob("*.jsonl"))):
+        with path.open("rb") as stream:
+            for line in stream:
+                if not line.endswith(b"\n"):
+                    break
+                entry = json.loads(line)
+                message = entry.get("message")
+                if not isinstance(message, dict) or "usage" not in message:
+                    continue
+                # A message is logged once per content block with the same usage.
+                if message["id"] not in messages:
+                    messages[message["id"]] = (_time(entry["timestamp"]), _claude_counts(message["usage"]))
+    return messages
+
+
+def _collect_claude(tracking: dict[str, Any], issues: list[str]) -> tuple[dict[str, int], int]:
+    claude = tracking["claude"]
+    selected: dict[str, dict[str, int]] = {}
+    measured = 0
+    for key, session in claude["sessions"].items():
+        try:
+            messages = _claude_messages(Path(session["path"]))
+            windows = [(_time(start), _time(end) if end else None) for start, end in session["windows"]]
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+            issues.append(f"Claude Code session {key} unavailable: {type(error).__name__}")
+            continue
+        for message_id, (stamp, counts) in messages.items():
+            if any(stamp >= start and (end is None or stamp <= end) for start, end in windows):
+                selected.setdefault(message_id, counts)
+        measured += 1
+    claude["lastCollectedAt"] = _now()
+    keys = (*FIELDS, CACHE_WRITE)
+    return {key: sum(counts[key] for counts in selected.values()) for key in keys}, measured
 
 
 def _issue(tracking: dict[str, Any], message: str) -> None:
@@ -148,6 +288,35 @@ def collect_token_usage(state: dict[str, Any]) -> dict[str, Any]:
         "roots": [], "sessions": {}, "issues": ["Run has no token usage baseline"],
     }
     issues = list(tracking["issues"])
+    measured = 0
+    scopes = []
+    totals: dict[str, int] = dict.fromkeys(FIELDS, 0)
+    if tracking["roots"] or tracking["sessions"]:
+        scopes.append("codex_session_tree")
+        measured += _collect_codex(tracking, issues)
+        for key in FIELDS:
+            totals[key] = sum(cursor["usage"][key] for cursor in tracking["sessions"].values())
+    if (tracking.get("claude") or {}).get("sessions"):
+        scopes.append("claude_session_tree")
+        claude, claude_measured = _collect_claude(tracking, issues)
+        measured += claude_measured
+        for key, value in claude.items():
+            totals[key] = totals.get(key, 0) + value
+    available = bool(measured or totals["total_tokens"])
+    status = "complete" if measured and not issues else "partial" if available else "unavailable"
+    report = {
+        "status": status,
+        "scope": "+".join(scopes) or None,
+        "measuredAt": _now(),
+        "sessions": len(tracking["sessions"]) + len((tracking.get("claude") or {}).get("sessions", {})),
+        "usage": totals if available else None,
+        "issues": sorted(set(issues)),
+    }
+    state["tokenUsage"] = report
+    return report
+
+
+def _collect_codex(tracking: dict[str, Any], issues: list[str]) -> int:
     measured = 0
     try:
         threads = _threads(Path(tracking["codexHome"]))
@@ -170,19 +339,4 @@ def collect_token_usage(state: dict[str, Any]) -> dict[str, Any]:
                 issues.append(f"Session {key} unavailable: {type(error).__name__}")
     except (OSError, ValueError, KeyError, sqlite3.Error, TypeError, AttributeError):
         issues.append("Codex session index unavailable at collection")
-    totals = {
-        key: sum(cursor["usage"][key] for cursor in tracking["sessions"].values())
-        for key in FIELDS
-    }
-    available = bool(measured or totals["total_tokens"])
-    status = "complete" if measured and not issues else "partial" if available else "unavailable"
-    report = {
-        "status": status,
-        "scope": "codex_session_tree",
-        "measuredAt": _now(),
-        "sessions": len(tracking["sessions"]),
-        "usage": totals if available else None,
-        "issues": sorted(set(issues)),
-    }
-    state["tokenUsage"] = report
-    return report
+    return measured

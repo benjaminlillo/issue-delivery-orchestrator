@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from .errors import OrchestrationError
+from .errors import OrchestrationError, RunBlocked
 from .harness import current_harness
 from .state import PHASES, phases_for_state, save_state
 
@@ -54,7 +54,16 @@ def stage_plan(state: dict[str, Any], stage: str) -> dict[str, Any]:
         raise OrchestrationError(f"Stage unavailable in this run: {stage}")
     model = (state.get("stageModels") or {}).get(stage)
     delegated = bool(model) or stage == "local-review"
-    harness = current_harness()
+    try:
+        harness = current_harness()
+    except RunBlocked as error:
+        # Keep status readable; the principal must not delegate until the host is unambiguous.
+        return {
+            "stage": stage, "harness": "ambiguous", "model": model,
+            "modelSource": "explicit" if model else "principal-session",
+            "executor": "native-subagent" if delegated else "principal-session",
+            "spawnOptions": None, "blocked": str(error),
+        }
     spawn = None
     if delegated:
         # Both shapes start the worker without the principal's conversation history.

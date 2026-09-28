@@ -937,6 +937,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "phaseSequence": state.get("phaseSequence"),
         "stageModels": state.get("stageModels", {}),
         "stageExecution": stage_plan(state, state["currentPhase"]) if state.get("currentPhase") else None,
+        "tokenMeasurement": (state.get("tokenUsageTracking") or {}).get("startCheck"),
         "tokenUsage": state.get("tokenUsage"),
         "pr": state.get("pr"),
         "blocker": state.get("blocker"),

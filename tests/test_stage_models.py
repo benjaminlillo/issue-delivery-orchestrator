@@ -19,7 +19,8 @@ class StageModelsTests(unittest.TestCase):
         environment = patch.dict(os.environ)
         environment.start()
         self.addCleanup(environment.stop)
-        os.environ.pop("CLAUDECODE", None)
+        for key in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID"):
+            os.environ.pop(key, None)
         self.state = create_state(
             worktree=Path(self.tmp.name), run_id="models", issue={"identifier": "TS-1", "title": "Test"},
             branch="feature", base="development", created_from="origin/development",
@@ -62,6 +63,14 @@ class StageModelsTests(unittest.TestCase):
         self.assertEqual(plan["harness"], "claude")
         self.assertEqual(plan["spawnOptions"], {"subagent_type": "general-purpose", "model": "sonnet"})
         self.assertEqual(stage_plan(self.state, "local-review")["spawnOptions"], {"subagent_type": "general-purpose"})
+
+    def test_ambiguous_host_keeps_status_readable_but_blocks_delegation(self):
+        os.environ.update({"CLAUDE_CODE_SESSION_ID": "session", "CODEX_THREAD_ID": "thread"})
+        plan = stage_plan(self.state, "local-review")
+        self.assertEqual((plan["harness"], plan["spawnOptions"]), ("ambiguous", None))
+        self.assertIn("Ambiguous agent host", plan["blocked"])
+        with self.assertRaisesRegex(OrchestrationError, "Ambiguous agent host"):
+            update_stage_models(self.state, {"implement": "opus"})
 
     def test_invalid_flags_fail_before_mutation(self):
         for entries in (["implement"], ["unknown=model"], ["implement="], ["implement=two words"], ["implement=a", "implement=b"]):

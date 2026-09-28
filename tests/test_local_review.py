@@ -34,7 +34,8 @@ class LocalReviewTests(unittest.TestCase):
         environment = patch.dict(os.environ)
         environment.start()
         self.addCleanup(environment.stop)
-        os.environ.pop("CLAUDECODE", None)
+        for key in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID"):
+            os.environ.pop(key, None)
 
     def write(self, **overrides):
         payload = {
@@ -66,6 +67,12 @@ class LocalReviewTests(unittest.TestCase):
             validate_local_review(self.state, str(self.path))
         self.write(reviewer="claude-native-subagent")
         self.assertEqual(validate_local_review(self.state, str(self.path))["status"], "PASS")
+
+    def test_ambiguous_host_blocks_the_receipt(self):
+        os.environ.update({"CLAUDECODE": "1", "CODEX_THREAD_ID": "thread"})
+        self.write()
+        with self.assertRaisesRegex(RunBlocked, "Ambiguous agent host"):
+            validate_local_review(self.state, str(self.path))
 
     def test_rejects_non_pass_checkpoint_and_outside_artifact(self):
         self.write(status="FIX")

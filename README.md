@@ -125,8 +125,8 @@ claude plugin list
 
 Start a new Claude Code session. Skills are namespaced, for example
 `/issue-delivery-orchestrator:issue-delivery-orchestrator`. Local Review and per-stage models use
-Claude's `Agent` tool (`sonnet`, `opus`, `haiku`, or `fable`); token usage is reported as
-unavailable in Claude Code. To update, run `claude plugin marketplace update
+Claude's `Agent` tool (`sonnet`, `opus`, `haiku`, or `fable`); token usage is read from
+Claude Code's session logs, including subagents. To update, run `claude plugin marketplace update
 issue-delivery-orchestrator` and `claude plugin update
 issue-delivery-orchestrator@issue-delivery-orchestrator`.
 

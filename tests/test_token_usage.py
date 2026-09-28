@@ -29,6 +29,8 @@ class TokenUsageTests(unittest.TestCase):
         env = patch.dict(os.environ, {"CODEX_HOME": str(self.home), "CODEX_THREAD_ID": "root"})
         env.start()
         self.addCleanup(env.stop)
+        for key in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CONFIG_DIR"):
+            os.environ.pop(key, None)
         self.state = {}
         self.thread("root")
         self.event("root", 100, 100)
@@ -53,11 +55,15 @@ class TokenUsageTests(unittest.TestCase):
 
         state = create_state(
             worktree=self.home / "worktree", run_id="test-run",
-            issue={"identifier": "TS-1"}, branch="feature", base="development",
+            issue={"identifier": "TS-1", "title": "Title"}, branch="feature", base="development",
             created_from="origin/development", adopted_head="abc", identities={},
         )
         persisted = load_state(run_root(self.home / "worktree", "test-run") / "state.json")
         self.assertEqual(persisted["tokenUsageTracking"]["roots"], ["root"])
+        from issue_delivery_orchestrator.cli import _public_state
+
+        measurement = _public_state(persisted)["tokenMeasurement"]
+        self.assertEqual((measurement["status"], measurement["harness"]), ("ready", "codex"))
         self.event("root", 103, 3)
         self.assertEqual(collect_token_usage(persisted)["usage"], counts(3))
         self.assertEqual(state["status"], "active")
@@ -177,7 +183,121 @@ class TokenUsageTests(unittest.TestCase):
             f.write("invalid json\n")
         self.assertEqual(collect_token_usage(self.state)["status"], "partial")
 
+    def test_run_resumed_in_claude_code_sums_both_hosts(self):
+        attach_token_usage(self.state, new_run=True)
+        self.event("root", 110, 10)
+        collect_token_usage(self.state)
+        project = self.home / "claude" / "projects" / "-repo"
+        project.mkdir(parents=True)
+        entry = {"type": "assistant", "timestamp": "2999-01-01T00:00:00Z", "message": {
+            "id": "m1", "usage": {"input_tokens": 5, "cache_read_input_tokens": 3, "output_tokens": 2},
+        }}
+        (project / "claude-session.jsonl").write_text("")
+        with patch.dict(os.environ, {
+            "CODEX_THREAD_ID": "", "CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "claude-session",
+            "CLAUDE_CONFIG_DIR": str(self.home / "claude"),
+        }):
+            attach_token_usage(self.state, resume=True)
+            self.assertEqual(self.state["tokenUsageTracking"]["startCheck"]["status"], "ready")
+            (project / "claude-session.jsonl").write_text(json.dumps(entry) + "\n")
+            self.event("root", 900, 790)
+            report = collect_token_usage(self.state)
+        self.assertEqual(report["scope"], "codex_session_tree+claude_session_tree")
+        self.assertEqual(report["usage"]["input_tokens"], 90 + 8)
+        self.assertEqual(report["usage"]["total_tokens"], 100 + 10)
+
     def test_counter_regression_is_not_silently_added(self):
         attach_token_usage(self.state, new_run=True)
         self.event("root", 2, 2)
         self.assertEqual(collect_token_usage(self.state)["status"], "unavailable")
+
+
+class ClaudeTokenUsageTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.home = Path(self.tmp.name)
+        self.project = self.home / "projects" / "-repo"
+        self.project.mkdir(parents=True)
+        env = patch.dict(os.environ, {
+            "CLAUDECODE": "1", "CLAUDE_CODE_SESSION_ID": "main", "CLAUDE_CONFIG_DIR": str(self.home),
+        })
+        env.start()
+        self.addCleanup(env.stop)
+        os.environ.pop("CODEX_THREAD_ID", None)
+        self.state = {}
+        self.message("main", "old", "2020-01-01T00:00:00Z", 1000)
+
+    def message(self, session, key, stamp, output, *, subagent=None, blocks=1):
+        path = self.project / f"{session}.jsonl"
+        if subagent:
+            path = self.project / session / "subagents" / f"agent-{subagent}.jsonl"
+            path.parent.mkdir(parents=True, exist_ok=True)
+        usage = {
+            "input_tokens": 1, "cache_creation_input_tokens": 10,
+            "cache_read_input_tokens": 100, "output_tokens": output,
+        }
+        with path.open("a") as f:
+            f.write(json.dumps({"type": "user", "timestamp": stamp, "message": {"role": "user", "content": "x"}}) + "\n")
+            for _ in range(blocks):
+                f.write(json.dumps({"type": "assistant", "timestamp": stamp, "message": {"id": key, "usage": usage}}) + "\n")
+
+    def usage(self, messages, output):
+        return {
+            "input_tokens": 111 * messages, "cached_input_tokens": 100 * messages,
+            "output_tokens": output, "total_tokens": 111 * messages + output,
+            "cache_creation_input_tokens": 10 * messages,
+        }
+
+    def test_start_check_is_ready_and_counts_run_messages_and_subagents_once(self):
+        attach_token_usage(self.state, new_run=True)
+        check = self.state["tokenUsageTracking"]["startCheck"]
+        self.assertEqual((check["status"], check["harness"], check["sessionId"]), ("ready", "claude", "main"))
+        self.message("main", "m1", "2999-01-01T00:00:00Z", 5, blocks=3)
+        self.message("main", "m2", "2999-01-01T00:01:00Z", 7)
+        self.message("main", "s1", "2999-01-01T00:02:00Z", 11, subagent="a")
+        report = collect_token_usage(self.state)
+        self.assertEqual((report["status"], report["scope"]), ("complete", "claude_session_tree"))
+        self.assertEqual(report["usage"], self.usage(3, 23))
+
+    def test_resume_excludes_conversation_between_handoff_and_resume(self):
+        attach_token_usage(self.state, new_run=True)
+        self.message("main", "m1", "2999-01-01T00:00:00Z", 5)
+        collect_token_usage(self.state)
+        self.state["tokenUsageTracking"]["claude"]["lastCollectedAt"] = "2999-01-01T00:00:30Z"
+        self.message("main", "chat", "2999-01-01T00:01:00Z", 500)
+        with patch("issue_delivery_orchestrator.token_usage._now", return_value="2999-01-01T00:02:00Z"):
+            attach_token_usage(self.state, resume=True)
+        self.message("main", "m2", "2999-01-01T00:03:00Z", 7)
+        self.assertEqual(collect_token_usage(self.state)["usage"], self.usage(2, 12))
+
+    def test_missing_log_is_reported_unavailable_at_start(self):
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "missing"
+        attach_token_usage(self.state, new_run=True)
+        check = self.state["tokenUsageTracking"]["startCheck"]
+        self.assertEqual(check["status"], "unavailable")
+        self.assertIn("Claude Code session log not found", check["issues"])
+        self.assertEqual(collect_token_usage(self.state)["status"], "unavailable")
+
+    def test_ambiguous_and_undetected_hosts_are_reported_at_start(self):
+        for environment, issue in (
+            ({"CODEX_THREAD_ID": "root"}, "Ambiguous session"),
+            ({"CLAUDECODE": "", "CLAUDE_CODE_SESSION_ID": ""}, "No Codex or Claude Code session detected"),
+        ):
+            with self.subTest(issue=issue), patch.dict(os.environ, environment):
+                state = {}
+                attach_token_usage(state, new_run=True)
+                check = state["tokenUsageTracking"]["startCheck"]
+                self.assertEqual(check["status"], "unavailable")
+                self.assertTrue(any(item.startswith(issue) for item in check["issues"]))
+
+    def test_malformed_subagent_log_is_never_counted(self):
+        attach_token_usage(self.state, new_run=True)
+        self.message("main", "m1", "2999-01-01T00:00:00Z", 5)
+        self.message("main", "s1", "2999-01-01T00:02:00Z", 11, subagent="a")
+        with (self.project / "main" / "subagents" / "agent-a.jsonl").open("a") as f:
+            f.write("invalid json\n")
+        report = collect_token_usage(self.state)
+        self.assertEqual(report["status"], "unavailable")
+        attach_token_usage(self.state)
+        self.assertEqual(self.state["tokenUsageTracking"]["startCheck"]["status"], "ready")
