@@ -48,6 +48,9 @@ directorio ignorado del run con al menos un servicio declarado por nombre, obtie
 manifiesto —no acepta URLs arbitrarias—, verifica HTTP 2xx/3xx y exige el mismo HEAD fijado por el reset. Escribe
 `validation/final-runtime-handoff.json` con SHA, runtime, URLs, puertos, procesos vivos, logs
 declarados y comando de cleanup. Una URL meramente asignada pero no saludable no puede publicarse.
+Antes del handoff, el agente precarga con sesión las páginas relevantes del runtime final y pasa
+`validation/warmup.json` como `warmup`; el motor exige que corresponda al mismo SHA y runtime y lo
+incluye en el recibo. Una página que falla al precargarse se informa, pero no bloquea el handoff.
 
 En `manual-runtime`, el handoff cambia a `awaiting_manual_review` y declara Computer Use y PR como
 no ejecutados. En `full`, completar `review-convergence` detiene los procesos usados para revisar y

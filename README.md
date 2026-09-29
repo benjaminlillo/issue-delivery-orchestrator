@@ -331,6 +331,10 @@ criterios y runtime, como una prueba de caja negra. Un override delega también 
 El principal conserva las aprobaciones y los comandos del motor. El reporte final desglosa el
 consumo de tokens por etapa, separando principal y subagentes.
 
+Antes del handoff final, el agente precarga con sesión las páginas relevantes del runtime
+(Playwright headless), para que no haya que esperar la compilación de cada página al probarla.
+El recibo final lista las páginas precargadas y las que fallaron.
+
 Para cambiar futuras invocaciones del mismo run:
 
 ```bash

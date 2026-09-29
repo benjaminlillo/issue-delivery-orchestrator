@@ -338,7 +338,7 @@ con `runtime-reset` y `runtime-handoff`, sin Computer Use ni PR.
 ### Handoff manual con runtime
 
 Si `handoffMode=manual-runtime`, detener aquí el flujo automático de delivery y preparar el entorno
-para el usuario; no invocar Browser, Cua ni Playwright, no crear screenshots/evidencia, no crear ni
+para el usuario; no invocar Browser, Cua ni Playwright para revisar, no crear screenshots/evidencia, no crear ni
 pushear la branch, no crear una PR y no entrar a convergencia remota.
 
 1. Ejecutar `runtime-reset`. El comando exige un worktree limpio y comprometido, detiene todos los
@@ -360,7 +360,10 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
 
    `name` debe coincidir con una entrada de `urls` del manifiesto del Local Runtime. `healthPath`
    y `logPath` son opcionales; el log, si se declara, debe existir dentro del worktree.
-4. Ejecutar:
+4. Precargar las páginas relevantes según [page-warmup.md](references/page-warmup.md) y agregar
+   `"warmup": "<ruta a validation/warmup.json>"` al input. Es la única ejecución de Playwright
+   permitida en este modo: no es una revisión UI ni produce evidencia.
+5. Ejecutar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> runtime-handoff --input <ruta-json>
@@ -369,13 +372,14 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    El motor consulta cada endpoint, rechaza servicios no saludables, fija el SHA y runtime activos,
    escribe `validation/final-runtime-handoff.json` y cambia el estado a `awaiting_manual_review` sin
    completar `manual-revision`.
-5. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, logs disponibles,
-   path del recibo y `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
+6. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
+   precargadas con su tiempo y las fallidas u omitidas, logs disponibles, path del recibo y
+   `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
    creada y PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
    `stop-processes`, `block` ni cleanup después de este handoff.
 
 Si el usuario pide una corrección mientras el run está en `awaiting_manual_review`, ejecutar
-`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps y `runtime-handoff`; el recibo
+`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps, precarga y `runtime-handoff`; el recibo
 anterior queda obsoleto. Si pide continuar con revisión automática y
 PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
 
@@ -619,13 +623,15 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
    HEAD.
 2. Levantar nuevamente sólo las apps necesarias y registrar sus PID.
 3. Crear el mismo input de servicios descrito en “Handoff manual con runtime”.
-4. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
+4. Precargar las páginas relevantes según [page-warmup.md](references/page-warmup.md) y agregar
+   `warmup` al input.
+5. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
 
 El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
 del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
-cambiaron. Terminar mostrando los links del runtime fresco para prueba manual y dejar sus procesos
-activos. Conservar worktree, rama, runtimes y estado.
+cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
+precargadas y las fallidas u omitidas, y dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 
 ## Review humano posterior y cleanup
 

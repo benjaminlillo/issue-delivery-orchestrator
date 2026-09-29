@@ -70,7 +70,8 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
    existente. No concluir ni hacer handoff mientras no exista un PASS de ese reviewer para el
    mismo SHA. En `manual-runtime`, no invocar un reviewer: detener los
    procesos previos, reemplazar el Local Runtime, levantar de nuevo las apps, verificar endpoints y
-   exigir un nuevo `final-runtime-handoff.json` sobre ese SHA antes de entregar los links al usuario.
+   precargar las páginas afectadas y exigir un nuevo `final-runtime-handoff.json` sobre ese SHA
+   antes de entregar los links al usuario.
 5. Si la revisión falla, usar el finding como nueva entrada de reparación y repetir, hasta el límite de cinco ciclos administrado por `issue-delivery-orchestrator`.
 6. Invalidar el PASS previo ante cualquier edición posterior capaz de afectar el flujo.
 

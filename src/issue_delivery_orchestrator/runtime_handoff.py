@@ -14,6 +14,7 @@ from .runtime import _alive
 from .state import handoff_mode, now, run_root, save_state
 from .token_usage import collect_token_usage
 from .util import atomic_write_json, read_json, run
+from .warmup import validate_warmup
 
 
 def prepare_runtime_handoff(
@@ -87,6 +88,9 @@ def prepare_runtime_handoff(
             "HEAD changed after the final runtime reset; reset it again before handoff"
         )
     runtime_id = runtime["runtimeId"]
+    warmup = validate_warmup(
+        state, payload.get("warmup"), urls=urls, runtime_id=runtime_id, commit=commit
+    )
     receipt_path = run_root(worktree, state["runId"]) / "validation" / "final-runtime-handoff.json"
     manual = handoff_mode(state) == "manual-runtime"
     if not manual and not (state.get("pr") or {}).get("url"):
@@ -100,6 +104,7 @@ def prepare_runtime_handoff(
         "runtimeId": runtime_id,
         "preparedAt": now(),
         "services": services,
+        "warmup": warmup,
         "processes": _live_runtime_processes(state, manifest),
         "cleanupCommand": shlex.join(
             [
@@ -119,6 +124,7 @@ def prepare_runtime_handoff(
         "receipt": str(receipt_path.relative_to(worktree)),
         "preparedAt": receipt["preparedAt"],
         "services": services,
+        "warmup": warmup,
     }
     if manual:
         state["status"] = "awaiting_manual_review"

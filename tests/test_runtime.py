@@ -104,7 +104,12 @@ class RuntimeProcessTests(unittest.TestCase):
                 / "services.json"
             )
             input_path.parent.mkdir(parents=True, exist_ok=True)
-            input_path.write_text(json.dumps({"services": [{"name": "web"}]}))
+            warmup_path = input_path.parent / "warmup.json"
+            warmup_path.write_text(json.dumps({
+                "receiptVersion": 1, "verifiedCommit": head, "runtimeId": "runtime-1",
+                "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
+            }))
+            input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
 
             with patch(
                 "issue_delivery_orchestrator.runtime_handoff._health_status", return_value=200
@@ -120,6 +125,8 @@ class RuntimeProcessTests(unittest.TestCase):
             self.assertTrue(result["processesPreserved"])
             self.assertNotIn("processesStoppedAt", state)
             self.assertEqual(receipt["services"][0]["port"], 43123)
+            self.assertEqual(receipt["warmup"]["pages"][0]["url"], "http://127.0.0.1:43123/orders/1")
+            self.assertEqual(state["finalRuntimeHandoff"]["warmup"]["warmed"], 1)
             self.assertEqual(receipt["processes"][0]["pid"], os.getpid())
             self.assertEqual(receipt["computerUseReview"], "NOT_RUN")
             self.assertEqual(receipt["status"], "READY_FOR_USER_TESTING")
@@ -175,7 +182,12 @@ class RuntimeProcessTests(unittest.TestCase):
                 / "services.json"
             )
             input_path.parent.mkdir(parents=True, exist_ok=True)
-            input_path.write_text(json.dumps({"services": [{"name": "web"}]}))
+            warmup_path = input_path.parent / "warmup.json"
+            warmup_path.write_text(json.dumps({
+                "receiptVersion": 1, "verifiedCommit": head, "runtimeId": "fresh-runtime",
+                "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
+            }))
+            input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
 
             with patch(
                 "issue_delivery_orchestrator.runtime_handoff._health_status",
