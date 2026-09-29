@@ -29,11 +29,26 @@ class StageModelsTests(unittest.TestCase):
 
     def test_default_and_legacy_use_principal_without_overrides(self):
         for state in (self.state, {key: value for key, value in self.state.items() if key != "phaseSequence"}):
-            plan = stage_plan(state, "implement")
+            plan = stage_plan(state, "refactor")
             self.assertEqual(plan["executor"], "principal-session")
             self.assertIsNone(plan["model"])
             self.assertIsNone(plan["spawnOptions"])
+            self.assertIsNone(plan["contextPackage"])
         self.assertEqual(stage_plan(self.state, "local-review")["spawnOptions"], {"fork_turns": "none"})
+
+    def test_long_stages_run_in_fresh_workers_that_inherit_the_principal_model(self):
+        for stage, package in (("implement", "ticket"), ("local-review", "independent-review")):
+            plan = stage_plan(self.state, stage)
+            self.assertEqual((plan["executor"], plan["contextPackage"]), ("native-subagent", package))
+            self.assertEqual((plan["model"], plan["spawnOptions"]), (None, {"fork_turns": "none"}))
+        for method, executor in (
+            ("playwright-chrome", "native-subagent"), ("cua-driver", "native-subagent"),
+            ("codex-browser", "principal-session"),
+        ):
+            with self.subTest(method=method), patch(
+                "issue_delivery_orchestrator.stage_models.review_method", return_value=method
+            ):
+                self.assertEqual(stage_plan(self.state, "manual-revision")["executor"], executor)
 
     def test_selection_survives_reload_and_partial_updates_preserve_other_stages(self):
         update_stage_models(self.state, parse_stage_models(["grill=model-a", "implement=model-b"]))
@@ -42,7 +57,7 @@ class StageModelsTests(unittest.TestCase):
         self.assertEqual(reloaded["stageModels"], {"grill": "model-a", "implement": "model-b", "local-review": "model-c"})
         self.assertEqual(stage_plan(reloaded, "implement")["spawnOptions"], {"fork_turns": "none", "model": "model-b"})
         update_stage_models(reloaded, parse_stage_models(["implement=inherit"]))
-        self.assertEqual(stage_plan(reloaded, "implement")["executor"], "principal-session")
+        self.assertEqual(stage_plan(reloaded, "implement")["spawnOptions"], {"fork_turns": "none"})
         self.assertEqual(stage_plan(reloaded, "local-review")["model"], "model-c")
 
     def test_every_stage_can_delegate_but_local_review_stays_independent_after_reset(self):

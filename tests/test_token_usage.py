@@ -206,6 +206,34 @@ class TokenUsageTests(unittest.TestCase):
         self.assertEqual(report["usage"]["input_tokens"], 90 + 8)
         self.assertEqual(report["usage"]["total_tokens"], 100 + 10)
 
+    def test_usage_is_attributed_to_the_phase_active_at_each_event(self):
+        attach_token_usage(self.state, new_run=True)
+        self.state["phases"] = [
+            {"phase": "grill", "status": "completed", "completedAt": "2026-09-15T10:05:00Z"},
+            {"phase": "implement", "status": "completed", "completedAt": "2026-09-15T10:10:00Z"},
+        ]
+        self.event("root", 102, 2, stamp="2026-09-15T10:04:00Z")
+        self.event("root", 105, 3, stamp="2026-09-15T10:08:00Z")
+        self.thread("worker", "root", created="2026-09-15T10:06:00Z")
+        self.event("worker", 4, 4, stamp="2026-09-15T10:07:00Z")
+        self.event("root", 106, 1, stamp="2026-09-15T10:20:00Z")
+        report = collect_token_usage(self.state)
+        self.assertEqual(report["byPhase"], {
+            "grill": {"principal": counts(2)},
+            "implement": {"principal": counts(3), "subagents": counts(4)},
+            "final-handoff": {"principal": counts(1)},
+        })
+
+    def test_usage_measured_before_attribution_is_reported_as_unattributed(self):
+        attach_token_usage(self.state, new_run=True)
+        self.event("root", 110, 10)
+        collect_token_usage(self.state)
+        self.state["tokenUsageTracking"]["sessions"]["root"].pop("byPhase")
+        self.event("root", 112, 2)
+        report = collect_token_usage(self.state)
+        self.assertEqual(report["byPhase"]["unattributed"], {"unknown": {"total_tokens": 100}})
+        self.assertEqual(report["byPhase"]["final-handoff"], {"principal": counts(2)})
+
     def test_counter_regression_is_not_silently_added(self):
         attach_token_usage(self.state, new_run=True)
         self.event("root", 2, 2)
@@ -260,6 +288,20 @@ class ClaudeTokenUsageTests(unittest.TestCase):
         self.assertEqual((report["status"], report["scope"]), ("complete", "claude_session_tree"))
         self.assertEqual(report["usage"], self.usage(3, 23))
 
+    def test_usage_by_phase_separates_principal_and_subagents(self):
+        attach_token_usage(self.state, new_run=True)
+        self.state["phases"] = [
+            {"phase": "implement", "status": "completed", "completedAt": "2999-01-01T00:05:00Z"},
+        ]
+        self.message("main", "m1", "2999-01-01T00:01:00Z", 5, blocks=2)
+        self.message("main", "s1", "2999-01-01T00:02:00Z", 11, subagent="a")
+        self.message("main", "m2", "2999-01-01T00:06:00Z", 7)
+        by_phase = collect_token_usage(self.state)["byPhase"]
+        self.assertEqual(by_phase, {
+            "implement": {"principal": self.usage(1, 5), "subagents": self.usage(1, 11)},
+            "final-handoff": {"principal": self.usage(1, 7)},
+        })
+
     def test_resume_excludes_conversation_between_handoff_and_resume(self):
         attach_token_usage(self.state, new_run=True)
         self.message("main", "m1", "2999-01-01T00:00:00Z", 5)
@@ -291,13 +333,21 @@ class ClaudeTokenUsageTests(unittest.TestCase):
                 self.assertEqual(check["status"], "unavailable")
                 self.assertTrue(any(item.startswith(issue) for item in check["issues"]))
 
-    def test_malformed_subagent_log_is_never_counted(self):
+    def test_malformed_subagent_log_is_excluded_without_losing_the_rest(self):
         attach_token_usage(self.state, new_run=True)
         self.message("main", "m1", "2999-01-01T00:00:00Z", 5)
         self.message("main", "s1", "2999-01-01T00:02:00Z", 11, subagent="a")
+        self.message("main", "s2", "2999-01-01T00:03:00Z", 13, subagent="b")
         with (self.project / "main" / "subagents" / "agent-a.jsonl").open("a") as f:
             f.write("invalid json\n")
         report = collect_token_usage(self.state)
-        self.assertEqual(report["status"], "unavailable")
-        attach_token_usage(self.state)
-        self.assertEqual(self.state["tokenUsageTracking"]["startCheck"]["status"], "ready")
+        self.assertEqual(report["status"], "partial")
+        self.assertEqual(report["usage"], self.usage(2, 18))
+        self.assertIn("Claude Code subagent log agent-a.jsonl unavailable: JSONDecodeError", report["issues"])
+
+    def test_malformed_principal_log_is_never_counted(self):
+        attach_token_usage(self.state, new_run=True)
+        self.message("main", "m1", "2999-01-01T00:00:00Z", 5)
+        with (self.project / "main.jsonl").open("a") as f:
+            f.write("invalid json\n")
+        self.assertEqual(collect_token_usage(self.state)["status"], "unavailable")

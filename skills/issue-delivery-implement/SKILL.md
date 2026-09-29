@@ -43,10 +43,16 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 7. Reparar y repetir hasta tres ciclos. Si sigue rojo, devolver `BLOCKED` con logs reales.
 8. No reparar fallos demostrablemente presentes en el SHA integrado de la branch target del run;
    reportarlos como base failures.
+9. Redirigir la salida de tests, typecheck y builds a archivos bajo
+   `.local-runtime/issue-delivery-orchestrator/<run-id>/logs/` y leer sólo el resumen y las
+   fallas. No volcar logs completos al contexto.
 
-Si el orquestador te asignó únicamente implementar como worker de una etapa, entregar el commit,
-validaciones y gates pendientes al principal. El principal coordina las revisiones posteriores y
-el handoff con los modelos elegidos; no lanzarlos desde este worker.
+Como worker del orquestador, recibir el paquete `ticket`: spec, ticket o finding, SHA inicial,
+validación y los tickets ya aceptados. Seguir los patrones de esos commits previos. En una
+reparación, revisar el SHA y la evidencia del intento anterior antes de editar para no repetir un
+enfoque fallido. Entregar al principal un resultado breve: estado, commit, validaciones y gates
+pendientes, con rutas a logs en lugar de su contenido. El principal coordina las revisiones
+posteriores y el handoff; no lanzarlos desde este worker.
 
 ## Reparaciones posteriores a Implement
 

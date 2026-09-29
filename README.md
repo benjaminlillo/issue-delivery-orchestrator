@@ -324,9 +324,12 @@ python3 scripts/issue-delivery TS-123 --worktree /ruta/worktree \
 
 Son IDs de ejemplo; deben estar disponibles en la herramienta nativa del entorno. En Claude Code
 usar `sonnet`, `opus`, `haiku` o `fable`; el CLI rechaza otros valores. Las etapas
-sin selección usan la sesión principal; Local Review sigue siendo un subagente independiente que
-hereda del principal. Un override delega el trabajo a un subagente nativo sin historial y con un
-paquete explícito de contexto. El principal conserva las aprobaciones y los comandos del motor.
+sin selección heredan el modelo de la sesión principal. Implement (un worker por ticket o
+reparación), Local Review y la revisión UI (salvo Codex Browser) corren siempre en subagentes
+nativos sin historial, con un paquete explícito de contexto; la revisión UI recibe sólo historias,
+criterios y runtime, como una prueba de caja negra. Un override delega también las demás etapas.
+El principal conserva las aprobaciones y los comandos del motor. El reporte final desglosa el
+consumo de tokens por etapa, separando principal y subagentes.
 
 Para cambiar futuras invocaciones del mismo run:
 

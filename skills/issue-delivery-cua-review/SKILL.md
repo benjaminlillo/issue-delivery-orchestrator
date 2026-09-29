@@ -9,6 +9,12 @@ Actuar como verificador de UI, no como implementador. Probar comportamiento obse
 
 Leer [driver-contract.md](references/driver-contract.md) antes de usar Cua Driver.
 
+Cuando el orquestador te lance como worker de revisión, trabajar sólo con el paquete
+`black-box-ui`: historias, criterios, runtime, URLs, credenciales y datos de prueba. No leer el
+diff, los commits ni el código de la implementación para decidir qué probar; probar como un
+usuario. Dirigir logs y salidas extensas a archivos del run y devolver al principal sólo
+veredicto, findings y rutas de evidencia.
+
 ## Preflight
 
 1. Exigir runtime ID, URLs, historias `UI`, resultados esperados, worktree, run ID y ruta del perfil dedicado.

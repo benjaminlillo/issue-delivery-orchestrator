@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .harness import detect_host
 
@@ -14,6 +14,8 @@ from .harness import detect_host
 FIELDS = ("input_tokens", "cached_input_tokens", "output_tokens", "total_tokens")
 # Claude Code also reports cache writes; they are included in input_tokens.
 CACHE_WRITE = "cache_creation_input_tokens"
+# Usage after the last completed checkpoint: final runtime reset, handoff and later adjustments.
+TAIL_PHASE = "final-handoff"
 
 
 def _now() -> str:
@@ -52,7 +54,13 @@ def _counts(value: Any) -> dict[str, int]:
     return {key: value[key] for key in FIELDS}
 
 
-def _read(path: str, cursor: dict[str, Any], *, baseline: bool = False) -> None:
+def _read(
+    path: str,
+    cursor: dict[str, Any],
+    *,
+    baseline: bool = False,
+    phase_at: Callable[[datetime], str] | None = None,
+) -> None:
     with Path(path).open("rb") as stream:
         stream.seek(0, 2)
         if stream.tell() < cursor["offset"]:
@@ -82,12 +90,34 @@ def _read(path: str, cursor: dict[str, Any], *, baseline: bool = False) -> None:
                             raise ValueError("Session token counters decreased")
                     for key in FIELDS:
                         cursor["usage"][key] += delta[key]
+                    if phase_at:
+                        _add(cursor.setdefault("byPhase", {}), phase_at(_time(stamp)), delta)
                 if own_event:
                     cursor["hasOwnUsage"] = True
                 cursor["previous"] = total
             cursor["offset"] = stream.tell()
     if not cursor.get("createdAt"):
         raise ValueError("Session metadata unavailable")
+
+
+def _add(buckets: dict[str, dict[str, int]], key: str, counts: dict[str, int]) -> None:
+    bucket = buckets.setdefault(key, {})
+    for field, value in counts.items():
+        bucket[field] = bucket.get(field, 0) + value
+
+
+def _phase_clock(state: dict[str, Any]) -> Callable[[datetime], str]:
+    """Attribute a moment to the phase whose checkpoint had not completed yet."""
+    completions = sorted(
+        (_time(item["completedAt"]), item["phase"])
+        for item in state.get("phases", [])
+        if item.get("status") == "completed" and item.get("completedAt")
+    )
+
+    def phase_at(stamp: datetime) -> str:
+        return next((phase for completed, phase in completions if stamp <= completed), TAIL_PHASE)
+
+    return phase_at
 
 
 def _time(value: str) -> datetime:
@@ -240,38 +270,66 @@ def _claude_counts(usage: Any) -> dict[str, int]:
     }
 
 
-def _claude_messages(log: Path) -> dict[str, tuple[datetime, dict[str, int]]]:
-    """Read one usage record per API message from a session and its subagents."""
-    messages: dict[str, tuple[datetime, dict[str, int]]] = {}
-    for path in (log, *sorted((log.parent / log.stem / "subagents").rglob("*.jsonl"))):
-        with path.open("rb") as stream:
-            for line in stream:
-                if not line.endswith(b"\n"):
-                    break
-                entry = json.loads(line)
-                message = entry.get("message")
-                if not isinstance(message, dict) or "usage" not in message:
-                    continue
-                # A message is logged once per content block with the same usage.
-                if message["id"] not in messages:
-                    messages[message["id"]] = (_time(entry["timestamp"]), _claude_counts(message["usage"]))
+def _claude_messages(
+    log: Path, issues: list[str]
+) -> dict[str, tuple[datetime, dict[str, int], str]]:
+    """Read one usage record per API message from a session and its subagents.
+
+    An unreadable principal log fails the session; an unreadable subagent log is excluded and
+    reported, so one damaged worker does not discard the rest of the run.
+    """
+    messages = _claude_log_messages(log, "principal")
+    for path in sorted((log.parent / log.stem / "subagents").rglob("*.jsonl")):
+        try:
+            found = _claude_log_messages(path, "subagents")
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+            issues.append(f"Claude Code subagent log {path.name} unavailable: {type(error).__name__}")
+            continue
+        for message_id, record in found.items():
+            messages.setdefault(message_id, record)
     return messages
 
 
-def _collect_claude(tracking: dict[str, Any], issues: list[str]) -> tuple[dict[str, int], int]:
+def _claude_log_messages(path: Path, role: str) -> dict[str, tuple[datetime, dict[str, int], str]]:
+    messages: dict[str, tuple[datetime, dict[str, int], str]] = {}
+    with path.open("rb") as stream:
+        for line in stream:
+            if not line.endswith(b"\n"):
+                break
+            entry = json.loads(line)
+            message = entry.get("message")
+            if not isinstance(message, dict) or "usage" not in message:
+                continue
+            # A message is logged once per content block with the same usage.
+            if message["id"] not in messages:
+                messages[message["id"]] = (
+                    _time(entry["timestamp"]), _claude_counts(message["usage"]), role,
+                )
+    return messages
+
+
+def _collect_claude(
+    tracking: dict[str, Any],
+    issues: list[str],
+    phase_at: Callable[[datetime], str],
+    by_phase: dict[str, dict[str, dict[str, int]]],
+) -> tuple[dict[str, int], int]:
     claude = tracking["claude"]
     selected: dict[str, dict[str, int]] = {}
     measured = 0
     for key, session in claude["sessions"].items():
         try:
-            messages = _claude_messages(Path(session["path"]))
+            messages = _claude_messages(Path(session["path"]), issues)
             windows = [(_time(start), _time(end) if end else None) for start, end in session["windows"]]
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
             issues.append(f"Claude Code session {key} unavailable: {type(error).__name__}")
             continue
-        for message_id, (stamp, counts) in messages.items():
+        for message_id, (stamp, counts, role) in messages.items():
+            if message_id in selected:
+                continue
             if any(stamp >= start and (end is None or stamp <= end) for start, end in windows):
-                selected.setdefault(message_id, counts)
+                selected[message_id] = counts
+                _add(by_phase.setdefault(phase_at(stamp), {}), role, counts)
         measured += 1
     claude["lastCollectedAt"] = _now()
     keys = (*FIELDS, CACHE_WRITE)
@@ -291,17 +349,29 @@ def collect_token_usage(state: dict[str, Any]) -> dict[str, Any]:
     measured = 0
     scopes = []
     totals: dict[str, int] = dict.fromkeys(FIELDS, 0)
+    phase_at = _phase_clock(state)
+    by_phase: dict[str, dict[str, dict[str, int]]] = {}
     if tracking["roots"] or tracking["sessions"]:
         scopes.append("codex_session_tree")
-        measured += _collect_codex(tracking, issues)
-        for key in FIELDS:
-            totals[key] = sum(cursor["usage"][key] for cursor in tracking["sessions"].values())
+        measured += _collect_codex(tracking, issues, phase_at)
+        for key, cursor in tracking["sessions"].items():
+            for field in FIELDS:
+                totals[field] += cursor["usage"][field]
+            role = "principal" if key in tracking["roots"] else "subagents"
+            for phase, counts in (cursor.get("byPhase") or {}).items():
+                _add(by_phase.setdefault(phase, {}), role, counts)
     if (tracking.get("claude") or {}).get("sessions"):
         scopes.append("claude_session_tree")
-        claude, claude_measured = _collect_claude(tracking, issues)
+        claude, claude_measured = _collect_claude(tracking, issues, phase_at, by_phase)
         measured += claude_measured
         for key, value in claude.items():
             totals[key] = totals.get(key, 0) + value
+    attributed = sum(
+        counts["total_tokens"] for roles in by_phase.values() for counts in roles.values()
+    )
+    if totals["total_tokens"] > attributed:
+        # Usage measured before per-phase attribution existed (runs started on older versions).
+        by_phase["unattributed"] = {"unknown": {"total_tokens": totals["total_tokens"] - attributed}}
     available = bool(measured or totals["total_tokens"])
     status = "complete" if measured and not issues else "partial" if available else "unavailable"
     report = {
@@ -310,13 +380,16 @@ def collect_token_usage(state: dict[str, Any]) -> dict[str, Any]:
         "measuredAt": _now(),
         "sessions": len(tracking["sessions"]) + len((tracking.get("claude") or {}).get("sessions", {})),
         "usage": totals if available else None,
+        "byPhase": by_phase if available else None,
         "issues": sorted(set(issues)),
     }
     state["tokenUsage"] = report
     return report
 
 
-def _collect_codex(tracking: dict[str, Any], issues: list[str]) -> int:
+def _collect_codex(
+    tracking: dict[str, Any], issues: list[str], phase_at: Callable[[datetime], str]
+) -> int:
     measured = 0
     try:
         threads = _threads(Path(tracking["codexHome"]))
@@ -331,7 +404,7 @@ def _collect_codex(tracking: dict[str, Any], issues: list[str]) -> int:
                 continue
             try:
                 if not cursor.get("frozen"):
-                    _read(threads[key]["path"], cursor)
+                    _read(threads[key]["path"], cursor, phase_at=phase_at)
                 if not cursor.get("hasOwnUsage"):
                     raise ValueError("No recorded usage yet")
                 measured += 1

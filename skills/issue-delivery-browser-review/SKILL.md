@@ -9,6 +9,9 @@ Actuar como verificador de UI, no como implementador. Probar el comportamiento o
 el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, declarando
 `provider: codex-browser`.
 
+Dirigir logs y salidas extensas a archivos del run y leer sólo resúmenes y fallas; el Browser
+corre en la conversación principal y todo lo que entra al contexto se relee en cada llamada.
+
 ## Preflight
 
 1. Exigir runtime ID, URLs locales, historias `UI`, resultados esperados, worktree, run ID y SHA

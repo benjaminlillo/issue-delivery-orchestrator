@@ -32,6 +32,11 @@ con `implement`, revisar arquitectura con `refactor`, revisar código con `local
 UI con `manual-revision`, aunque `currentPhase` sea `review-convergence`.
 
 - `executor=principal-session`: ejecutar en esta conversación como hasta ahora.
+- Implement, Local Review y Manual revision usan siempre workers nuevos, con o sin override:
+  `contextPackage` indica el paquete (`ticket`, `independent-review` o `black-box-ui`). La
+  excepción es Manual revision con `codex-browser`, que queda en el principal porque el Browser de
+  la app puede no estar disponible en un worker. Así el principal no acumula el contexto de las
+  etapas largas y cada llamada relee menos historial.
 - `executor=native-subagent`: el principal lanza directamente un subagente nativo con
   `spawnOptions`, según `harness`:
   - `codex`: `collaboration.spawn_agent` con `fork_turns="none"` y el `model` explícito cuando
@@ -63,18 +68,36 @@ no estén todavía en el spec; reconciliarlas antes de implementar. No transferi
 chat ni resúmenes que sustituyan el spec. Para `local-review`, respetar su paquete independiente
 sin conclusiones de revisores anteriores que condicionen el dictamen.
 
-| Etapa | Trabajo delegado cuando tiene override |
+Paquetes de las etapas aisladas:
+
+- `ticket` (Implement): spec completo, ticket o finding, criterios de aceptación, SHA inicial,
+  validación declarada y, por cada ticket ya aceptado del run, su ID, SHA y un resumen de una
+  línea. En una reparación, agregar el finding, la ruta de su evidencia y el SHA del intento
+  anterior para no repetir un enfoque fallido. Un worker nuevo por ticket y por reparación.
+- `black-box-ui` (Manual revision): historias `UI`, criterios de aceptación, resultado esperado,
+  runtime ID, URLs, credenciales y datos de prueba, SHA, run ID, worktree y, en una repetición,
+  el escenario `REPAIR-<n>` y las historias invalidadas. No entregar diff, notas de implementación
+  ni afirmaciones sobre lo que ya funciona: el reviewer prueba como un usuario. Un worker nuevo
+  por pasada. El principal prepara runtime y apps; el worker ejecuta la skill del reviewer,
+  prepara el manifiesto, ejecuta `prepare-evidence`, inspecciona la copia anotada y devuelve
+  veredicto, findings y rutas de evidencia.
+- `independent-review` (Local Review): el paquete de la sección 5 del orquestador.
+
+El principal no vuelve a abrir logs, screenshots ni diffs completos que el worker ya verificó:
+decide con el resultado del worker y los gates del motor (checkpoints, recibos y SHA). Si un
+resultado es ambiguo, lanzar otro worker con la pregunta concreta en lugar de cargar la evidencia.
+| Etapa | Trabajo delegado a un worker |
 |---|---|
-| Grill | Investigar y formular preguntas/spec/tickets; devolver las preguntas al principal, que las presenta al usuario y transmite las respuestas explícitas al mismo worker. Sólo el usuario aprueba; el principal publica los bloques aprobados. No abrir otro Grill interactivo. |
-| Implement | Un ticket o causa raíz por encargo, con spec completo, validación y commit. Devolver al principal antes de Local Review, revisión UI o handoff. |
-| Refactor | Aplicar los gates y allowlist existentes, validar cambios y devolver hallazgos/recibo. |
-| Merge target | Integrar el target persistido y validar conflictos; devolver SHA y resultados. |
-| Local Review | Revisar en sólo lectura con contexto nuevo, incluso sin override; devolver el informe para que el principal guarde el recibo. |
-| Manual revision | Usar el reviewer fijado por el modo, sus herramientas y runtime; no editar código. Si esas herramientas no están disponibles en el worker, bloquear. |
-| PR creation | Preparar título/body y artifacts; el principal ejecuta ensure-pr y publicación con las identidades y gates existentes. |
-| Review convergence | Analizar el snapshot de bots/Actions según blocker-triage. Devolver FIX/SKIP/NEEDS_USER_DECISION; el principal aplica presupuesto, publicación y reparación usando los modelos de cada etapa. |
+| Grill | Con override. Investigar y formular preguntas/spec/tickets; devolver las preguntas al principal, que las presenta al usuario y transmite las respuestas explícitas al mismo worker. Sólo el usuario aprueba; el principal publica los bloques aprobados. No abrir otro Grill interactivo. |
+| Implement | Siempre. Un ticket o causa raíz por encargo, con el paquete `ticket`, validación y commit. Devolver al principal antes de Local Review, revisión UI o handoff. |
+| Refactor | Con override. Aplicar los gates y allowlist existentes, validar cambios y devolver hallazgos/recibo. |
+| Merge target | Con override. Integrar el target persistido y validar conflictos; devolver SHA y resultados. |
+| Local Review | Siempre. Revisar en sólo lectura con contexto nuevo; devolver el informe para que el principal guarde el recibo. |
+| Manual revision | Siempre, salvo `codex-browser` sin override. Usar el reviewer fijado por el modo con el paquete `black-box-ui`; no editar código. Si sus herramientas no están disponibles en el worker, bloquear. |
+| PR creation | Con override. Preparar título/body y artifacts; el principal ejecuta ensure-pr y publicación con las identidades y gates existentes. |
+| Review convergence | Con override. Analizar el snapshot de bots/Actions según blocker-triage. Devolver FIX/SKIP/NEEDS_USER_DECISION; el principal aplica presupuesto, publicación y reparación usando los modelos de cada etapa. |
 
 No reutilizar el worker de otra etapa para ahorrar lanzamientos: su modelo/contexto puede ser
-distinto. Dentro de Grill se puede continuar el mismo worker para preguntas; en Local Review,
-cada nueva revisión usa contexto nuevo. Esta configuración no autoriza a omitir validaciones,
+distinto. Dentro de Grill se puede continuar el mismo worker para preguntas; en Implement, Local
+Review y Manual revision, cada ticket, reparación o pasada usa un worker nuevo. Esta configuración no autoriza a omitir validaciones,
 revisión independiente o revisión UI.

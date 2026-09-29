@@ -147,13 +147,15 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 
 1. Reanudar el mismo run y worktree. Capturar el reporte exacto como escenario de aceptación de reparación.
 2. Identificar las historias afectadas. Si el caso no estaba en el spec, crear una historia temporal `REPAIR-<n>` dentro del estado ignorado del run con precondición, pasos y resultado esperado; no ampliar el spec remoto por un bug compatible con su intención.
-3. Invocar `issue-delivery-implement`, ejecutar la validación enfocada y dejar la branch en su estado final.
+3. Lanzar un worker nuevo de `issue-delivery-implement` con el paquete `ticket` de reparación
+   (finding, evidencia y SHA del intento anterior), que ejecuta la validación enfocada y deja la
+   branch en su estado final.
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
 5. Invocar siempre el reviewer fijado por el modo: `issue-delivery-cua-review` en `superset` o
    `vanilla`, `issue-delivery-browser-review` en `codex`, o
    `issue-delivery-playwright-review` en `conductor-cloud`, aunque el ajuste sea pequeño o los
    tests estén verdes.
-6. Si la revisión detecta un fallo, volver a `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
+6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
 
@@ -168,6 +170,20 @@ runtime final por uno fresco con un nuevo recibo de handoff, pero no Computer Us
 que la UI fue revisada o aprobada: el usuario asumió explícitamente esa revisión. Para volver al
 flujo automático, ejecutar `resume --full-delivery`; desde ese momento vuelve a aplicar
 íntegramente el gate UI de `full`.
+
+## Workers y contexto
+
+El principal es un plano de control liviano: preguntas, aprobaciones, comandos del motor y
+routing. Implement, Local Review y la revisión UI se ejecutan en workers nuevos con el paquete que
+indica `contextPackage` (ver [stage-models.md](references/stage-models.md)); el principal recibe
+sólo su resultado. Tras un fallo, lanzar un worker nuevo de reparación, no continuar el trabajo en
+el principal.
+
+En el principal y en todo worker, dirigir la salida extensa de tests, builds, Playwright, traces y
+logs a archivos bajo `.local-runtime/issue-delivery-orchestrator/<run-id>/logs/` y leer sólo el
+resumen y las fallas (por ejemplo, las últimas líneas o los tests fallidos). No volcar al contexto
+diffs completos, árboles de accesibilidad ni JSON extensos que no se necesiten para decidir: todo
+lo que entra al contexto se relee en cada llamada posterior.
 
 ## Modelos por etapa
 
@@ -200,13 +216,17 @@ modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones
 
 ## 2. Implement
 
-Procesar tickets en su orden aprobado. Antes de cada uno, entregar a `issue-delivery-implement` el spec completo, el ticket, el SHA inicial del ticket y su validación declarada.
+Procesar tickets en su orden aprobado. Por cada ticket, lanzar un worker nuevo de
+`issue-delivery-implement` con el paquete `ticket`: spec completo, ticket, SHA inicial, validación
+declarada y el ID, SHA y resumen de una línea de cada ticket ya aceptado. Registrar del resultado
+sólo estado, SHA, validaciones y bloqueos; no volver a leer el diff ni los logs del worker.
 
 - Terminar primero los tickets AFK no bloqueados.
 - Pausar justo antes de un HITL y pedir la acción mínima al usuario.
 - Crear un commit descriptivo por ticket validado, sin push.
 - Si ya está satisfecho, registrar `NO_OP` con evidencia y validación; no crear commits vacíos.
-- Limitar a tres ciclos implementación-reparación por ticket. Bloquear si sigue rojo.
+- Limitar a tres ciclos implementación-reparación por ticket, cada uno en un worker nuevo con el
+  fallo y el SHA del intento anterior. Bloquear si sigue rojo.
 - Incluir commits preexistentes adoptados en la revisión del diff completo, sin reescribirlos.
 
 Completar `implement` sólo con todos los tickets aceptados:
@@ -383,8 +403,13 @@ Ejecutar esta sección sólo con `handoffMode=full`.
      Playwright en el repositorio objetivo y Chrome en el workspace, e invocar
      `issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
 
-4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie declarada.
-5. Ningún reviewer edita código. Entregar findings a `issue-delivery-implement`, reparar y repetir sólo las historias invalidadas con el mismo método.
+4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie
+   declarada. Si `stageExecution.executor` es `native-subagent`, lanzar un worker nuevo por pasada
+   con el paquete `black-box-ui`: historias, criterios, runtime, URLs, credenciales y datos de
+   prueba, sin diff ni notas de implementación. El worker ejecuta la skill del reviewer, los pasos
+   7 y 8 de evidencia y devuelve veredicto, findings y rutas; el principal no reabre las capturas.
+5. Ningún reviewer edita código. Entregar findings a un worker nuevo de `issue-delivery-implement`,
+   reparar y repetir sólo las historias invalidadas con el mismo método, en otro worker de revisión.
 6. Permitir como máximo cinco ciclos revisión-reparación.
 7. Leer
    [evidence-annotations.md](references/evidence-annotations.md). Conservar únicamente capturas
@@ -622,7 +647,10 @@ informa en `tokenMeasurement`. Si ambas variables están presentes, la sesión e
 mide. En `runtime-handoff` recoge el consumo de cada sesión registrada con el lector de su host
 y lo suma, aunque el run se haya reanudado en otro host. Incluir `tokenUsage` del recibo en el
 reporte final: total, entrada, entrada desde caché y, en Claude Code, escritura en caché (ambas
-incluidas en entrada), salida y cobertura. `complete` cubre sólo las sesiones registradas y sus
+incluidas en entrada), salida y cobertura. Mostrar también `byPhase`: el total por etapa, separado
+en principal y subagentes. El motor atribuye cada consumo a la etapa cuyo checkpoint aún no se
+había completado; `final-handoff` reúne lo posterior al último checkpoint y `unattributed`, lo
+medido por versiones anteriores sin desglose. `complete` cubre sólo las sesiones registradas y sus
 subagentes; no incluye bots externos, llamadas internas del host ni el mensaje final posterior a
 `measuredAt`. Si es `partial` o `unavailable`, indicarlo sin convertir datos faltantes en cero.
 No contar tokens manualmente, consultar consumo por respuesta ni cargar transcripciones en el

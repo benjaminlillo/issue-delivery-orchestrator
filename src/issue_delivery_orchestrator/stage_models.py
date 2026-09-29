@@ -4,11 +4,26 @@ from typing import Any, Iterable
 
 from .errors import OrchestrationError, RunBlocked
 from .harness import current_harness
-from .state import PHASES, phases_for_state, save_state
+from .state import PHASES, phases_for_state, review_method, save_state
 
 
 # Claude Code's Agent tool accepts only these model aliases.
 CLAUDE_SUBAGENT_MODELS = ("sonnet", "opus", "haiku", "fable")
+# Stages that always run in a fresh worker, and the context package each one receives.
+# Long stages would otherwise re-read the principal's accumulated history on every call.
+ISOLATED_STAGES = {
+    "implement": "ticket",
+    "local-review": "independent-review",
+    "manual-revision": "black-box-ui",
+}
+# In-app reviewers (Codex Browser) may be unavailable to workers; keep them in the principal.
+WORKER_REVIEWERS = {"playwright-chrome", "cua-driver"}
+
+
+def _context_package(state: dict[str, Any], stage: str) -> str | None:
+    if stage == "manual-revision" and review_method(state) not in WORKER_REVIEWERS:
+        return None
+    return ISOLATED_STAGES.get(stage)
 
 
 def parse_stage_models(entries: Iterable[str]) -> dict[str, str]:
@@ -53,7 +68,8 @@ def stage_plan(state: dict[str, Any], stage: str) -> dict[str, Any]:
     if stage not in phases_for_state(state):
         raise OrchestrationError(f"Stage unavailable in this run: {stage}")
     model = (state.get("stageModels") or {}).get(stage)
-    delegated = bool(model) or stage == "local-review"
+    package = _context_package(state, stage)
+    delegated = bool(model) or package is not None
     try:
         harness = current_harness()
     except RunBlocked as error:
@@ -62,7 +78,7 @@ def stage_plan(state: dict[str, Any], stage: str) -> dict[str, Any]:
             "stage": stage, "harness": "ambiguous", "model": model,
             "modelSource": "explicit" if model else "principal-session",
             "executor": "native-subagent" if delegated else "principal-session",
-            "spawnOptions": None, "blocked": str(error),
+            "spawnOptions": None, "contextPackage": package, "blocked": str(error),
         }
     spawn = None
     if delegated:
@@ -77,4 +93,5 @@ def stage_plan(state: dict[str, Any], stage: str) -> dict[str, Any]:
         "modelSource": "explicit" if model else "principal-session",
         "executor": "native-subagent" if delegated else "principal-session",
         "spawnOptions": spawn,
+        "contextPackage": package or ("stage" if delegated else None),
     }
