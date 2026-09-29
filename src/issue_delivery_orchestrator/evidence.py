@@ -11,6 +11,7 @@ from .evidence_assets import (
     evidence_target_path as _evidence_target_path,
     fingerprint as _fingerprint,
     upload_linear_asset as _upload_linear_asset,
+    upload_linear_video as _upload_linear_video,
 )
 from .evidence_manifest import (
     _prepare_evidence,
@@ -43,22 +44,26 @@ def publish_evidence(
 
     root = run_root(worktree, state["runId"])
     receipt_path = root / "evidence" / "publication-receipt.json"
-    fingerprint = _fingerprint(screenshots, verification)
+    fingerprint = _fingerprint(screenshots, verification, prepared["videos"])
     previous = read_json(receipt_path, {})
     if previous.get("fingerprint") == fingerprint:
         assets = previous["assets"]
+        videos = previous.get("videos", [])
         newly_uploaded = False
     else:
         assets = [
             _upload_linear_asset(item, worktree, linear)
             for item in screenshots
         ]
+        # Videos stay in Linear, which plays them inline; GitHub only links to them.
+        videos = [_upload_linear_video(item, worktree, linear) for item in prepared["videos"]]
         newly_uploaded = True
         atomic_write_json(
             receipt_path,
             {
                 "fingerprint": fingerprint,
                 "assets": assets,
+                "videos": videos,
                 "verification": verification,
                 "status": "uploaded",
                 "linearIssue": None,
@@ -71,7 +76,7 @@ def publish_evidence(
         assets = _ensure_github_assets(state, assets, screenshots, github)
 
     issue = linear.issue(state["issue"]["identifier"])
-    section = _linear_run_section(state["runId"], assets)
+    section = _linear_run_section(state["runId"], assets, videos)
     description = upsert_ui_run(issue.description, state["runId"], section)
     linear.update_description(issue.id, description)
     if newly_uploaded:
@@ -89,12 +94,14 @@ def publish_evidence(
             provider=verification.get("provider", "cua-driver"),
             headless_assistance=verification.get("headlessAssistance", []),
             upload_assistance=verification.get("uploadAssistance", []),
+            videos=videos,
         )
         pr_comment_id = github.upsert_comment(int(pr["number"]), marker, pr_body)
 
     receipt = {
         "fingerprint": fingerprint,
         "assets": assets,
+        "videos": videos,
         "verification": verification,
         "status": "published",
         "linearIssue": issue.url,
@@ -168,6 +175,7 @@ def repair_github_evidence(
                 "uploadAssistance",
                 [],
             ),
+            videos=receipt.get("videos", []),
         ),
     )
     updated = {

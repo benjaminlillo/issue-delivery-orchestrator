@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from issue_delivery_orchestrator.errors import OrchestrationError
 from issue_delivery_orchestrator.evidence import (
@@ -931,6 +932,84 @@ class EvidenceVerificationTests(unittest.TestCase):
         self.assertEqual(linear.uploads[1], screenshot.resolve())
         self.assertEqual(receipt["assets"][0]["originalPath"], "screen.png")
         self.assertIn("Ver captura original sin anotaciones", linear.description)
+
+    def video_manifest(self, videos):
+        screenshot = self.worktree / "screen.png"
+        screenshot.write_bytes(
+            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
+        )
+        manifest_path = self.worktree / "manifest.json"
+        manifest_path.write_text(json.dumps({
+            "evidenceVersion": 2,
+            **self.manifest(),
+            "screenshots": [{
+                "storyId": "US-1", "title": "Final state", "path": "screen.png",
+                "annotationReason": "Cambio global.",
+            }],
+            "videos": videos,
+        }))
+        return manifest_path
+
+    def test_rejects_videos_outside_the_contract(self):
+        (self.worktree / "demo.webm").write_bytes(b"webm")
+        (self.worktree / "demo.mp4").write_bytes(b"mp4")
+        state = {"worktree": str(self.worktree), "runtimes": [{"runtimeId": "rt-1"}]}
+        for videos, message in (
+            ([{"storyId": "US-9", "path": "demo.webm"}], "story with screenshots"),
+            ([{"storyId": "US-1", "path": "demo.mp4"}], "not a WebM"),
+            ([{"storyId": "US-1", "path": "demo.webm"}] * 2, "only one video"),
+        ):
+            with self.subTest(message=message), self.assertRaisesRegex(OrchestrationError, message):
+                prepare_evidence(state, self.video_manifest(videos))
+        with patch("issue_delivery_orchestrator.evidence_manifest.MAX_VIDEO_BYTES", 2):
+            with self.assertRaisesRegex(OrchestrationError, "exceeds"):
+                prepare_evidence(state, self.video_manifest([{"storyId": "US-1", "path": "demo.webm"}]))
+
+    def test_publication_embeds_video_in_linear_and_links_it_from_the_pr(self):
+        (self.worktree / "demo.webm").write_bytes(b"webm")
+        manifest_path = self.video_manifest([{"storyId": "US-1", "path": "demo.webm"}])
+
+        class Linear:
+            def __init__(self):
+                self.uploads = []
+                self.description = ""
+
+            def upload_file(self, path):
+                self.uploads.append(Path(path).name)
+                return f"https://linear.example/{Path(path).name}"
+
+            def issue(self, _identifier):
+                return SimpleNamespace(id="linear-id", url="https://linear/US-1", description="")
+
+            def update_description(self, _issue_id, description):
+                self.description = description
+
+            def post_comment(self, _issue_id, _body):
+                return None
+
+        linear = Linear()
+        state = {
+            "worktree": str(self.worktree), "runId": "run-1", "issue": {"identifier": "US-1"},
+            "runtimes": [{"runtimeId": "rt-1"}], "artifacts": {}, "pr": None,
+        }
+        receipt = publish_evidence(state, manifest_path, linear=linear, github=None)
+
+        self.assertEqual(linear.uploads, ["screen.png", "demo.webm"])
+        self.assertEqual(receipt["videos"][0]["url"], "https://linear.example/demo.webm")
+        self.assertIn("Cambio global.\n\n![Video US-1](https://linear.example/demo.webm)", linear.description)
+        publish_evidence(state, manifest_path, linear=linear, github=None)
+        self.assertEqual(len(linear.uploads), 2)
+
+        body = _pr_body(
+            "<!-- marker -->",
+            [{**receipt["assets"][0], "githubUrl": "../screen.png"}],
+            videos=receipt["videos"],
+        )
+        self.assertIn(
+            "![Final state](../screen.png)\n\nSin indicador localizado: Cambio global.\n\n"
+            "[▶ Ver video de US-1 en Linear](https://linear.example/demo.webm)",
+            body,
+        )
 
 
 if __name__ == "__main__":

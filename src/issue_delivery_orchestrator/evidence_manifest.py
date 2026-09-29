@@ -17,6 +17,10 @@ from .state import review_method
 from .util import atomic_write_json, ensure_within, read_json, run
 
 
+# Playwright records WebM, which Linear plays inline; keep uploads small enough for Linear.
+MAX_VIDEO_BYTES = 25 * 1024 * 1024
+
+
 def prepare_evidence(state: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
     prepared = _prepare_evidence(state, manifest_path)
     return {
@@ -37,6 +41,10 @@ def prepare_evidence(state: dict[str, Any], manifest_path: Path) -> dict[str, An
             }
             for item in prepared["screenshots"]
         ],
+        "videos": [
+            {"storyId": item["storyId"], "path": str(item["path"].relative_to(prepared["worktree"]))}
+            for item in prepared["videos"]
+        ],
     }
 
 
@@ -49,6 +57,7 @@ def _prepare_evidence(
     manifest = read_json(manifest_path)
     verification = _verification(manifest, state, worktree)
     screenshots = _screenshots(manifest, worktree)
+    videos = _videos(manifest, worktree, {item["storyId"]: item["title"] for item in screenshots})
     screenshot_paths_by_story: dict[str, set[Path]] = {}
     for screenshot in screenshots:
         screenshot_paths_by_story.setdefault(screenshot["storyId"], set()).add(
@@ -105,7 +114,30 @@ def _prepare_evidence(
         "headless_assistance": headless_assistance,
         "legacy_upload_assistance": legacy_upload_assistance,
         "screenshots": screenshots,
+        "videos": videos,
     }
+
+
+def _videos(manifest: dict[str, Any], worktree: Path, titles: dict[str, str]) -> list[dict[str, Any]]:
+    raw_videos = manifest.get("videos", [])
+    if not isinstance(raw_videos, list):
+        raise OrchestrationError("Evidence manifest videos must be an array")
+    result = []
+    for index, item in enumerate(raw_videos, start=1):
+        if not isinstance(item, dict):
+            raise OrchestrationError(f"Video {index} must be an object")
+        story_id = str(item.get("storyId") or "").strip()
+        if story_id not in titles:
+            raise OrchestrationError(f"Video {index} must belong to a story with screenshots")
+        if any(video["storyId"] == story_id for video in result):
+            raise OrchestrationError(f"Story {story_id} can have only one video")
+        path = ensure_within(worktree / str(item.get("path") or ""), worktree)
+        if not path.is_file() or path.suffix.lower() != ".webm":
+            raise OrchestrationError(f"Video {index} is not a WebM file: {path}")
+        if path.stat().st_size > MAX_VIDEO_BYTES:
+            raise OrchestrationError(f"Video {index} exceeds {MAX_VIDEO_BYTES // (1024 * 1024)} MB")
+        result.append({"storyId": story_id, "title": titles[story_id], "path": path})
+    return result
 
 
 def _screenshots(manifest: Any, worktree: Path) -> list[dict[str, Any]]:

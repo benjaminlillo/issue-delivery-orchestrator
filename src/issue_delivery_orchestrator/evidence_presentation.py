@@ -5,7 +5,11 @@ from typing import Any
 from .errors import OrchestrationError
 
 
-def linear_run_section(run_id: str, assets: list[dict[str, Any]]) -> str:
+def linear_run_section(
+    run_id: str,
+    assets: list[dict[str, Any]],
+    videos: list[dict[str, Any]] = (),
+) -> str:
     items = []
     for asset in assets:
         caption = _asset_caption(asset, original_url=asset.get("originalUrl"))
@@ -13,6 +17,8 @@ def linear_run_section(run_id: str, assets: list[dict[str, Any]]) -> str:
             f"#### {asset['storyId']} — {asset['title']}\n\n"
             f"![{asset['title']}]({asset['url']}){caption}"
         )
+    # Linear renders image syntax pointing to an uploaded video as an inline player.
+    _append_videos(items, assets, videos, lambda video: f"![Video {video['storyId']}]({video['url']})")
     return f"### Issue Delivery {run_id}\n\n" + "\n\n".join(items)
 
 
@@ -23,6 +29,7 @@ def pr_body(
     provider: str = "cua-driver",
     headless_assistance: list[dict[str, Any]] | None = None,
     upload_assistance: list[dict[str, Any]] | None = None,
+    videos: list[dict[str, Any]] = (),
 ) -> str:
     items = []
     for asset in assets:
@@ -40,6 +47,11 @@ def pr_body(
             f"### {asset['storyId']} — {asset['title']}\n\n"
             f"![{asset['title']}]({github_url}){caption}"
         )
+    # GitHub cannot play videos from the API; link to the Linear player instead.
+    _append_videos(
+        items, assets, videos,
+        lambda video: f"[▶ Ver video de {video['storyId']} en Linear]({video['url']})",
+    )
     methods = {
         "codex-browser": "Browser integrado de Codex",
         "cua-driver": "Cua Driver",
@@ -78,6 +90,20 @@ def pr_body(
         f"{annotation_notice}\n\n"
         + "\n\n".join(items)
     )
+
+
+def _append_videos(
+    items: list[str],
+    assets: list[dict[str, Any]],
+    videos: list[dict[str, Any]],
+    render,
+) -> None:
+    """Place each story's video after the last screenshot of that story."""
+    last_index = {asset["storyId"]: index for index, asset in enumerate(assets)}
+    for video in videos:
+        index = last_index.get(video["storyId"])
+        if index is not None:
+            items[index] += "\n\n" + render(video)
 
 
 def _asset_caption(asset: dict[str, Any], *, original_url: str | None) -> str:

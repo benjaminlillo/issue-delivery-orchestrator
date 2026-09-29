@@ -335,6 +335,10 @@ Antes del handoff final, el agente precarga con sesión las páginas relevantes 
 (Playwright headless), para que no haya que esperar la compilación de cada página al probarla.
 El recibo final lista las páginas precargadas y las que fallaron.
 
+En Conductor Cloud, el revisor Playwright graba además un video por historia aprobada. Se
+publica en Linear, donde se reproduce dentro de la issue, y el comentario de evidencia de la PR
+enlaza a ese video.
+
 Para cambiar futuras invocaciones del mismo run:
 
 ```bash

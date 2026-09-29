@@ -13,6 +13,7 @@ from .linear import LinearClient
 def fingerprint(
     screenshots: list[dict[str, Any]],
     verification: dict[str, Any],
+    videos: list[dict[str, Any]] = (),
 ) -> str:
     digest = hashlib.sha256()
     digest.update(json.dumps(verification, sort_keys=True).encode())
@@ -24,7 +25,19 @@ def fingerprint(
         digest.update(item["originalPath"].read_bytes())
         digest.update(item["displayPath"].read_bytes())
         digest.update(json.dumps(item["callouts"], sort_keys=True).encode())
+    for video in videos:
+        digest.update(video["storyId"].encode())
+        digest.update(video["path"].read_bytes())
     return digest.hexdigest()
+
+
+def upload_linear_video(video: dict[str, Any], worktree: Path, linear: LinearClient) -> dict[str, Any]:
+    return {
+        "storyId": video["storyId"],
+        "title": video["title"],
+        "path": str(video["path"].relative_to(worktree)),
+        "url": linear.upload_file(video["path"]),
+    }
 
 
 def upload_linear_asset(

@@ -456,7 +456,8 @@ No ejecutar `gh pr create`, una API de GitHub ni otro fallback directamente. Ant
 si la PR resultante no apunta exactamente a ese target. Sin override explícito del prompt, exigir
 `target=test`; nunca aceptar silenciosamente `main` por ser la default branch de GitHub.
 
-Publicar cada PNG anotado en dos destinos distintos:
+Publicar cada PNG anotado en dos destinos distintos (los videos declarados en el manifiesto van
+sólo a Linear, con un enlace desde la PR):
 
 - Linear: copia privada para `## UI enhancements`.
 - GitHub: copia en la evidence branch del perfil, fuera de la branch y diff de producto.
@@ -465,7 +466,8 @@ Publicar además el PNG original en ambos destinos y enlazarlo bajo la imagen an
 anotaciones son evidencia explicativa; nunca reemplazan la captura original auditable.
 
 El comentario de la PR debe usar exclusivamente las rutas relativas devueltas por el motor. No
-insertar URLs privadas de uploads de Linear: el proxy de imágenes de GitHub no puede renderizarlas.
+insertar URLs privadas de uploads de Linear como imágenes: el proxy de imágenes de GitHub no puede
+renderizarlas. La única excepción es el enlace `▶ Ver video … en Linear` que genera el motor.
 
 Si un run antiguo ya publicó links rotos, repararlos sin repetir la validación funcional:
 
