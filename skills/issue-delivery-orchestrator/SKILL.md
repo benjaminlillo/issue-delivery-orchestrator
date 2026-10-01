@@ -204,10 +204,15 @@ modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones
 5. Exigir en el spec la tabla canónica `Architecture Constraints`, con fuente, regla,
    aplicabilidad y verificación de Refactor para cada restricción material. Resolver antes de la
    aprobación cualquier contradicción entre el spec y las fuentes del repositorio.
-6. Obtener aprobación explícita del spec y del desglose.
-7. Invocar, en orden, `issue-delivery-spec-publisher` y `issue-delivery-ticket-publisher`.
-8. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
-9. Guardar snapshots aprobados dentro del run y completar:
+6. Exigir la sección `User Experience Acceptance` con el comportamiento práctico (`UX-NNN`) y el
+   diseño (`UXD-NNN`) acordados. Sin Figma ni otro diseño entregado, cada decisión de diseño exige
+   consistencia con la estética de la app y con los componentes hermanos del mismo nivel de la
+   página, nombrados con su ruta. Estos criterios son requisitos de aprobación: obtener su
+   aprobación explícita y no aceptarlos como implícitos.
+7. Obtener aprobación explícita del spec y del desglose.
+8. Invocar, en orden, `issue-delivery-spec-publisher` y `issue-delivery-ticket-publisher`.
+9. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
+10. Guardar snapshots aprobados dentro del run y completar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase grill \
@@ -292,7 +297,9 @@ explícito con:
 El prompt del reviewer debe exigir que lea por completo esas fuentes y que inspeccione el diff,
 imports, dependencias, tipos, interfaces y flujo de datos relacionado. Debe evaluar objetivo del
 ticket, regresiones y blast radius, arquitectura y patrones del proyecto, clean code y cambios
-fuera de scope. El reviewer no puede editar archivos, ejecutar comandos destructivos, crear otro
+fuera de scope. Debe contrastar cada criterio de `User Experience Acceptance` con el código: el
+comportamiento, los estados y textos acordados, y que el diseño reutilice los componentes y estilos
+de los hermanos nombrados en vez de introducir una estética propia. El reviewer no puede editar archivos, ejecutar comandos destructivos, crear otro
 worktree, publicar en GitHub/Linear ni cambiar el estado del run.
 
 Guardar un único recibo JSON en el directorio del run, por ejemplo
@@ -312,8 +319,8 @@ Guardar un único recibo JSON en el directorio del run, por ejemplo
 }
 ```
 
-Cada finding debe incluir categoría (`LOGIC`, `SECURITY`, `ARCHITECTURE`, `DATA`, `REGRESSION` o
-`SCOPE`), severidad, paths, evidencia y disposición. Usar `FIX` para una infracción concreta que
+Cada finding debe incluir categoría (`LOGIC`, `SECURITY`, `ARCHITECTURE`, `DATA`, `REGRESSION`,
+`UX` o `SCOPE`), severidad, paths, evidencia y disposición. Usar `FIX` para una infracción concreta que
 puede repararse sin cambiar acuerdos; usar `NEEDS_USER_DECISION` si contradice una decisión
 aprobada o requiere cambiar scope; registrar problemas heredados como `OUT_OF_SCOPE`. No rebajar
 un finding para obtener `PASS`.
@@ -373,7 +380,8 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    escribe `validation/final-runtime-handoff.json` y cambia el estado a `awaiting_manual_review` sin
    completar `manual-revision`.
 6. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
-   precargadas con su tiempo y las fallidas u omitidas, logs disponibles, path del recibo y
+   precargadas con su tiempo y las fallidas u omitidas, la lista de criterios de
+   `User Experience Acceptance` como checklist para la revisión del usuario, logs disponibles, path del recibo y
    `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
    creada y PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
    `stop-processes`, `block` ni cleanup después de este handoff.
@@ -408,7 +416,9 @@ Ejecutar esta sección sólo con `handoffMode=full`.
      `issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
 
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie
-   declarada. Si `stageExecution.executor` es `native-subagent`, lanzar un worker nuevo por pasada
+   declarada. El reviewer verifica además cada criterio `UX-NNN` y `UXD-NNN` del spec y registra
+   el resultado en `verification.acceptance` del manifiesto (`id`, `status` y `evidence`). El
+   checkpoint de esta fase se bloquea si algún criterio no figura como `PASS` con evidencia. Si `stageExecution.executor` es `native-subagent`, lanzar un worker nuevo por pasada
    con el paquete `black-box-ui`: historias, criterios, runtime, URLs, credenciales y datos de
    prueba, sin diff ni notas de implementación. El worker ejecuta la skill del reviewer, los pasos
    7 y 8 de evidencia y devuelve veredicto, findings y rutas; el principal no reabre las capturas.

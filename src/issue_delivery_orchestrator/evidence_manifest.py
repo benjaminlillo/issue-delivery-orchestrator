@@ -242,4 +242,16 @@ def _verification(
     }
     if declared_provider or state.get("reviewer"):
         receipt["provider"] = declared_provider or selected_provider
+    acceptance = verification.get("acceptance")
+    if acceptance is not None:
+        if not isinstance(acceptance, list) or not all(isinstance(item, dict) for item in acceptance):
+            raise OrchestrationError("UI verification acceptance must be an array of objects")
+        receipt["acceptance"] = [
+            {
+                "id": str(item.get("id") or "").strip(),
+                "status": str(item.get("status") or "").strip(),
+                "evidence": str(item.get("evidence") or "").strip(),
+            }
+            for item in acceptance
+        ]
     return receipt

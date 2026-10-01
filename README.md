@@ -335,6 +335,13 @@ Antes del handoff final, el agente precarga con sesión las páginas relevantes 
 (Playwright headless), para que no haya que esperar la compilación de cada página al probarla.
 El recibo final lista las páginas precargadas y las que fallaron.
 
+El Grill acuerda también el resultado práctico para el usuario y su diseño, y los registra en la
+sección `User Experience Acceptance` del spec (`UX-NNN` y `UXD-NNN`). Sin Figma ni otro diseño
+entregado, el diseño debe ser consistente con la estética de la app y con los componentes hermanos
+de la página. Estos criterios son requisitos de aprobación: los tickets los cubren, la revisión
+local los contrasta con el código y el checkpoint de revisión UI se bloquea hasta verificarlos
+todos como `PASS`.
+
 En Conductor Cloud, el revisor Playwright graba además un video por historia aprobada. Se
 publica en Linear, donde se reproduce dentro de la issue, y el comentario de evidencia de la PR
 enlaza a ese video.

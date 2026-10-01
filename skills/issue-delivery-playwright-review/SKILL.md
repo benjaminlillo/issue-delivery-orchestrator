@@ -72,6 +72,22 @@ o reporte desde Browser Preview, entregarlo al orquestador como escenario `REPAI
 evidencia afectada, reparar mediante `issue-delivery-implement` y repetir esta revisión sobre el
 nuevo SHA.
 
+## Criterios de experiencia de usuario
+
+Verificar además cada criterio `UX-NNN` y `UXD-NNN` del spec. Para `UXD-NNN` con fuente
+`Consistency`, comparar visualmente con los componentes hermanos nombrados y con la app: tipografía,
+espaciados, colores, componentes y alineación. Registrar cada resultado en el manifiesto:
+
+```json
+"acceptance": [
+  {"id": "UX-001", "status": "PASS", "evidence": "<captura o paso observado>"},
+  {"id": "UXD-001", "status": "FAIL", "evidence": "<qué difiere de los hermanos>"}
+]
+```
+
+dentro de `verification`. Un criterio `FAIL` es un finding de reparación; el orquestador bloquea
+el checkpoint mientras alguno no sea `PASS` con evidencia.
+
 ## Reparaciones y findings
 
 Para una reparación, exigir el reporte original y el escenario `REPAIR-<n>` o las historias

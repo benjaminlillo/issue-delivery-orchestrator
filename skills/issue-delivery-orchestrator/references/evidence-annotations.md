@@ -56,6 +56,10 @@ Inspeccionar la copia anotada y confirmar que cada indicador apunta al elemento 
 información material y coincide con su caption. Ajustar el manifiesto y repetir si falla. El
 checkpoint de Manual Revision vuelve a ejecutar esta preparación y bloquea coordenadas inválidas.
 
+`verification.acceptance` registra el resultado de cada criterio `UX-NNN` y `UXD-NNN` del spec
+(`id`, `status` y `evidence`). Si el spec tiene la sección `User Experience Acceptance`, el
+checkpoint de Manual Revision exige que todos figuren como `PASS` con evidencia.
+
 El manifiesto puede incluir `videos` opcionales (`storyId` y `path` de un `.webm` de hasta 25 MB,
 uno por historia con capturas). Sólo el revisor Playwright los produce. El motor los sube a Linear,
 donde se reproducen dentro de la issue, y la PR enlaza a ese reproductor: GitHub no reproduce

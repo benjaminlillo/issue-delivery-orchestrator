@@ -70,11 +70,13 @@ sin conclusiones de revisores anteriores que condicionen el dictamen.
 
 Paquetes de las etapas aisladas:
 
-- `ticket` (Implement): spec completo, ticket o finding, criterios de aceptación, SHA inicial,
+- `ticket` (Implement): spec completo, ticket o finding, criterios de aceptación y los `UX-NNN`/
+  `UXD-NNN` que cubre, SHA inicial,
   validación declarada y, por cada ticket ya aceptado del run, su ID, SHA y un resumen de una
   línea. En una reparación, agregar el finding, la ruta de su evidencia y el SHA del intento
   anterior para no repetir un enfoque fallido. Un worker nuevo por ticket y por reparación.
-- `black-box-ui` (Manual revision): historias `UI`, criterios de aceptación, resultado esperado,
+- `black-box-ui` (Manual revision): historias `UI`, criterios de aceptación, la sección
+  `User Experience Acceptance` completa (comportamiento y diseño, con sus fuentes), resultado esperado,
   runtime ID, URLs, credenciales y datos de prueba, SHA, run ID, worktree y, en una repetición,
   el escenario `REPAIR-<n>` y las historias invalidadas. No entregar diff, notas de implementación
   ni afirmaciones sobre lo que ya funciona: el reviewer prueba como un usuario. Un worker nuevo

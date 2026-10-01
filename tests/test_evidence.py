@@ -75,6 +75,15 @@ class EvidenceVerificationTests(unittest.TestCase):
         self.assertEqual(receipt["verifiedCommit"], self.head)
         self.assertNotIn("provider", receipt)
 
+    def test_keeps_ux_acceptance_results_in_the_verification_receipt(self):
+        manifest = self.manifest()
+        manifest["verification"]["acceptance"] = [{"id": "UX-001", "status": "PASS", "evidence": "final.png"}]
+        receipt = _verification(manifest, {"runtimes": [{"runtimeId": "rt-1"}]}, self.worktree)
+        self.assertEqual(receipt["acceptance"], [{"id": "UX-001", "status": "PASS", "evidence": "final.png"}])
+        manifest["verification"]["acceptance"] = "UX-001"
+        with self.assertRaisesRegex(OrchestrationError, "acceptance must be an array"):
+            _verification(manifest, {"runtimes": [{"runtimeId": "rt-1"}]}, self.worktree)
+
     def test_accepts_browser_pass_for_browser_run(self):
         self.state["mode"] = {"name": "codex"}
         self.state["reviewer"] = {"method": "codex-browser"}

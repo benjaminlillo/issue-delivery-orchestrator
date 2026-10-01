@@ -40,14 +40,47 @@ Walk the decision tree in dependency order:
 
 1. Problem, affected actors, current behavior, and observable impact.
 2. Desired user journeys, success outcomes, failure outcomes, and edge cases.
-3. `Now`, `Deferred`, `Rejected`, and neighboring out-of-scope behavior.
-4. Domain invariants, permissions, tenant boundaries, audit requirements, transactional behavior, concurrency, and error handling when relevant.
-5. Ownership boundaries, dependency direction, API and data flow, persistence, migrations, rollout, and compatibility or deletion strategy.
-6. Material risks, existing test evidence, the lowest sufficient test seam, and final computer-use flows for UI work.
+3. The final user experience: practical behavior and design, as defined in "Define the user
+   experience". Give it the same depth as architecture; do not skip it for UI work.
+4. `Now`, `Deferred`, `Rejected`, and neighboring out-of-scope behavior.
+5. Domain invariants, permissions, tenant boundaries, audit requirements, transactional behavior, concurrency, and error handling when relevant.
+6. Ownership boundaries, dependency direction, API and data flow, persistence, migrations, rollout, and compatibility or deletion strategy.
+7. Material risks, existing test evidence, the lowest sufficient test seam, and final computer-use flows for UI work.
 
 Skip branches that are demonstrably irrelevant. Keep low-level file and function choices for the implementation agent unless they expose a public surface, encode domain ownership, or change the test strategy.
 
 Do not finalize a spec with a material `Por confirmar`. Continue questioning until the choice is resolved, or move it to `Deferred` or `Out of Scope` only when the `Now` behavior does not depend on it.
+
+## Define the user experience
+
+Resolve how the solution behaves and looks in practice for the user, one question at a time, with
+the same rigor as the architecture. Keep the other branches of the interview at their current
+depth.
+
+Behavior: walk each affected screen or entry point in user order. Resolve what the user sees on
+arrival, what they can do, what happens after each action, the loading, empty, error, success and
+disabled states, permission and validation feedback, and the exact user-facing copy of buttons,
+labels and messages when it matters to the outcome.
+
+Design: resolve where the change lives, its placement and hierarchy on the page, which existing
+components it reuses (inspect `shared-components` and the current screens first, and propose
+them), and small-screen behavior when relevant. Offer a short text wireframe or an existing screen
+as a model when it helps the user confirm.
+
+Design source: ask whether a Figma file or another design (image, sketch, reference screen) exists.
+When one is provided, record it as the source of each design decision it governs. When none is
+provided, the design must match the app's general aesthetic and the sibling components at the same
+level of the page so the result is consistent with its surroundings: inspect those siblings, name
+them with their repository-relative paths, and record consistency with them as the source and the
+requirement. Never invent a new visual language without an explicit user decision.
+
+For changes without a user interface, reduce this branch to the observable behavior of the
+affected actors and record `None` for design.
+
+Record every agreement as an acceptance criterion in `## User Experience Acceptance`. These
+criteria are approval requirements: implementation, local review and the final UI review must
+satisfy each one, and the orchestrator blocks UI review completion until every criterion is
+verified as PASS with evidence.
 
 ## Enforce YAGNI and Deep Modules
 
@@ -130,6 +163,18 @@ Spec ID: SPEC-...
 ## User Stories
 - US-001: As <actor>, I want <capability>, so that <outcome>.
 
+## User Experience Acceptance
+
+### Behavior
+| ID | Story | Context | Action | Expected result |
+| --- | --- | --- | --- | --- |
+| UX-001 | US-001 | <precondition the user is in> | <what the user does> | <what the user observes, including copy and state> |
+
+### Design
+| ID | Screen | Decision | Design source |
+| --- | --- | --- | --- |
+| UXD-001 | <screen or entry point> | <placement, hierarchy, reused components, responsive behavior> | <`Figma: <url>`, `Provided: <reference>`, or `Consistency: <sibling components and screen paths>`> |
+
 ## Implementation Decisions
 <Relevant ownership, dependency, API/data-flow, persistence, permission, audit,
 transaction, error-handling, rollout, migration, and compatibility decisions.>
@@ -159,7 +204,11 @@ transaction, error-handling, rollout, migration, and compatibility decisions.>
 ```
 
 Keep the exact `Architecture Constraints` and `Testing Decisions` table headers because the
-orchestrator relies on them as the implementation and Refactor contract. Keep
+orchestrator relies on them as the implementation and Refactor contract. Keep the exact `User
+Experience Acceptance` headings and table headers, and start every row with its unique `UX-NNN` or
+`UXD-NNN` ID: the orchestrator reads those IDs as approval requirements. Without a user interface,
+write `None` under `### Design`; without user-facing behavior, write `None` under the whole
+section. Keep
 `Deferred`, `Rejected`, and `Out of Scope` semantically distinct:
 
 - `Deferred`: potentially valuable later, with a trigger.
@@ -181,12 +230,18 @@ Before presenting the spec, verify:
 - No approved constraint silently contradicts an applicable `AGENTS.md`, accepted ADR or current
   architecture document.
 - Every material risk has a coverage decision and unique signal.
+- Every agreed behavior and design decision appears once in `User Experience Acceptance` with a
+  unique ID, and every design row names its source. Without a provided design, each row requires
+  consistency with named sibling components and the app's aesthetic.
 - No unresolved material decision remains.
 - The spec is internally consistent with repository rules and the source task.
 
 ## Reconcile and publish
 
-Present the final spec and briefly identify any material change from the source task. Ask for approval before replacing an external source of truth.
+Present the final spec and briefly identify any material change from the source task. Present the
+`User Experience Acceptance` section explicitly and obtain approval of those criteria as approval
+requirements, in addition to approval of the whole spec. Ask for approval before replacing an
+external source of truth.
 
 If the user approves a Linear publication, invoke `issue-delivery-spec-publisher` with the destination. Preserve unrelated description content and the tickets block, and let that skill manage the mandatory HTML markers and comment.
 

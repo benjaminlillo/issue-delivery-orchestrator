@@ -69,6 +69,22 @@ Debe interactuar con la UI real, producir un recibo ligado al SHA/runtime y cons
 visual. Si Browser y esa asistencia no pueden alcanzar o probar el escenario, devolver `BLOCKED`;
 el skill no cambia de modo, worktree ni reviewer.
 
+## Criterios de experiencia de usuario
+
+Verificar además cada criterio `UX-NNN` y `UXD-NNN` del spec. Para `UXD-NNN` con fuente
+`Consistency`, comparar visualmente con los componentes hermanos nombrados y con la app: tipografía,
+espaciados, colores, componentes y alineación. Registrar cada resultado en el manifiesto:
+
+```json
+"acceptance": [
+  {"id": "UX-001", "status": "PASS", "evidence": "<captura o paso observado>"},
+  {"id": "UXD-001", "status": "FAIL", "evidence": "<qué difiere de los hermanos>"}
+]
+```
+
+dentro de `verification`. Un criterio `FAIL` es un finding de reparación; el orquestador bloquea
+el checkpoint mientras alguno no sea `PASS` con evidencia.
+
 ## Findings
 
 Por cada fallo, devolver:

@@ -54,6 +54,10 @@ Blocked by:
 ## User Stories Covered
 - US-...
 
+## UX Acceptance Covered
+- UX-...
+- UXD-...
+
 ## Validation
 - Run: `...`
 
@@ -70,7 +74,9 @@ not because implementation is difficult.
 
 1. Read the spec, repository instructions and existing validation seams.
 2. Produce the smallest independently committable tickets that preserve dependency order.
-3. Cover every `Now` requirement and user story exactly where it is implemented; do not turn the
+3. Cover every `Now` requirement, user story and `User Experience Acceptance` criterion exactly
+   where it is implemented, listing the covered `UX-NNN` and `UXD-NNN` IDs in each ticket (`None`
+   when it covers none); together the tickets must cover every criterion; do not turn the
    fixed final UI-review phase into an implementation ticket.
 4. Preserve the spec's `Architecture Constraints`. Reference the constraints relevant to each
    ticket in `Implementation Notes`; do not reinterpret, weaken or duplicate them as new scope.

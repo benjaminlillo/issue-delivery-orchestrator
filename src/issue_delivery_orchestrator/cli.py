@@ -69,6 +69,7 @@ from .state import (
 from .stage_models import parse_stage_models, stage_plan, update_stage_models
 from .token_usage import attach_token_usage
 from .util import ensure_within, run
+from .ux_acceptance import assert_acceptance_verified
 
 
 def parser() -> argparse.ArgumentParser:
@@ -301,10 +302,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 raise RunBlocked(
                     "Manual revision requires the ui-manifest artifact"
                 )
-            prepare_evidence(
+            prepared = prepare_evidence(
                 state,
                 Path(state["worktree"]) / manifest,
             )
+            assert_acceptance_verified(state, prepared["verification"])
         if args.phase == "review-convergence":
             assert_review_converged(state)
         complete_phase(state, args.phase, artifacts)

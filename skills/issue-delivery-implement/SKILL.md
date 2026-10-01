@@ -16,10 +16,14 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 1. Inspeccionar código, tests y patrones existentes.
 2. Verificar si el comportamiento ya está satisfecho. En ese caso devolver `NO_OP` con evidencia y validación; no crear commit vacío.
 3. Identificar la solución mínima compatible con el spec. No añadir abstracciones, compatibilidad ni defensas especulativas.
-4. Tratar las `Architecture Constraints` aprobadas como contrato vinculante. Si el pedido o el spec
+4. Tratar los criterios `UX-NNN` y `UXD-NNN` del ticket como requisitos de aprobación: cumplir el
+   comportamiento, los estados y textos acordados, y el diseño según su fuente. Cuando la fuente sea
+   `Consistency`, reutilizar los componentes, espaciados y estilos de los hermanos nombrados y de la
+   app; no introducir una estética propia.
+5. Tratar las `Architecture Constraints` aprobadas como contrato vinculante. Si el pedido o el spec
    contradicen un `AGENTS.md` aplicable o una fuente arquitectónica citada, no editar. Devolver
    `NEEDS_USER_DECISION` con las fuentes en conflicto.
-5. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
+6. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
 
 ## Implementar
 

@@ -63,6 +63,22 @@ añadir `headlessAssistance` al manifiesto; no cambiar provider ni reviewer.
 
 No editar código ni aceptar diferencias visuales basándose sólo en intención. Cuando exista Figma accesible, comparar layout, contenido, jerarquía y estados relevantes; exigir la mayor fidelidad razonable.
 
+## Criterios de experiencia de usuario
+
+Verificar además cada criterio `UX-NNN` y `UXD-NNN` del spec. Para `UXD-NNN` con fuente
+`Consistency`, comparar visualmente con los componentes hermanos nombrados y con la app: tipografía,
+espaciados, colores, componentes y alineación. Registrar cada resultado en el manifiesto:
+
+```json
+"acceptance": [
+  {"id": "UX-001", "status": "PASS", "evidence": "<captura o paso observado>"},
+  {"id": "UXD-001", "status": "FAIL", "evidence": "<qué difiere de los hermanos>"}
+]
+```
+
+dentro de `verification`. Un criterio `FAIL` es un finding de reparación; el orquestador bloquea
+el checkpoint mientras alguno no sea `PASS` con evidencia.
+
 ## Findings
 
 Devolver cada fallo con:
