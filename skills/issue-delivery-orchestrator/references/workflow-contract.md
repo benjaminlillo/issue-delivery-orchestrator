@@ -50,7 +50,10 @@ manifiesto —no acepta URLs arbitrarias—, verifica HTTP 2xx/3xx y exige el mi
 declarados y comando de cleanup. Una URL meramente asignada pero no saludable no puede publicarse.
 Antes del handoff, el agente precarga con sesión las páginas relevantes del runtime final y pasa
 `validation/warmup.json` como `warmup`; el motor exige que corresponda al mismo SHA y runtime y lo
-incluye en el recibo. Una página que falla al precargarse se informa, pero no bloquea el handoff.
+incluye en el recibo. Una página que falla al precargarse se informa, pero no bloquea el handoff;
+un login fallido sí lo bloquea. Cada servicio entregado debe correr como proceso registrado por el
+Local Runtime. Tras una suspensión del workspace, `runtime-restore` vuelve a levantar el mismo
+runtime y servicios sin cambios de código y devuelve el run a la precarga y el handoff.
 
 En `manual-runtime`, el handoff cambia a `awaiting_manual_review` y declara Computer Use y PR como
 no ejecutados. En `full`, completar `review-convergence` detiene los procesos usados para revisar y

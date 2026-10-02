@@ -335,6 +335,11 @@ Antes del handoff final, el agente precarga con sesión las páginas relevantes 
 (Playwright headless), para que no haya que esperar la compilación de cada página al probarla.
 El recibo final lista las páginas precargadas y las que fallaron.
 
+Los runtimes de revisión y entrega se levantan sólo con el comando de servicios del perfil, que usa
+el entorno de desarrollo del repositorio; el handoff bloquea servicios que no corran registrados por
+el Local Runtime y exige un login exitoso por la URL que usará el usuario. Si Conductor duerme el
+workspace y detiene los procesos, `runtime-restore` vuelve a levantar el mismo runtime y servicios.
+
 El Grill acuerda también el resultado práctico para el usuario y su diseño, y los registra en la
 sección `User Experience Acceptance` del spec (`UX-NNN` y `UXD-NNN`). Sin Figma ni otro diseño
 entregado, el diseño debe ser consistente con la estética de la app y con los componentes hermanos

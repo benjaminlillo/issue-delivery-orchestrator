@@ -29,6 +29,7 @@ class WarmupTests(unittest.TestCase):
                 {"service": "shops-app", "path": "/workers/7", "status": "WARMED", "httpStatus": 200, "durationMs": 8200},
                 {"service": "shops-app", "path": "/menu", "status": "FAILED", "httpStatus": 500, "error": "HTTP 500"},
             ],
+            "logins": [{"service": "shops-app", "status": "PASS"}],
         }
         receipt.update(overrides)
         self.path.write_text(json.dumps(receipt))
@@ -64,6 +65,14 @@ class WarmupTests(unittest.TestCase):
             self.validate()
         self.write(pages=[{"service": "shops-app", "path": "/menu", "status": "FAILED"}])
         with self.assertRaisesRegex(RunBlocked, "requires 'error'"):
+            self.validate()
+
+    def test_failed_or_missing_login_blocks_the_handoff(self):
+        self.write(logins=[{"service": "shops-app", "status": "FAILED", "error": "auth_context_unavailable"}])
+        with self.assertRaisesRegex(RunBlocked, "Login failed.*auth_context_unavailable"):
+            self.validate()
+        self.write(logins=[])
+        with self.assertRaisesRegex(RunBlocked, "login result for: shops-app"):
             self.validate()
 
     def test_empty_warmup_requires_a_reason(self):

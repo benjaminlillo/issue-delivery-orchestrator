@@ -25,6 +25,7 @@ from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
 from .local_review import validate_local_review
 from .runtime_handoff import prepare_runtime_handoff
+from .runtime_restore import restore_runtime
 from .runtime_reset import reset_final_runtime
 from .review import (
     acknowledge_processed_blocker,
@@ -146,6 +147,7 @@ def parser() -> argparse.ArgumentParser:
 
     actions.add_parser("runtime-reset")
 
+    actions.add_parser("runtime-restore", help="Restart the handed-off runtime after its processes stopped")
     runtime_handoff = actions.add_parser("runtime-handoff")
     runtime_handoff.add_argument("--input", type=Path, required=True)
 
@@ -342,6 +344,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.action == "runtime-reset":
         result = reset_final_runtime(state)
         return {**result, "state": _public_state(state)}
+    if args.action == "runtime-restore":
+        return {**restore_runtime(state), "state": _public_state(state)}
     if args.action in {"runtime-handoff", "manual-handoff"}:
         input_path = _resolve_in_worktree(args.input, Path(state["worktree"]))
         ensure_within(input_path, run_root(Path(state["worktree"]), state["runId"]))

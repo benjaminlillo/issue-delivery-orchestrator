@@ -33,9 +33,14 @@ Si el cambio no tiene páginas (por ejemplo, sólo backend), no precargar y regi
   producto. Si Playwright o Chrome no están disponibles, registrar `pages: []` con `skipReason`.
 - Crear el script efímero y su log bajo
   `.local-runtime/issue-delivery-orchestrator/<run-id>/validation/warmup/`.
-- Iniciar sesión una vez por app con el usuario de prueba, mediante la UI o los helpers E2E de
-  autenticación existentes. Sin sesión, el middleware redirige a `/signin` y la página no se
+- Iniciar sesión una vez por app con el usuario de prueba mediante el formulario real de login, en
+  un contexto de navegador nuevo y por la URL `localhost` del manifiesto, como lo hará el usuario
+  con sus puertos reenviados. No usar helpers que creen la sesión por atajo ni inyectar cabeceras
+  HTTP (por ejemplo, `x-real-ip`). Sin sesión, el middleware redirige a `/signin` y la página no se
   compila.
+- Registrar el resultado del login de cada app en `logins` (`PASS` o `FAILED` con `error`). Un login
+  fallido bloquea el handoff: el runtime no es usable. Diagnosticar cómo se levantó la app; no
+  debilitar la autenticación ni el código de producción.
 - Procesar las apps en paralelo y, dentro de cada app, las páginas una a una: `page.goto` con un
   timeout amplio (compilar puede tardar minutos) y luego esperar un tiempo acotado a que la red
   quede inactiva, para compilar también el JavaScript del cliente y las llamadas que dispara.
@@ -56,13 +61,16 @@ input de `runtime-handoff`:
   "pages": [
     {"service": "shops-app", "path": "/workers/7", "status": "WARMED", "httpStatus": 200, "durationMs": 8200},
     {"service": "shops-app", "path": "/menu", "status": "FAILED", "httpStatus": 500, "error": "HTTP 500"}
+  ],
+  "logins": [
+    {"service": "shops-app", "status": "PASS"}
   ]
 }
 ```
 
 `service` debe existir en el manifiesto del runtime. Sin páginas, incluir `"pages": []` y
-`skipReason`. El motor rechaza recibos de otro SHA o runtime, pero una página `FAILED` no bloquea
-el handoff.
+`skipReason`. El motor rechaza recibos de otro SHA o runtime y exige un login `PASS` por cada app con
+páginas precargadas; una página `FAILED` no bloquea el handoff.
 
 En el mensaje final, listar cada URL precargada con su tiempo y marcar explícitamente las fallidas
 y las omitidas, para que el usuario sepa cuáles todavía compilarán o fallarán al abrirlas.

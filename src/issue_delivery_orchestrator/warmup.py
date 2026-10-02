@@ -83,10 +83,36 @@ def validate_warmup(
             **({"durationMs": duration} if duration is not None else {}),
             **({"error": error} if error else {}),
         })
+    logins = _logins(receipt.get("logins"), {page["service"] for page in pages})
     return {
         "receipt": str(candidate.relative_to(worktree.resolve())),
+        "logins": logins,
         "warmed": sum(page["status"] == "WARMED" for page in pages),
         "failed": sum(page["status"] == "FAILED" for page in pages),
         "pages": pages,
         **({"skipReason": skip_reason} if skip_reason else {}),
     }
+
+
+def _logins(raw: Any, services: set[str]) -> list[dict[str, str]]:
+    """Require a successful sign-in, as the user would, for every service with warmed pages."""
+    if raw is None:
+        raw = []
+    if not isinstance(raw, list) or not all(isinstance(item, dict) for item in raw):
+        raise RunBlocked("Warm-up logins must be an array of objects")
+    logins = {
+        str(item.get("service") or ""): {
+            "service": str(item.get("service") or ""),
+            "status": str(item.get("status") or ""),
+            "error": str(item.get("error") or "").strip(),
+        }
+        for item in raw
+    }
+    missing = sorted(services - logins.keys())
+    if missing:
+        raise RunBlocked(f"Warm-up must record the login result for: {', '.join(missing)}")
+    failed = [item for item in logins.values() if item["status"] != "PASS"]
+    if failed:
+        details = "; ".join(f"{item['service']}: {item['error'] or item['status']}" for item in failed)
+        raise RunBlocked(f"Login failed on the final runtime, so the user cannot use it ({details})")
+    return list(logins.values())

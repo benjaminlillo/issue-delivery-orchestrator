@@ -108,6 +108,7 @@ class RuntimeProcessTests(unittest.TestCase):
             warmup_path.write_text(json.dumps({
                 "receiptVersion": 1, "verifiedCommit": head, "runtimeId": "runtime-1",
                 "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
+                "logins": [{"service": "web", "status": "PASS"}],
             }))
             input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
 
@@ -151,7 +152,11 @@ class RuntimeProcessTests(unittest.TestCase):
                 complete_phase(state, phase)
             manifest = worktree / ".local-runtime" / "runtime.json"
             manifest.parent.mkdir(parents=True, exist_ok=True)
-            manifest.write_text(json.dumps({"urls": {"web": "http://127.0.0.1:43123"}}))
+            registry = worktree / ".local-runtime" / "pids.json"
+            manifest.write_text(json.dumps({
+                "urls": {"web": "http://127.0.0.1:43123"}, "processRegistryPath": str(registry),
+            }))
+            registry.write_text(json.dumps({"processes": [{"pid": os.getpid(), "app": "web"}]}))
             state["runtimes"] = [
                 {
                     "runtimeId": "fresh-runtime",
@@ -186,6 +191,7 @@ class RuntimeProcessTests(unittest.TestCase):
             warmup_path.write_text(json.dumps({
                 "receiptVersion": 1, "verifiedCommit": head, "runtimeId": "fresh-runtime",
                 "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
+                "logins": [{"service": "web", "status": "PASS"}],
             }))
             input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
 
@@ -203,6 +209,21 @@ class RuntimeProcessTests(unittest.TestCase):
                 result["receipt"]["pullRequest"],
                 "https://github.com/example/repo/pull/1",
             )
+
+    def test_rejects_services_not_started_by_the_local_runtime(self):
+        from issue_delivery_orchestrator.runtime_handoff import _assert_services_registered
+
+        with tempfile.TemporaryDirectory() as raw:
+            registry = Path(raw) / "pids.json"
+            registry.write_text(json.dumps({"processes": [
+                {"pid": os.getpid(), "app": "backend"},
+                {"pid": os.getpid(), "app": "web", "endedAt": "2026-10-01T00:00:00Z"},
+            ]}))
+            state = {"worktree": raw}
+            manifest = {"processRegistryPath": str(registry)}
+            _assert_services_registered(state, manifest, {"backend"})
+            with self.assertRaisesRegex(RunBlocked, "not running from the Local Runtime: web"):
+                _assert_services_registered(state, manifest, {"backend", "web"})
 
     def test_rejects_handoff_without_final_runtime_reset(self):
         with tempfile.TemporaryDirectory() as raw:

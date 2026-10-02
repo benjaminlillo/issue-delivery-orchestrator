@@ -128,6 +128,25 @@ class ConfigTests(unittest.TestCase):
                 configuration = settings()
 
             self.assertEqual(configuration.review_repair_batch_size, 5)
+            self.assertEqual(configuration.runtime_services_command[-1], "{services}")
+            self.assertEqual(configuration.runtime_cloud_services_command[-1], "cloud:services:ensure")
+
+    def test_runtime_restore_commands_are_optional(self):
+        with tempfile.TemporaryDirectory() as raw:
+            source = json.loads(
+                (Path(__file__).resolve().parents[1] / "profiles" / "turboshop.json").read_text()
+            )
+            for key in ("servicesCommand", "cloudServicesCommand"):
+                source["runtime"].pop(key)
+            profile = Path(raw) / "minimal.json"
+            profile.write_text(json.dumps(source))
+            with patch.dict(
+                os.environ,
+                {"ISSUE_DELIVERY_PROFILE": str(profile), "ISSUE_DELIVERY_ENV_FILE": "/missing/env"},
+                clear=True,
+            ):
+                configuration = settings()
+            self.assertEqual(configuration.runtime_services_command, ())
 
 
 if __name__ == "__main__":

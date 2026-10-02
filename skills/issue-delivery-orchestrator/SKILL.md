@@ -185,6 +185,20 @@ resumen y las fallas (por ejemplo, las últimas líneas o los tests fallidos). N
 diffs completos, árboles de accesibilidad ni JSON extensos que no se necesiten para decidir: todo
 lo que entra al contexto se relee en cada llamada posterior.
 
+## Arranque de apps en los runtimes
+
+Levantar las apps de todo runtime de revisión o de entrega exclusivamente con el comando de
+servicios del perfil (en TurboShop, `corepack pnpm local-runtime ensure-services <apps>`), que usa
+el entorno de desarrollo del repositorio y registra cada proceso. No escribir scripts de arranque
+propios, no reutilizar configuraciones de tests E2E o Playwright (por ejemplo
+`managed-playwright-env`) y no sobrescribir variables como `NODE_ENV`, `RAILWAY_PROJECT_ID` o
+`*_E2E_MODE`. No inyectar cabeceras HTTP para que algo funcione: si la app sólo funciona así, el
+runtime está mal levantado. `runtime-handoff` bloquea los servicios que no corran como procesos
+registrados por el Local Runtime.
+
+El usuario prueba el runtime reenviando los puertos del workspace a su equipo con los mismos
+números, así que las URLs `localhost` del manifiesto son las que usa. Verificar contra ellas.
+
 ## Modelos por etapa
 
 Sin selección explícita, conservar el modelo de la sesión principal. Antes de ejecutar cualquier
@@ -351,8 +365,8 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
 1. Ejecutar `runtime-reset`. El comando exige un worktree limpio y comprometido, detiene todos los
    procesos registrados del run, limpia los recursos de sus runtimes anteriores, levanta un Local
    Runtime nuevo y fija ese runtime al HEAD actual.
-2. Levantar otra vez sólo las apps necesarias sobre el nuevo runtime mediante los comandos del
-   repositorio y registrar sus PID.
+2. Levantar otra vez sólo las apps necesarias sobre el nuevo runtime según "Arranque de apps en
+   los runtimes".
 3. Verificar las URLs desde el estado integrado final. Crear dentro del directorio ignorado del run
    un input como:
 
@@ -401,7 +415,7 @@ Ejecutar esta sección sólo con `handoffMode=full`.
    python3 <plugin-root>/scripts/issue-delivery <issue> runtime-init
    ```
 
-2. Levantar sólo las apps necesarias mediante `pnpm local-runtime` o `pnpm agent:*`, registrar sus PID y usar el runtime activo.
+2. Levantar sólo las apps necesarias según "Arranque de apps en los runtimes" y usar el runtime activo.
 3. Ramificar exclusivamente por `developmentMode`:
 
    - `superset`: abrir el navegador dedicado mediante
@@ -633,7 +647,7 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
 
 1. `runtime-reset` para detener y limpiar el runtime de revisión, y crear uno fresco sobre el mismo
    HEAD.
-2. Levantar nuevamente sólo las apps necesarias y registrar sus PID.
+2. Levantar nuevamente sólo las apps necesarias según "Arranque de apps en los runtimes".
 3. Crear el mismo input de servicios descrito en “Handoff manual con runtime”.
 4. Precargar las páginas relevantes según [page-warmup.md](references/page-warmup.md) y agregar
    `warmup` al input.
@@ -644,6 +658,22 @@ del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces e
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
 cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
 precargadas y las fallidas u omitidas, y dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
+
+## Restaurar el runtime tras una suspensión
+
+Conductor Cloud duerme el workspace tras un periodo sin actividad de agentes y detiene todos sus
+procesos, incluidas la base de datos y las apps. Si el usuario pide volver a levantar el runtime
+entregado, sin cambios de código, no reparar ni revisar nada:
+
+1. Ejecutar `python3 <plugin-root>/scripts/issue-delivery <issue> runtime-restore`. El motor
+   verifica que el código no cambió desde el handoff, levanta la infraestructura del workspace,
+   reutiliza el mismo runtime y vuelve a levantar los mismos servicios registrados, con los mismos
+   puertos.
+2. Repetir la precarga según [page-warmup.md](references/page-warmup.md) y `runtime-handoff` con
+   los mismos servicios.
+3. Entregar las mismas URLs, el resultado de la precarga y el login.
+
+Si el código cambió o el usuario pide un ajuste, aplicar la invariante de reparación y handoff.
 
 ## Review humano posterior y cleanup
 

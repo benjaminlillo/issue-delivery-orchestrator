@@ -43,6 +43,10 @@ class Settings:
     browser_binary: str
     codex_worktree_roots: tuple[str, ...]
     superset_worktree_roots: tuple[str, ...]
+    # Starts registered runtime services by name; `{services}` expands to one argument per service.
+    runtime_services_command: tuple[str, ...] = ()
+    # Starts shared infrastructure (database, cache) in Conductor Cloud after the VM restarts.
+    runtime_cloud_services_command: tuple[str, ...] = ()
 
     @property
     def blocker_bot(self) -> str:
@@ -131,6 +135,14 @@ def settings() -> Settings:
         ),
         superset_worktree_roots=_environment_paths(
             "ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS"
+        ),
+        runtime_services_command=(
+            _string_tuple(runtime, "servicesCommand") if "servicesCommand" in runtime else ()
+        ),
+        runtime_cloud_services_command=(
+            _string_tuple(runtime, "cloudServicesCommand")
+            if "cloudServicesCommand" in runtime
+            else ()
         ),
     )
 

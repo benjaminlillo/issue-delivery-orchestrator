@@ -24,6 +24,18 @@
       "cleanup",
       "--runtime",
       "{runtime_id}"
+    ],
+    "servicesCommand": [
+      "corepack",
+      "pnpm",
+      "local-runtime",
+      "ensure-services",
+      "{services}"
+    ],
+    "cloudServicesCommand": [
+      "corepack",
+      "pnpm",
+      "cloud:services:ensure"
     ]
   },
   "identity": {

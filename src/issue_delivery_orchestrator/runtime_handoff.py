@@ -76,6 +76,8 @@ def prepare_runtime_handoff(
         )
         names.add(name)
 
+    _assert_services_registered(state, manifest, names)
+
     dirty = run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree).stdout.strip()
     if dirty:
         raise RunBlocked(
@@ -180,6 +182,33 @@ def _optional_worktree_file(raw_path: Any, worktree: Path, service: str) -> str 
     if not absolute.is_file():
         raise RunBlocked(f"logPath for {service} does not exist: {absolute}")
     return str(resolved)
+
+
+def _assert_services_registered(
+    state: dict[str, Any], manifest: dict[str, Any], names: set[str]
+) -> None:
+    """Require every handed-off service to run as a process registered by the Local Runtime.
+
+    Ad hoc start scripts bypass the repository's development environment (for example, by
+    reusing E2E settings) and are not registered, so the user could receive a broken runtime.
+    """
+    registry_path = manifest.get("processRegistryPath")
+    candidate = Path(registry_path) if registry_path else None
+    if candidate and not candidate.is_absolute():
+        candidate = Path(state["worktree"]) / candidate
+    registry = read_json(candidate, {}) if candidate else {}
+    running = {
+        str(item.get("app"))
+        for item in registry.get("processes", [])
+        if not item.get("endedAt") and int(item.get("pid") or 0) > 1 and _alive(int(item["pid"]))
+    }
+    missing = sorted(names - running)
+    if missing:
+        raise RunBlocked(
+            "Services not running from the Local Runtime: "
+            + ", ".join(missing)
+            + ". Start them with the runtime services command; custom start scripts are not allowed"
+        )
 
 
 def _live_runtime_processes(state: dict[str, Any], manifest: dict[str, Any]) -> list[dict[str, Any]]:
