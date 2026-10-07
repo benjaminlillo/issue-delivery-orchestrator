@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from .config import settings
+from .demo_video import validate_demo_video
 from .errors import RunBlocked
 from .runtime import _alive
 from .state import handoff_mode, now, run_root, save_state
@@ -93,6 +94,9 @@ def prepare_runtime_handoff(
     warmup = validate_warmup(
         state, payload.get("warmup"), urls=urls, runtime_id=runtime_id, commit=commit
     )
+    demo_video = validate_demo_video(
+        state, payload.get("demoVideo"), runtime_id=runtime_id, commit=commit
+    )
     receipt_path = run_root(worktree, state["runId"]) / "validation" / "final-runtime-handoff.json"
     manual = handoff_mode(state) == "manual-runtime"
     if not manual and not (state.get("pr") or {}).get("url"):
@@ -107,6 +111,7 @@ def prepare_runtime_handoff(
         "preparedAt": now(),
         "services": services,
         "warmup": warmup,
+        "demoVideo": demo_video,
         "processes": _live_runtime_processes(state, manifest),
         "cleanupCommand": shlex.join(
             [
@@ -127,6 +132,7 @@ def prepare_runtime_handoff(
         "preparedAt": receipt["preparedAt"],
         "services": services,
         "warmup": warmup,
+        "demoVideo": demo_video,
     }
     if manual:
         state["status"] = "awaiting_manual_review"

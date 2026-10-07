@@ -347,9 +347,16 @@ de la página. Estos criterios son requisitos de aprobación: los tickets los cu
 local los contrasta con el código y el checkpoint de revisión UI se bloquea hasta verificarlos
 todos como `PASS`.
 
-En Conductor Cloud, el revisor Playwright graba además un video por historia aprobada. Se
-publica en Linear, donde se reproduce dentro de la issue, y el comentario de evidencia de la PR
-enlaza a ese video.
+Al final de cada run, después de precargar el runtime definitivo, el agente graba una demo si
+hay tickets revisables por UI (incluidos cambios de comportamiento sin cambios de diseño). Sin
+impacto visible ni comportamiento revisable por UI, la omite con motivo. Aplica también a
+`manual-runtime`: la demo no sustituye la revisión ni aprueba historias.
+
+El agente elige herramienta, formato y alojamiento, y entrega el video sólo en la sesión. No se
+publica automáticamente en Linear ni en la PR. `runtime-handoff` exige `demoVideo`, ligado al SHA
+y runtime finales, con archivos locales y enlaces elegidos por el agente; informa cualquier fallo
+de grabación. Ver [el contrato de demo](skills/issue-delivery-orchestrator/references/demo-video.md).
+La publicación de videos de manifiestos antiguos se conserva por compatibilidad.
 
 Para cambiar futuras invocaciones del mismo run:
 

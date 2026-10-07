@@ -33,7 +33,7 @@ PRs draft, reportar el impedimento en lugar de cambiar el estado o afirmar que p
 - `manual-runtime`: ejecuta Grill, Implement, Refactor, integración de la branch target y revisión local independiente; luego
   reemplaza el Local Runtime, levanta las apps necesarias y termina en
   `status=awaiting_manual_review`, `currentPhase=manual-revision` después de superar `local-review`. No ejecuta Computer Use,
-  evidencia, PR ni convergencia.
+  evidencia de aprobación, PR ni convergencia. Puede precargar páginas y grabar la demo final.
 
 El objetivo se fija al crear el run mediante `--handoff manual-runtime` y se persiste. Un run
 existente no puede cambiarlo durante bootstrap. Desde `awaiting_manual_review`, `resume` conserva el
@@ -54,6 +54,13 @@ incluye en el recibo. Una página que falla al precargarse se informa, pero no b
 un login fallido sí lo bloquea. Cada servicio entregado debe correr como proceso registrado por el
 Local Runtime. Tras una suspensión del workspace, `runtime-restore` vuelve a levantar el mismo
 runtime y servicios sin cambios de código y devuelve el run a la precarga y el handoff.
+
+Después de la precarga, preparar `demoVideo` según [demo-video.md](demo-video.md). Grabar siempre
+si hay tickets revisables por UI; omitir sólo cuando no haya impacto visible ni comportamiento
+revisable por UI. Aplica a todos los modos y a ambos objetivos de entrega. El agente decide cómo
+grabar y dónde alojar el archivo para entregarlo en la sesión, sin publicar en la issue ni la PR.
+El motor exige el resultado, valida SHA/runtime y archivos locales, y lo incluye en el handoff.
+Una imposibilidad técnica se declara `FAILED` con motivo, nunca como una demo completada.
 
 En `manual-runtime`, el handoff cambia a `awaiting_manual_review` y declara Computer Use y PR como
 no ejecutados. En `full`, completar `review-convergence` detiene los procesos usados para revisar y

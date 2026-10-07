@@ -110,7 +110,15 @@ class RuntimeProcessTests(unittest.TestCase):
                 "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
                 "logins": [{"service": "web", "status": "PASS"}],
             }))
-            input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
+            video = input_path.parent / "demo.webm"
+            video.write_bytes(b"recorded-video")
+            demo = {
+                "status": "RECORDED", "verifiedCommit": head, "runtimeId": state["activeRuntimeId"],
+                "uiTickets": ["T-1"], "videos": [{"ticketIds": ["T-1"], "path": str(video)}],
+            }
+            input_path.write_text(json.dumps({
+                "services": [{"name": "web"}], "warmup": str(warmup_path), "demoVideo": demo,
+            }))
 
             with patch(
                 "issue_delivery_orchestrator.runtime_handoff._health_status", return_value=200
@@ -118,6 +126,8 @@ class RuntimeProcessTests(unittest.TestCase):
                 result = prepare_runtime_handoff(state, input_path)
 
             receipt = result["receipt"]
+            self.assertEqual(receipt["demoVideo"]["status"], "RECORDED")
+            self.assertEqual(receipt["demoVideo"], state["finalRuntimeHandoff"]["demoVideo"])
             self.assertEqual(receipt["tokenUsage"], state["tokenUsage"])
             persisted = json.loads(Path(result["receiptPath"]).read_text())
             self.assertEqual(persisted["tokenUsage"], state["tokenUsage"])
@@ -193,7 +203,15 @@ class RuntimeProcessTests(unittest.TestCase):
                 "pages": [{"service": "web", "path": "/orders/1", "status": "WARMED", "durationMs": 900}],
                 "logins": [{"service": "web", "status": "PASS"}],
             }))
-            input_path.write_text(json.dumps({"services": [{"name": "web"}], "warmup": str(warmup_path)}))
+            video = input_path.parent / "demo.webm"
+            video.write_bytes(b"recorded-video")
+            demo = {
+                "status": "RECORDED", "verifiedCommit": head, "runtimeId": state["activeRuntimeId"],
+                "uiTickets": ["T-1"], "videos": [{"ticketIds": ["T-1"], "path": str(video)}],
+            }
+            input_path.write_text(json.dumps({
+                "services": [{"name": "web"}], "warmup": str(warmup_path), "demoVideo": demo,
+            }))
 
             with patch(
                 "issue_delivery_orchestrator.runtime_handoff._health_status",
@@ -201,6 +219,7 @@ class RuntimeProcessTests(unittest.TestCase):
             ):
                 result = prepare_runtime_handoff(state, input_path)
 
+            self.assertEqual(result["receipt"]["demoVideo"], state["finalRuntimeHandoff"]["demoVideo"])
             self.assertEqual(state["status"], "completed_preserved")
             self.assertEqual(
                 result["receipt"]["computerUseReview"], "COMPLETED_BEFORE_RESET"

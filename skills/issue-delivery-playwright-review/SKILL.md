@@ -148,21 +148,8 @@ Incluir al menos una captura por punto visual relevante, sin secretos ni estados
 intermedios. Usar `annotationReason` sólo cuando el cambio sea global y una región localizada sea
 engañosa.
 
-### Video por historia
+### Demo final
 
-Grabar un video de cada historia `UI` sólo en su pasada final aprobada, no en intentos fallidos:
-crear el contexto de Playwright con `recordVideo: {dir, size: {width: 1280, height: 720}}`,
-recorrer la historia a un ritmo legible y cerrar el contexto para que el archivo se escriba.
-Guardarlo como `validation/playwright/<story-id>/video.webm` (WebM, máximo 25 MB, un video por
-historia) y declararlo en el manifiesto:
-
-```json
-"videos": [
-  {"storyId": "US-1", "path": ".local-runtime/issue-delivery-orchestrator/<run-id>/validation/playwright/US-1/video.webm"}
-]
-```
-
-El video es evidencia para personas: no abrirlo, no extraer fotogramas ni usarlo para decidir el
-veredicto, que sigue basado en las capturas inspeccionadas. Cada video debe corresponder a una
-historia con capturas en el mismo manifiesto. Si la grabación falla, continuar sin video e
-informarlo; no bloquea la revisión.
+La grabación se realiza durante el handoff final, sobre el runtime definitivo, según
+[demo-video.md](../issue-delivery-orchestrator/references/demo-video.md). No grabar videos durante
+esta revisión ni agregarlos al manifiesto de evidencia; devolver las capturas y el veredicto.

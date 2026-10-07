@@ -60,10 +60,9 @@ checkpoint de Manual Revision vuelve a ejecutar esta preparación y bloquea coor
 (`id`, `status` y `evidence`). Si el spec tiene la sección `User Experience Acceptance`, el
 checkpoint de Manual Revision exige que todos figuren como `PASS` con evidencia.
 
-El manifiesto puede incluir `videos` opcionales (`storyId` y `path` de un `.webm` de hasta 25 MB,
-uno por historia con capturas). Sólo el revisor Playwright los produce. El motor los sube a Linear,
-donde se reproducen dentro de la issue, y la PR enlaza a ese reproductor: GitHub no reproduce
-videos publicados por API.
+Los manifiestos antiguos pueden incluir `videos` opcionales; el motor conserva su publicación
+por compatibilidad. En runs nuevos, no incluir la demo en ese manifiesto: se graba al final y se
+entrega sólo en la sesión según [demo-video.md](demo-video.md).
 
 El motor numera los callouts, dibuja una copia PNG determinista y preserva el original. Publicar la
 copia anotada por defecto en Linear y GitHub, con captions numerados y un link a la captura original.

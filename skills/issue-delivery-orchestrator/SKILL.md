@@ -382,9 +382,11 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    `name` debe coincidir con una entrada de `urls` del manifiesto del Local Runtime. `healthPath`
    y `logPath` son opcionales; el log, si se declara, debe existir dentro del worktree.
 4. Precargar las páginas relevantes según [page-warmup.md](references/page-warmup.md) y agregar
-   `"warmup": "<ruta a validation/warmup.json>"` al input. Es la única ejecución de Playwright
-   permitida en este modo: no es una revisión UI ni produce evidencia.
-5. Ejecutar:
+   `"warmup": "<ruta a validation/warmup.json>"` al input.
+5. Preparar la demo final según [demo-video.md](references/demo-video.md) y agregar `demoVideo`
+   al input. Precarga y grabación son usos permitidos del navegador en este modo; no aprueban UI
+   ni producen evidencia para Linear o la PR.
+6. Ejecutar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> runtime-handoff --input <ruta-json>
@@ -393,15 +395,16 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    El motor consulta cada endpoint, rechaza servicios no saludables, fija el SHA y runtime activos,
    escribe `validation/final-runtime-handoff.json` y cambia el estado a `awaiting_manual_review` sin
    completar `manual-revision`.
-6. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
+7. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
    precargadas con su tiempo y las fallidas u omitidas, la lista de criterios de
    `User Experience Acceptance` como checklist para la revisión del usuario, logs disponibles, path del recibo y
-   `cleanupCommand`. Decir expresamente: Computer Use no ejecutado, evidencia no
-   creada y PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
+   `cleanupCommand`, y el enlace reproducible o descargable de la demo (o su omisión/fallo).
+   Decir expresamente: revisión Computer Use no ejecutada, evidencia de aprobación no creada y
+   PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
    `stop-processes`, `block` ni cleanup después de este handoff.
 
 Si el usuario pide una corrección mientras el run está en `awaiting_manual_review`, ejecutar
-`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps, precarga y `runtime-handoff`; el recibo
+`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps, precarga, demo final y `runtime-handoff`; el recibo
 anterior queda obsoleto. Si pide continuar con revisión automática y
 PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
 
@@ -480,7 +483,7 @@ No ejecutar `gh pr create`, una API de GitHub ni otro fallback directamente. Ant
 si la PR resultante no apunta exactamente a ese target. Sin override explícito del prompt, exigir
 `target=test`; nunca aceptar silenciosamente `main` por ser la default branch de GitHub.
 
-Publicar cada PNG anotado en dos destinos distintos (los videos declarados en el manifiesto van
+Publicar cada PNG anotado en dos destinos distintos (por compatibilidad, los videos de manifiestos antiguos van
 sólo a Linear, con un enlace desde la PR):
 
 - Linear: copia privada para `## UI enhancements`.
@@ -651,13 +654,16 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
 3. Crear el mismo input de servicios descrito en “Handoff manual con runtime”.
 4. Precargar las páginas relevantes según [page-warmup.md](references/page-warmup.md) y agregar
    `warmup` al input.
-5. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
+5. Preparar la demo final según [demo-video.md](references/demo-video.md) y agregar `demoVideo`
+   al input.
+6. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
 
 El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
 del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
 cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
-precargadas y las fallidas u omitidas, y dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
+precargadas y las fallidas u omitidas, y el enlace reproducible o descargable de la demo
+(o su omisión/fallo). Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 
 ## Restaurar el runtime tras una suspensión
 
@@ -670,7 +676,8 @@ entregado, sin cambios de código, no reparar ni revisar nada:
    reutiliza el mismo runtime y vuelve a levantar los mismos servicios registrados, con los mismos
    puertos.
 2. Repetir la precarga según [page-warmup.md](references/page-warmup.md) y `runtime-handoff` con
-   los mismos servicios.
+   los mismos servicios. Reutilizar `demoVideo` sólo si corresponde al mismo SHA y runtime y
+   sigue accesible; de lo contrario, prepararlo según [demo-video.md](references/demo-video.md).
 3. Entregar las mismas URLs, el resultado de la precarga y el login.
 
 Si el código cambió o el usuario pide un ajuste, aplicar la invariante de reparación y handoff.
