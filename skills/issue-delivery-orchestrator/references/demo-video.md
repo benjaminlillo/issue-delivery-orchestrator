@@ -45,6 +45,23 @@ autorizados del runtime. No reiniciar los servicios ni cambiar de runtime entre 
   el impedimento concreto e informarlo en el mensaje final. No simular éxito ni convertir un fallo
   en `SKIPPED`; el runtime saludable puede entregarse aunque la demo haya fallado.
 
+## Cursor y ritmo de las acciones
+
+- Mostrar un cursor visible en el video durante las interacciones. Moverlo hacia cada objetivo
+  con una trayectoria suave y tiempo entre posiciones, sin saltos instantáneos. Dejar una pausa
+  breve al llegar antes de hacer clic, para que el usuario identifique el control.
+- Marcar cada clic en su posición real con un pulso o halo visible, sincronizado con la pulsación.
+  Mantenerlo lo suficiente para percibirlo sin tapar el texto ni el resultado. Tras la acción,
+  esperar a que aparezca el resultado y dejar tiempo para leerlo antes de continuar.
+- El agente elige cómo mostrar y grabar el cursor. Si la herramienta no captura el puntero,
+  incorporar una superposición temporal en el navegador de la demo, ligada a los movimientos y
+  clics reales. No modificar el código del producto. La superposición no debe interceptar eventos,
+  alterar el comportamiento de la app ni mostrar clics que no ocurrieron.
+- Mantener cursor e indicador de clic visibles tras navegar, abrir modales o cambiar de página.
+  Usar las coordenadas actuales del objetivo después de desplazamientos o cambios de diseño, y
+  mostrar primero el control antes de acercar el cursor y pulsarlo. Las acciones de teclado no
+  deben representarse como clics.
+
 ## Comprobar el video final
 
 - Cerrar y finalizar la grabación antes de comprobarla. Medir la duración real del archivo con las
@@ -57,6 +74,11 @@ autorizados del runtime. No reiniciar los servicios ni cambiar de runtime entre 
   mensajes y cambios se distingan al tamaño de reproducción previsto. Usar la reproducción o los
   tiempos de esos estados para comprobar que duran lo suficiente para leerlos y seguir las acciones.
   Las capturas de la página tomadas durante el script no verifican el archivo de video final.
+- Comprobar en el archivo final que el cursor se ve, se desplaza con suavidad y marca los clics
+  sobre los controles correctos. Inspeccionar la reproducción o una secuencia de fotogramas con
+  tiempos alrededor de las pulsaciones, también después de navegar o abrir modales. Un fotograma
+  aislado no demuestra movimiento suave ni un ritmo que permita seguir el flujo. Si el cursor o
+  los clics no se ven, o las acciones resultan demasiado rápidas, ajustar y volver a grabar.
 - Esta inspección verifica la calidad de la grabación; no repite la revisión funcional ni aprueba
   historias. Guardar la duración medida, los tiempos inspeccionados y el resultado en un registro
   breve junto al video, sin incorporar todos los fotogramas al contexto del orquestador.

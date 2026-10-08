@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.25.1",
+  "version": "0.25.2",
   "description": "Deliver Linear issues through a verified PR or hand off a fresh healthy runtime for manual review.",
   "author": {
     "name": "Benjamin Lillo"
