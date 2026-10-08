@@ -13,6 +13,17 @@ La demo es para que el usuario vea el resultado; no reemplaza las capturas ni ap
 En `manual-runtime` se permite automatizar el navegador para esta grabación sin completar Computer
 Use. Las restricciones de reviewer de las otras etapas siguen vigentes.
 
+## Precargar el flujo
+
+Antes de activar la grabación, recorrer sin grabar el flujo completo de la demo sobre el mismo
+runtime final. Abrir sus páginas y los estados que cargan contenido bajo demanda, como modales,
+pestañas y selectores. Esperar a que terminen la compilación, las peticiones y la carga de recursos;
+la precarga general de páginas no sustituye este recorrido.
+
+Preparar datos de prueba que permitan repetir el flujo y volver al estado inicial antes de grabar.
+Si el recorrido modifica datos, usar otro registro de prueba o restablecerlos mediante los mecanismos
+autorizados del runtime. No reiniciar los servicios ni cambiar de runtime entre precarga y grabación.
+
 ## Grabar y entregar
 
 - El agente decide herramienta, formato, duración, uno o varios videos y alojamiento según las
@@ -29,10 +40,30 @@ Use. Las restricciones de reviewer de las otras etapas siguen vigentes.
   interfaz la hace accesible al usuario; si no, elegir una forma de compartir el archivo.
 - Entregar el enlace en el mensaje final de la sesión con una frase sobre lo que muestra. No
   agregar la demo al manifiesto de `publish-evidence`, a Linear ni a la PR. No hace falta publicarla
-  allí. No extraer fotogramas para crear una segunda revisión automática.
+  allí. Comprobar la calidad del archivo final según la sección siguiente antes de entregarlo.
 - Si no puede grabarse o entregarse tras intentar un método disponible, registrar `FAILED` con
   el impedimento concreto e informarlo en el mensaje final. No simular éxito ni convertir un fallo
   en `SKIPPED`; el runtime saludable puede entregarse aunque la demo haya fallado.
+
+## Comprobar el video final
+
+- Cerrar y finalizar la grabación antes de comprobarla. Medir la duración real del archivo con las
+  herramientas disponibles, por ejemplo metadatos del reproductor o `ffprobe`. No deducirla del
+  tiempo del script. Comprobar que contiene el recorrido completo y su resultado final, sin cortes
+  prematuros ni esperas de compilación que dominen la demo. El agente decide la duración adecuada
+  para el flujo; no hay un límite fijo.
+- Inspeccionar fotogramas del archivo final al inicio, al final y en las acciones y resultados
+  importantes, con sus tiempos. Comprobar resolución, encuadre y tamaño del texto, y que botones,
+  mensajes y cambios se distingan al tamaño de reproducción previsto. Usar la reproducción o los
+  tiempos de esos estados para comprobar que duran lo suficiente para leerlos y seguir las acciones.
+  Las capturas de la página tomadas durante el script no verifican el archivo de video final.
+- Esta inspección verifica la calidad de la grabación; no repite la revisión funcional ni aprueba
+  historias. Guardar la duración medida, los tiempos inspeccionados y el resultado en un registro
+  breve junto al video, sin incorporar todos los fotogramas al contexto del orquestador.
+- Si el video queda truncado, demasiado rápido o ilegible, ajustar la grabación y repetirla.
+  Comprobar nuevamente el archivo que se entregará, también tras convertirlo o editarlo. Si no se
+  puede obtener o verificar un video legible, registrar `FAILED` con el motivo concreto.
+- Incluir la duración comprobada junto al enlace del video en el mensaje final de la sesión.
 
 ## Resultado en el input de runtime-handoff
 
