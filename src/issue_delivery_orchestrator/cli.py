@@ -18,7 +18,7 @@ from .config import (
     settings,
 )
 from .credentials import CredentialProvider
-from .desktop_browser import open_desktop_browser
+from .desktop_browser import open_desktop_browser, prepare_desktop_replay
 from .errors import IdentityMismatch, OrchestrationError, RunBlocked
 from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
@@ -164,10 +164,16 @@ def parser() -> argparse.ArgumentParser:
     browser.add_argument("--url", required=True)
 
     desktop = actions.add_parser(
-        "desktop-browser", help="Open the final runtime in Chrome on the Conductor Cloud desktop"
+        "desktop-prepare",
+        help="Rehearse the replay that reaches the change's starting point on the Conductor desktop",
     )
     desktop.add_argument("--service", required=True)
     desktop.add_argument("--path", required=True)
+    desktop.add_argument("--replay", type=Path, required=True)
+
+    actions.add_parser(
+        "desktop-open", help="Open the handed-off runtime on the Conductor desktop and replay"
+    )
 
     actions.add_parser("stop-processes")
 
@@ -373,10 +379,17 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 "reviewer fixed by the run mode"
             )
         return launch_browser(state, args.url)
-    if args.action == "desktop-browser":
+    if args.action in {"desktop-prepare", "desktop-open"}:
         if run_mode(state) != "conductor-cloud":
             raise RunBlocked("The desktop browser is available only for conductor-cloud runs")
-        return open_desktop_browser(state, args.service, args.path)
+        if args.action == "desktop-open":
+            return open_desktop_browser(state)
+        return prepare_desktop_replay(
+            state,
+            args.service,
+            args.path,
+            _resolve_in_worktree(args.replay, Path(state["worktree"])),
+        )
     if args.action == "stop-processes":
         return {"stoppedPids": stop_owned_processes(state), "state": _public_state(state)}
     if args.action == "ensure-pr":

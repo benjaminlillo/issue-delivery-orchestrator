@@ -10,10 +10,9 @@ from urllib.parse import urljoin, urlparse
 
 from .config import settings
 from .demo_video import validate_demo_video
-from .desktop_browser import validate_desktop_browser
 from .errors import RunBlocked
 from .runtime import _alive
-from .state import handoff_mode, now, run_mode, run_root, save_state
+from .state import handoff_mode, now, run_root, save_state
 from .token_usage import collect_token_usage
 from .util import atomic_write_json, read_json, run
 from .warmup import validate_warmup
@@ -98,11 +97,6 @@ def prepare_runtime_handoff(
     demo_video = validate_demo_video(
         state, payload.get("demoVideo"), runtime_id=runtime_id, commit=commit
     )
-    desktop_browser = (
-        validate_desktop_browser(state, runtime_id=runtime_id, commit=commit)
-        if run_mode(state) == "conductor-cloud"
-        else None
-    )
     receipt_path = run_root(worktree, state["runId"]) / "validation" / "final-runtime-handoff.json"
     manual = handoff_mode(state) == "manual-runtime"
     if not manual and not (state.get("pr") or {}).get("url"):
@@ -118,7 +112,6 @@ def prepare_runtime_handoff(
         "services": services,
         "warmup": warmup,
         "demoVideo": demo_video,
-        **({"desktopBrowser": desktop_browser} if desktop_browser else {}),
         "processes": _live_runtime_processes(state, manifest),
         "cleanupCommand": shlex.join(
             [
@@ -140,7 +133,6 @@ def prepare_runtime_handoff(
         "services": services,
         "warmup": warmup,
         "demoVideo": demo_video,
-        **({"desktopBrowser": desktop_browser} if desktop_browser else {}),
     }
     if manual:
         state["status"] = "awaiting_manual_review"

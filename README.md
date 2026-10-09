@@ -358,11 +358,11 @@ y runtime finales, con archivos locales y enlaces elegidos por el agente; inform
 de grabación. Ver [el contrato de demo](skills/issue-delivery-orchestrator/references/demo-video.md).
 La publicación de videos de manifiestos antiguos se conserva por compatibilidad.
 
-En Conductor Cloud, el handoff deja además una ventana de Chrome en el escritorio del workspace,
-abierta en la página donde se ve el cambio o empieza el flujo nuevo, para probarlo desde la app de
-Conductor sin reenviar puertos. Si el escritorio aún no está abierto, la ventana aparece al
-abrirlo; ábrelo durante el run para que el agente inicie sesión e interactúe en esa misma ventana
-hasta el punto de partida, aprovechando el runtime ya precargado. Ver [la ventana de prueba](skills/issue-delivery-orchestrator/references/desktop-browser.md).
+En Conductor Cloud, el handoff prepara y ensaya en headless un recorrido que inicia sesión y llega
+al punto donde se ve el cambio o empieza el flujo nuevo. El run no depende del escritorio y termina
+de forma autónoma. Después, abre el escritorio del workspace desde la app de Conductor y pide que
+se prepare la app allí: el agente abre Chrome y reproduce el recorrido en segundos sobre el runtime
+ya precargado, para probar sin reenviar puertos. Ver [la app en el escritorio](skills/issue-delivery-orchestrator/references/desktop-browser.md).
 
 Para cambiar futuras invocaciones del mismo run:
 
