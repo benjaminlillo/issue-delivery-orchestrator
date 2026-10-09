@@ -386,7 +386,9 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
 5. Preparar la demo final según [demo-video.md](references/demo-video.md) y agregar `demoVideo`
    al input. Precarga y grabación son usos permitidos del navegador en este modo; no aprueban UI
    ni producen evidencia para Linear o la PR.
-6. Ejecutar:
+6. En `conductor-cloud`, abrir la ventana de prueba en el escritorio de Conductor según
+   [desktop-browser.md](references/desktop-browser.md).
+7. Ejecutar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> runtime-handoff --input <ruta-json>
@@ -395,16 +397,17 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    El motor consulta cada endpoint, rechaza servicios no saludables, fija el SHA y runtime activos,
    escribe `validation/final-runtime-handoff.json` y cambia el estado a `awaiting_manual_review` sin
    completar `manual-revision`.
-7. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
+8. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
    precargadas con su tiempo y las fallidas u omitidas, la lista de criterios de
    `User Experience Acceptance` como checklist para la revisión del usuario, logs disponibles, path del recibo y
-   `cleanupCommand`, y el enlace reproducible o descargable de la demo (o su omisión/fallo).
+   `cleanupCommand`, el enlace reproducible o descargable de la demo (o su omisión/fallo) y, en
+   `conductor-cloud`, la ventana de prueba del escritorio.
    Decir expresamente: revisión Computer Use no ejecutada, evidencia de aprobación no creada y
    PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
    `stop-processes`, `block` ni cleanup después de este handoff.
 
 Si el usuario pide una corrección mientras el run está en `awaiting_manual_review`, ejecutar
-`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps, precarga, demo final y `runtime-handoff`; el recibo
+`resume`, reparar/validar y repetir `runtime-reset`, arranque de apps, precarga, demo final, ventana del escritorio en `conductor-cloud` y `runtime-handoff`; el recibo
 anterior queda obsoleto. Si pide continuar con revisión automática y
 PR, ejecutar `resume --full-delivery` y seguir desde Revisión manual con el reviewer fijado.
 
@@ -656,14 +659,16 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
    `warmup` al input.
 5. Preparar la demo final según [demo-video.md](references/demo-video.md) y agregar `demoVideo`
    al input.
-6. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
+6. En `conductor-cloud`, abrir la ventana de prueba según
+   [desktop-browser.md](references/desktop-browser.md).
+7. Ejecutar `runtime-handoff --input <ruta-json>` y exigir salud HTTP 2xx/3xx de cada servicio.
 
 El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
 del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
 cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
-precargadas y las fallidas u omitidas, y el enlace reproducible o descargable de la demo
-(o su omisión/fallo). Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
+precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
+(o su omisión/fallo) y, en `conductor-cloud`, la ventana de prueba del escritorio. Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 
 ## Restaurar el runtime tras una suspensión
 
@@ -678,6 +683,7 @@ entregado, sin cambios de código, no reparar ni revisar nada:
 2. Repetir la precarga según [page-warmup.md](references/page-warmup.md) y `runtime-handoff` con
    los mismos servicios. Reutilizar `demoVideo` sólo si corresponde al mismo SHA y runtime y
    sigue accesible; de lo contrario, prepararlo según [demo-video.md](references/demo-video.md).
+   Volver a abrir la ventana del escritorio según [desktop-browser.md](references/desktop-browser.md).
 3. Entregar las mismas URLs, el resultado de la precarga y el login.
 
 Si el código cambió o el usuario pide un ajuste, aplicar la invariante de reparación y handoff.

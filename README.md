@@ -358,6 +358,11 @@ y runtime finales, con archivos locales y enlaces elegidos por el agente; inform
 de grabación. Ver [el contrato de demo](skills/issue-delivery-orchestrator/references/demo-video.md).
 La publicación de videos de manifiestos antiguos se conserva por compatibilidad.
 
+En Conductor Cloud, el handoff deja además una ventana de Chrome en el escritorio del workspace,
+abierta en la página donde se ve el cambio o empieza el flujo nuevo, para probarlo desde la app de
+Conductor sin reenviar puertos. Si el escritorio aún no está abierto, la ventana aparece al
+abrirlo. Ver [la ventana de prueba](skills/issue-delivery-orchestrator/references/desktop-browser.md).
+
 Para cambiar futuras invocaciones del mismo run:
 
 ```bash

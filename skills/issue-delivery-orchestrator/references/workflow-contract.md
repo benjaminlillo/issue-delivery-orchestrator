@@ -62,6 +62,12 @@ grabar y dónde alojar el archivo para entregarlo en la sesión, sin publicar en
 El motor exige el resultado, valida SHA/runtime y archivos locales, y lo incluye en el handoff.
 Una imposibilidad técnica se declara `FAILED` con motivo, nunca como una demo completada.
 
+En `conductor-cloud`, después de la demo, abrir con `desktop-browser` una ventana de Chrome en el
+escritorio de Conductor con la página donde se ve el cambio o empieza el flujo nuevo, según
+[desktop-browser.md](desktop-browser.md). Si el escritorio aún no está abierto, queda `PENDING` y
+se abre al conectarse el usuario. `runtime-handoff` exige esa ventana viva para el SHA y runtime
+finales y la incluye en el recibo.
+
 En `manual-runtime`, el handoff cambia a `awaiting_manual_review` y declara Computer Use y PR como
 no ejecutados. En `full`, completar `review-convergence` detiene los procesos usados para revisar y
 cambia a `awaiting_final_runtime_reset`; el handoff fresco posterior declara que Computer Use ya

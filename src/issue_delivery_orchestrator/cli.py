@@ -18,6 +18,7 @@ from .config import (
     settings,
 )
 from .credentials import CredentialProvider
+from .desktop_browser import open_desktop_browser
 from .errors import IdentityMismatch, OrchestrationError, RunBlocked
 from .evidence import prepare_evidence, publish_evidence, repair_github_evidence
 from .git_workspace import GitWorkspace
@@ -161,6 +162,12 @@ def parser() -> argparse.ArgumentParser:
 
     browser = actions.add_parser("launch-browser")
     browser.add_argument("--url", required=True)
+
+    desktop = actions.add_parser(
+        "desktop-browser", help="Open the final runtime in Chrome on the Conductor Cloud desktop"
+    )
+    desktop.add_argument("--service", required=True)
+    desktop.add_argument("--path", required=True)
 
     actions.add_parser("stop-processes")
 
@@ -366,6 +373,10 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
                 "reviewer fixed by the run mode"
             )
         return launch_browser(state, args.url)
+    if args.action == "desktop-browser":
+        if run_mode(state) != "conductor-cloud":
+            raise RunBlocked("The desktop browser is available only for conductor-cloud runs")
+        return open_desktop_browser(state, args.service, args.path)
     if args.action == "stop-processes":
         return {"stoppedPids": stop_owned_processes(state), "state": _public_state(state)}
     if args.action == "ensure-pr":
