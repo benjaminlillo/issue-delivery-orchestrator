@@ -81,6 +81,7 @@ class DesktopBrowserTests(unittest.TestCase):
         self.assertTrue(opened.startswith(":1 "))
         self.assertIn("--user-data-dir=", opened)
         self.assertIn("http://localhost:43123/orders/1", opened)
+        self.assertIn(f"--remote-debugging-port={result['cdpUrl'].rsplit(':', 1)[1]}", opened)
         record = validate_desktop_browser(self.state, runtime_id="runtime-1", commit=self.head)
         self.assertEqual(record["pid"], result["pid"])
 
@@ -115,7 +116,7 @@ class DesktopBrowserTests(unittest.TestCase):
                 "import sys; from pathlib import Path; "
                 "import issue_delivery_orchestrator.desktop_browser as d; "
                 f"d.DISPLAY_SOCKET = Path({str(self.socket)!r}); "
-                "d._wait_and_exec(*sys.argv[1:4])"
+                "d._wait_and_exec(*sys.argv[1:5])"
             )
             return original([command[0], "-c", code, *command[3:]], **kwargs)
 

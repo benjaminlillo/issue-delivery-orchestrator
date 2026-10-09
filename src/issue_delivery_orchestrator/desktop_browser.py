@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -61,9 +62,10 @@ def open_desktop_browser(state: dict[str, Any], service: str, path: str) -> dict
 
     log_path = run_root(worktree, state["runId"]) / "logs" / "desktop-browser.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
+    cdp_port = _free_port()
     command = [
         sys.executable, "-m", "issue_delivery_orchestrator.desktop_browser",
-        _browser_binary(), str(profile), url,
+        _browser_binary(), str(profile), url, str(cdp_port),
     ]
     env = {**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parents[1])}
     desktop_ready = DISPLAY_SOCKET.exists()
@@ -84,6 +86,7 @@ def open_desktop_browser(state: dict[str, Any], service: str, path: str) -> dict
         "url": url,
         "display": DISPLAY,
         "pid": process.pid,
+        "cdpUrl": f"http://127.0.0.1:{cdp_port}",
         "profile": str(profile.relative_to(worktree)),
         "openedAt": now(),
     }
@@ -97,7 +100,7 @@ def validate_desktop_browser(state: dict[str, Any], *, runtime_id: str, commit: 
         raise RunBlocked("Open the final runtime on the Conductor desktop with desktop-browser first")
     if not _alive(int(record.get("pid") or 0)):
         raise RunBlocked("The desktop browser is no longer running; run desktop-browser again")
-    return {key: record[key] for key in ("status", "service", "url", "display", "pid", "profile")}
+    return {key: record[key] for key in ("status", "service", "url", "display", "pid", "cdpUrl", "profile")}
 
 
 def _profile_in_use(profile: Path) -> bool:
@@ -117,7 +120,13 @@ def _browser_binary() -> str:
     raise RunBlocked("No Chrome/Chromium binary found. Set ISSUE_DELIVERY_BROWSER explicitly.")
 
 
-def _wait_and_exec(binary: str, profile: str, url: str) -> None:
+def _free_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def _wait_and_exec(binary: str, profile: str, url: str, cdp_port: str) -> None:
     deadline = time.monotonic() + WAIT_SECONDS
     waited = False
     while not DISPLAY_SOCKET.exists():
@@ -130,9 +139,12 @@ def _wait_and_exec(binary: str, profile: str, url: str) -> None:
         time.sleep(3)
     os.execvpe(binary, [
         binary, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check",
-        "--disable-dev-shm-usage", "--disable-gpu", "--start-maximized", "--new-window", url,
+        "--disable-dev-shm-usage", "--disable-gpu", "--start-maximized",
+        # Lets the agent sign in and reach the starting point in the visible window.
+        "--remote-debugging-address=127.0.0.1", f"--remote-debugging-port={cdp_port}",
+        "--new-window", url,
     ], {**os.environ, "DISPLAY": DISPLAY})
 
 
 if __name__ == "__main__":
-    _wait_and_exec(*sys.argv[1:4])
+    _wait_and_exec(*sys.argv[1:5])

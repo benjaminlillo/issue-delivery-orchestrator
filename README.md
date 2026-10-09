@@ -361,7 +361,8 @@ La publicación de videos de manifiestos antiguos se conserva por compatibilidad
 En Conductor Cloud, el handoff deja además una ventana de Chrome en el escritorio del workspace,
 abierta en la página donde se ve el cambio o empieza el flujo nuevo, para probarlo desde la app de
 Conductor sin reenviar puertos. Si el escritorio aún no está abierto, la ventana aparece al
-abrirlo. Ver [la ventana de prueba](skills/issue-delivery-orchestrator/references/desktop-browser.md).
+abrirlo; ábrelo durante el run para que el agente inicie sesión e interactúe en esa misma ventana
+hasta el punto de partida, aprovechando el runtime ya precargado. Ver [la ventana de prueba](skills/issue-delivery-orchestrator/references/desktop-browser.md).
 
 Para cambiar futuras invocaciones del mismo run:
 
