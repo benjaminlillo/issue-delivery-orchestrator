@@ -12,7 +12,7 @@ from .errors import RunBlocked
 from .github import GitHubClient
 from .review_budget import review_repair_budget
 from .state import run_root, save_state
-from .util import atomic_write_json, run
+from .util import atomic_write_json, read_json, run
 
 
 def wait_for_quiet_review(
@@ -114,7 +114,7 @@ def acknowledge_processed_blocker(
         if comment_id not in published_ids:
             raise RunBlocked(
                 f"SKIP for comment {comment_id} must be explained publicly with "
-                "publish-skip-summary before it can be acknowledged"
+                "publish-skip-summary when the review ends before it can be acknowledged"
             )
 
     acknowledgements = state.setdefault("reviewAcknowledgements", [])
@@ -163,40 +163,52 @@ def acknowledge_processed_blocker(
     return acknowledgement
 
 
-def publish_skip_summary(
+def record_skip(
     state: dict[str, Any],
     *,
-    input_path: Path,
+    comment_id: int,
+    title: str,
+    reason: str,
 ) -> dict[str, Any]:
+    """Keep a SKIP's public reason on disk until the review ends; nothing is posted yet."""
+    title = " ".join(title.split())
+    reason = " ".join(reason.split())
+    if not reason:
+        raise RunBlocked(f"SKIP {comment_id} requires a public reason")
+    if comment_id in _published_skip_ids(state):
+        raise RunBlocked(f"SKIP {comment_id} was already published; its reason cannot change")
+    path = _skip_ledger_path(state)
+    ledger = read_json(path, {"items": []})
+    item = {
+        "commentId": comment_id,
+        "title": title or f"Blocker {comment_id}",
+        "reason": reason,
+        "recordedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    ledger["items"] = [
+        *[entry for entry in ledger["items"] if int(entry["commentId"]) != comment_id],
+        item,
+    ]
+    atomic_write_json(path, ledger)
+    state.setdefault("artifacts", {})["skipLedger"] = str(
+        path.relative_to(Path(state["worktree"]))
+    )
+    save_state(state)
+    return {"recorded": item, "recordedSkips": len(ledger["items"])}
+
+
+def publish_skip_summary(state: dict[str, Any]) -> dict[str, Any]:
+    """Publish once, when the review ends, every pending SKIP recorded with record-skip.
+
+    Each publication is a new PR comment with only the SKIPs not published before, so later
+    rounds never rewrite an older comment buried in the timeline.
+    """
     if not state.get("pr"):
         raise RunBlocked("Cannot publish SKIP decisions before a PR has been recorded")
-    try:
-        payload = json.loads(input_path.read_text())
-    except (OSError, json.JSONDecodeError) as error:
-        raise RunBlocked(f"Could not read SKIP summary input: {error}") from error
-    skips = payload.get("skips") if isinstance(payload, dict) else None
-    if not isinstance(skips, list) or not skips:
-        raise RunBlocked("SKIP summary input must contain a non-empty 'skips' array")
-
-    provided: dict[int, dict[str, Any]] = {}
-    for item in skips:
-        if not isinstance(item, dict):
-            raise RunBlocked("Every SKIP summary item must be an object")
-        try:
-            comment_id = int(item["commentId"])
-        except (KeyError, TypeError, ValueError) as error:
-            raise RunBlocked("Every SKIP summary item requires an integer commentId") from error
-        reason = " ".join(str(item.get("reason") or "").split())
-        title = " ".join(str(item.get("title") or "").split())
-        if not reason:
-            raise RunBlocked(f"SKIP {comment_id} requires a public reason")
-        if comment_id in provided:
-            raise RunBlocked(f"Duplicate SKIP comment ID: {comment_id}")
-        provided[comment_id] = {
-            "commentId": comment_id,
-            "title": title or f"Blocker {comment_id}",
-            "reason": reason,
-        }
+    recorded = {
+        int(item["commentId"]): item
+        for item in read_json(_skip_ledger_path(state), {"items": []})["items"]
+    }
 
     worktree = Path(state["worktree"])
     github = GitHubClient(worktree)
@@ -211,44 +223,30 @@ def publish_skip_summary(
         ]
         if item.get("commentId") is not None
     }
-    previous_summary = state.get("skipSummary") or {}
-    previously_published = {
-        int(item) for item in previous_summary.get("commentIds", [])
-    }
-    for item in previous_summary.get("items", []):
-        if not isinstance(item, dict) or item.get("commentId") is None:
-            continue
-        pending.setdefault(
-            int(item["commentId"]),
-            {
-                "commentId": int(item["commentId"]),
-                "url": item.get("url"),
-                "author": item.get("author"),
-            },
-        )
     for acknowledgement in state.get("reviewAcknowledgements", []):
-        if acknowledgement.get("decision") != "SKIP":
-            continue
-        comment_id = int(acknowledgement["commentId"])
-        if comment_id in previously_published:
-            continue
-        pending[comment_id] = {
-            "commentId": comment_id,
-            "url": acknowledgement.get("commentUrl"),
-            "author": acknowledgement.get("author") or "configured-blocker-bot",
-        }
-
-    expected_ids = set(pending)
-    provided_ids = set(provided)
-    if provided_ids != expected_ids:
-        missing = sorted(expected_ids - provided_ids)
-        unexpected = sorted(provided_ids - expected_ids)
+        if acknowledgement.get("decision") == "SKIP":
+            pending.setdefault(
+                int(acknowledgement["commentId"]),
+                {
+                    "commentId": int(acknowledgement["commentId"]),
+                    "url": acknowledgement.get("commentUrl"),
+                    "author": acknowledgement.get("author") or "configured-blocker-bot",
+                },
+            )
+    published = _published_skip_ids(state)
+    to_publish = sorted(set(pending) - published)
+    missing = [comment_id for comment_id in to_publish if comment_id not in recorded]
+    if missing:
         raise RunBlocked(
-            "SKIP summary must cover exactly all remaining automated blockers; "
-            f"missing={missing}, unexpected={unexpected}"
+            "Publish the SKIP summary only when the review ends with every pending automated "
+            f"blocker recorded as SKIP with record-skip; missing={missing}"
         )
+    summary = _skip_summary(state)
+    if not to_publish:
+        return {**summary, "published": False}
 
-    marker = f"<!-- issue-delivery-skip-summary:{state['runId']} -->"
+    number = len(summary["publications"]) + 1
+    marker = f"<!-- issue-delivery-skip-summary:{state['runId']}:{number} -->"
     lines = [
         marker,
         "## Blockers revisados — SKIP",
@@ -259,17 +257,15 @@ def publish_skip_summary(
         ),
         "",
     ]
-    for comment_id in sorted(provided):
-        decision = provided[comment_id]
+    for comment_id in to_publish:
+        decision = recorded[comment_id]
         source = pending[comment_id]
         reference = (
             f"[comentario {comment_id}]({source['url']})"
             if source.get("url")
             else f"comentario {comment_id}"
         )
-        lines.append(
-            f"- **{decision['title']}** ({reference}): {decision['reason']}"
-        )
+        lines.append(f"- **{decision['title']}** ({reference}): {decision['reason']}")
     lines.extend(
         [
             "",
@@ -280,31 +276,55 @@ def publish_skip_summary(
         ]
     )
     body = "\n".join(lines)
+    # The marker is unique per publication, so a retry after a crash reuses the same comment.
     comment_reference = github.upsert_comment(pr.number, marker, body)
-    published_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    receipt = {
-        "publishedAt": published_at,
-        "pr": pr.url,
-        "headSha": snapshot.get("headSha"),
-        "commentReference": comment_reference,
-        "commentIds": sorted(provided),
-        "items": [
-            {
-                **provided[comment_id],
-                "url": pending[comment_id].get("url"),
-                "author": pending[comment_id].get("author"),
-            }
-            for comment_id in sorted(provided)
-        ],
-        "bodyHash": hashlib.sha256(body.encode()).hexdigest(),
-    }
-    state["skipSummary"] = receipt
-    root = run_root(worktree, state["runId"])
-    path = root / "review" / "skip-summary.json"
-    atomic_write_json(path, receipt)
+    summary["publications"].append(
+        {
+            "publishedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "headSha": snapshot.get("headSha"),
+            "commentReference": comment_reference,
+            "commentIds": to_publish,
+            "items": [
+                {
+                    "commentId": comment_id,
+                    "title": recorded[comment_id]["title"],
+                    "reason": recorded[comment_id]["reason"],
+                    "url": pending[comment_id].get("url"),
+                    "author": pending[comment_id].get("author"),
+                }
+                for comment_id in to_publish
+            ],
+            "bodyHash": hashlib.sha256(body.encode()).hexdigest(),
+        }
+    )
+    summary["pr"] = pr.url
+    summary["commentIds"] = sorted(published | set(to_publish))
+    state["skipSummary"] = summary
+    path = run_root(worktree, state["runId"]) / "review" / "skip-summary.json"
+    atomic_write_json(path, summary)
     state.setdefault("artifacts", {})["skipSummary"] = str(path.relative_to(worktree))
     save_state(state)
-    return receipt
+    return {**summary, "published": True}
+
+
+def _skip_ledger_path(state: dict[str, Any]) -> Path:
+    return run_root(Path(state["worktree"]), state["runId"]) / "review" / "skip-ledger.json"
+
+
+def _published_skip_ids(state: dict[str, Any]) -> set[int]:
+    return {int(item) for item in (state.get("skipSummary") or {}).get("commentIds", [])}
+
+
+def _skip_summary(state: dict[str, Any]) -> dict[str, Any]:
+    summary = dict(state.get("skipSummary") or {})
+    if summary and "publications" not in summary:
+        # Runs from earlier versions kept a single, edited comment.
+        legacy = {key: value for key, value in summary.items() if key != "pr"}
+        summary = {"pr": summary.get("pr"), "commentIds": summary.get("commentIds", []),
+                   "publications": [legacy]}
+    summary.setdefault("commentIds", [])
+    summary.setdefault("publications", [])
+    return summary
 
 
 def assert_review_converged(state: dict[str, Any]) -> dict[str, Any]:

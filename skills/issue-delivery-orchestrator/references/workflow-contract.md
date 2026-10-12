@@ -168,12 +168,14 @@ Después de cerrar cada comentario general de los `blockerBots` con `FIX` valida
 `acknowledge-blocker --decision FIX`. El comando valida autor, PR y presencia de blockers reales,
 añade `+1` idempotente como la identidad GitHub configurada y persiste `reviewAcknowledgements`.
 
-Cuando todos los blockers automatizados restantes sean `SKIP`, publicar primero un único resumen visible mediante `publish-skip-summary --input <ruta-json>`. El JSON debe contener `skips`, con `commentId`, `title` y `reason` por decisión. El comando:
+Registrar cada `SKIP` en cuanto se decide con `record-skip --comment-id <id> --title <t> --reason <motivo>`. El motor guarda el motivo público en `review/skip-ledger.json` sin tocar GitHub; en rondas intermedias los `SKIP` no se publican, resuelven ni reconocen.
+
+La revisión se cierra cuando una ronda quieta deja todo el feedback automatizado pendiente como `SKIP` registrado, sin `FIX`, `NEEDS_USER_DECISION` ni reparación de Actions por hacer. Sólo entonces, sin otra ronda de espera, ejecutar `publish-skip-summary`. El comando:
 
 1. vuelve a consultar comentarios generales y `reviewThreads`;
-2. exige que los IDs coincidan exactamente con todo feedback automatizado pendiente;
-3. publica o actualiza idempotentemente un comentario general de la PR;
-4. persiste el recibo bajo `review/skip-summary.json`.
+2. exige que cada blocker automatizado pendiente esté registrado como `SKIP`;
+3. publica un comentario general nuevo con los `SKIP` aún no publicados, sin editar resúmenes anteriores;
+4. persiste el recibo acumulado bajo `review/skip-summary.json`.
 
 Sólo después se pueden resolver los threads inline con `SKIP` y ejecutar `acknowledge-blocker --decision SKIP` para comentarios generales. El reconocimiento se rechaza si ese ID no aparece en el resumen público. No usar estos comandos para `Ninguno`, sugerencias ni decisiones pendientes.
 

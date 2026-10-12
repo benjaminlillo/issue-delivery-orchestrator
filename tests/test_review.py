@@ -11,6 +11,7 @@ from issue_delivery_orchestrator.review import (
     acknowledge_processed_blocker,
     assert_review_converged,
     publish_skip_summary,
+    record_skip,
     wait_for_quiet_review,
 )
 from issue_delivery_orchestrator.review_budget import (
@@ -405,162 +406,107 @@ class ReviewFilterTests(unittest.TestCase):
             self.assertEqual(result["pendingInlineThreads"], [])
             self.assertEqual(result["pendingGeneralBlockers"], [])
 
-    def test_publishes_summary_only_when_all_pending_feedback_is_skip(self):
-        with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            input_path = root / "skips.json"
-            input_path.write_text(
-                json.dumps(
-                    {
-                        "skips": [
-                            {
-                                "commentId": 123,
-                                "title": "Fallback innecesario",
-                                "reason": "El flujo vigente ya cubre este caso.",
-                            },
-                            {
-                                "commentId": 456,
-                                "title": "Generalización fuera de alcance",
-                                "reason": "No existe un requisito actual para soportarla.",
-                            },
-                        ]
-                    }
-                )
-            )
-            state = {
-                "worktree": raw,
-                "runId": "run-1",
-                "pr": {"url": "https://github.com/example/repo/pull/10"},
-                "artifacts": {},
-                "reviewAcknowledgements": [],
+    def _skip_review(self, raw):
+        state = {
+            "worktree": raw,
+            "runId": "run-1",
+            "pr": {"url": "https://github.com/example/repo/pull/10"},
+            "artifacts": {},
+            "reviewAcknowledgements": [],
+        }
+        client = Mock()
+        client.view.return_value = SimpleNamespace(number=10, url=state["pr"]["url"])
+        client.review_threads.return_value = [
+            {
+                "id": "thread-1",
+                "isResolved": False,
+                "comments": {
+                    "nodes": [
+                        {
+                            "databaseId": 456,
+                            "url": f"{state['pr']['url']}#discussion_r456",
+                            "author": {"login": "coderabbitai[bot]"},
+                        }
+                    ]
+                },
             }
-            client = Mock()
-            client.view.return_value = SimpleNamespace(
-                number=10,
-                url=state["pr"]["url"],
-            )
-            client.review_threads.return_value = [
+        ]
+        client.has_issue_comment_reaction.return_value = False
+        client.upsert_comment.side_effect = lambda _pr, marker, _body: marker
+        snapshot = {
+            "headSha": "abc123",
+            "botGeneralComments": [
                 {
-                    "id": "thread-1",
-                    "isResolved": False,
-                    "comments": {
-                        "nodes": [
-                            {
-                                "databaseId": 456,
-                                "url": f"{state['pr']['url']}#discussion_r456",
-                                "author": {"login": "coderabbitai[bot]"},
-                            }
-                        ]
-                    },
+                    "id": 123,
+                    "html_url": f"{state['pr']['url']}#issuecomment-123",
+                    "user": {"login": "Hellonston"},
                 }
-            ]
-            client.has_issue_comment_reaction.return_value = False
-            client.upsert_comment.return_value = (
-                f"{state['pr']['url']}#issuecomment-summary"
-            )
-            snapshot = {
-                "headSha": "abc123",
-                "botGeneralComments": [
-                    {
-                        "id": 123,
-                        "html_url": f"{state['pr']['url']}#issuecomment-123",
-                        "user": {"login": "Hellonston"},
-                    }
-                ],
-            }
+            ],
+        }
+        return state, client, snapshot
 
+    def test_records_skips_offline_and_publishes_them_once_when_the_review_ends(self):
+        with tempfile.TemporaryDirectory() as raw:
+            state, client, snapshot = self._skip_review(raw)
             with (
-                patch(
-                    "issue_delivery_orchestrator.review.GitHubClient",
-                    return_value=client,
-                ),
-                patch(
-                    "issue_delivery_orchestrator.review.review_snapshot",
-                    return_value=snapshot,
-                ),
+                patch("issue_delivery_orchestrator.review.GitHubClient", return_value=client),
+                patch("issue_delivery_orchestrator.review.review_snapshot", return_value=snapshot),
             ):
-                result = publish_skip_summary(state, input_path=input_path)
-                client.review_threads.return_value = []
-                snapshot["botGeneralComments"] = []
-                repeated = publish_skip_summary(state, input_path=input_path)
+                record_skip(
+                    state, comment_id=123, title="Fallback innecesario",
+                    reason="El flujo vigente ya cubre este caso.",
+                )
+                with self.assertRaisesRegex(RunBlocked, r"missing=\[456\]"):
+                    publish_skip_summary(state)
+                record_skip(
+                    state, comment_id=456, title="Generalización fuera de alcance",
+                    reason="No existe un requisito actual para soportarla.",
+                )
+                result = publish_skip_summary(state)
+                repeated = publish_skip_summary(state)
 
-            self.assertEqual(result["commentIds"], [123, 456])
-            self.assertEqual(repeated["commentIds"], [123, 456])
-            body = client.upsert_comment.call_args.args[2]
+            client.verify_identity.assert_called()
+            self.assertTrue(result["published"])
+            self.assertFalse(repeated["published"])
+            self.assertEqual(client.upsert_comment.call_count, 1)
+            marker, body = client.upsert_comment.call_args.args[1:]
+            self.assertEqual(marker, "<!-- issue-delivery-skip-summary:run-1:1 -->")
             self.assertIn("Fallback innecesario", body)
             self.assertIn("El flujo vigente ya cubre este caso.", body)
-            self.assertIn("issue-delivery-skip-summary:run-1", body)
             self.assertEqual(state["skipSummary"]["commentIds"], [123, 456])
-            self.assertEqual(client.upsert_comment.call_count, 2)
+            with self.assertRaisesRegex(RunBlocked, "already published"):
+                record_skip(state, comment_id=123, title="", reason="Otro motivo")
 
-    def test_rejects_skip_summary_missing_a_pending_blocker(self):
+    def test_later_skips_go_to_a_new_comment_instead_of_editing_the_first(self):
         with tempfile.TemporaryDirectory() as raw:
-            root = Path(raw)
-            input_path = root / "skips.json"
-            input_path.write_text(
-                json.dumps(
+            state, client, snapshot = self._skip_review(raw)
+            client.review_threads.return_value = []
+            with (
+                patch("issue_delivery_orchestrator.review.GitHubClient", return_value=client),
+                patch("issue_delivery_orchestrator.review.review_snapshot", return_value=snapshot),
+            ):
+                record_skip(state, comment_id=123, title="Primero", reason="Fuera de alcance.")
+                publish_skip_summary(state)
+                snapshot["botGeneralComments"].append(
                     {
-                        "skips": [
-                            {
-                                "commentId": 123,
-                                "reason": "No corresponde al alcance.",
-                            }
-                        ]
-                    }
-                )
-            )
-            state = {
-                "worktree": raw,
-                "runId": "run-1",
-                "pr": {"url": "https://github.com/example/repo/pull/10"},
-                "artifacts": {},
-            }
-            client = Mock()
-            client.view.return_value = SimpleNamespace(
-                number=10,
-                url=state["pr"]["url"],
-            )
-            client.review_threads.return_value = [
-                {
-                    "id": "thread-1",
-                    "isResolved": False,
-                    "comments": {
-                        "nodes": [
-                            {
-                                "databaseId": 456,
-                                "url": f"{state['pr']['url']}#discussion_r456",
-                                "author": {"login": "coderabbitai[bot]"},
-                            }
-                        ]
-                    },
-                }
-            ]
-            client.has_issue_comment_reaction.return_value = False
-            snapshot = {
-                "headSha": "abc123",
-                "botGeneralComments": [
-                    {
-                        "id": 123,
-                        "html_url": f"{state['pr']['url']}#issuecomment-123",
+                        "id": 789,
+                        "html_url": f"{state['pr']['url']}#issuecomment-789",
                         "user": {"login": "Hellonston"},
                     }
-                ],
-            }
+                )
+                record_skip(state, comment_id=789, title="Segundo", reason="Ya decidido.")
+                publish_skip_summary(state)
 
-            with (
-                patch(
-                    "issue_delivery_orchestrator.review.GitHubClient",
-                    return_value=client,
-                ),
-                patch(
-                    "issue_delivery_orchestrator.review.review_snapshot",
-                    return_value=snapshot,
-                ),
-            ):
-                with self.assertRaisesRegex(RunBlocked, r"missing=\[456\]"):
-                    publish_skip_summary(state, input_path=input_path)
-
-            client.upsert_comment.assert_not_called()
+            markers = [call.args[1] for call in client.upsert_comment.call_args_list]
+            self.assertEqual(markers, [
+                "<!-- issue-delivery-skip-summary:run-1:1 -->",
+                "<!-- issue-delivery-skip-summary:run-1:2 -->",
+            ])
+            second = client.upsert_comment.call_args.args[2]
+            self.assertIn("Segundo", second)
+            self.assertNotIn("Primero", second)
+            self.assertEqual(state["skipSummary"]["commentIds"], [123, 789])
+            self.assertEqual(len(state["skipSummary"]["publications"]), 2)
 
     def test_rejects_acknowledging_skip_before_public_summary(self):
         with tempfile.TemporaryDirectory() as raw:

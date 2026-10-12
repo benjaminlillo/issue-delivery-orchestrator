@@ -32,6 +32,7 @@ from .review import (
     acknowledge_processed_blocker,
     assert_review_converged,
     publish_skip_summary,
+    record_skip,
     wait_for_quiet_review,
 )
 from .review_budget import (
@@ -211,8 +212,16 @@ def parser() -> argparse.ArgumentParser:
     acknowledgement.add_argument("--comment-id", type=int, required=True)
     acknowledgement.add_argument("--decision", choices=("FIX", "SKIP"), required=True)
 
-    skip_summary = actions.add_parser("publish-skip-summary")
-    skip_summary.add_argument("--input", type=Path, required=True)
+    skip = actions.add_parser(
+        "record-skip", help="Record a SKIP's public reason until the review ends"
+    )
+    skip.add_argument("--comment-id", type=int, required=True)
+    skip.add_argument("--title", default="")
+    skip.add_argument("--reason", required=True)
+
+    actions.add_parser(
+        "publish-skip-summary", help="Publish the recorded SKIPs once, when the review ends"
+    )
 
     actions.add_parser("review-gate")
 
@@ -284,6 +293,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         "request-review-extension",
         "approve-review-extension",
         "acknowledge-blocker",
+        "record-skip",
         "publish-skip-summary",
         "review-gate",
     }:
@@ -451,11 +461,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             comment_id=args.comment_id,
             decision=args.decision,
         )
-    if args.action == "publish-skip-summary":
-        return publish_skip_summary(
-            state,
-            input_path=_resolve_in_worktree(args.input, Path(state["worktree"])),
+    if args.action == "record-skip":
+        return record_skip(
+            state, comment_id=args.comment_id, title=args.title, reason=args.reason
         )
+    if args.action == "publish-skip-summary":
+        return publish_skip_summary(state)
     if args.action == "review-gate":
         return assert_review_converged(state)
     if args.action == "cleanup":

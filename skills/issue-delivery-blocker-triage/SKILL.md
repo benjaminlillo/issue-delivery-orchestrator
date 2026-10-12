@@ -85,4 +85,4 @@ En una nueva ronda, indicar explícitamente cuáles `SKIP` provienen de decision
 
 Después de completar el análisis y antes de responder, actualizar el ledger con los blockers nuevos o la nueva aparición de blockers existentes. Conservar el razonamiento histórico; no borrar entradas anteriores ni cambiar un `SKIP` sin instrucción explícita del usuario.
 
-Cuando todos los blockers restantes de una ronda sean `SKIP`, entregar además los IDs, títulos y motivos públicos en una lista apta para el input de `publish-skip-summary`. No publicar directamente: el orquestador debe comprobar que no quede feedback automatizado con otra decisión antes de comentar.
+Para cada `SKIP` de la ronda, entregar además su ID de comentario, título y motivo público, para que el orquestador lo registre con `record-skip`. No publicar directamente: el orquestador publica todos los `SKIP` registrados una sola vez, al cerrar la revisión.

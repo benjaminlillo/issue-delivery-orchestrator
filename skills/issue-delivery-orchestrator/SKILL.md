@@ -592,38 +592,38 @@ no consume presupuesto de reparación.
    python3 <plugin-root>/scripts/issue-delivery <issue> acknowledge-blocker --comment-id <id> --decision FIX
    ```
 
-9. Cuando todo feedback automatizado todavía pendiente tenga decisión `SKIP` —sin `FIX` ni `NEEDS_USER_DECISION` restantes— crear dentro del run:
-
-   ```json
-   {
-     "skips": [
-       {
-         "commentId": 123,
-         "title": "Título breve",
-         "reason": "Motivo público, concreto y autocontenido."
-       }
-     ]
-   }
-   ```
-
-   Publicar una explicación visible antes de cerrar o reconocer esos blockers:
+9. Registrar cada `SKIP` de la ronda en cuanto el triage lo decida, incluidas reapariciones con un
+   comentario nuevo, sin publicarlo todavía:
 
    ```bash
-   python3 <plugin-root>/scripts/issue-delivery <issue> publish-skip-summary --input <ruta-json>
+   python3 <plugin-root>/scripts/issue-delivery <issue> record-skip --comment-id <id> \
+     --title "<título breve>" --reason "<motivo público, concreto y autocontenido>"
    ```
 
-   El comando consulta ambas superficies en vivo y exige que el archivo cubra exactamente todos los
-   blockers automatizados pendientes. Crea o actualiza idempotentemente un único comentario general
-   de la PR bajo la identidad GitHub configurada. No incluir datos privados del ledger.
-10. Sólo después de publicar el resumen, resolver los threads inline con `SKIP` y reconocer cada
-   comentario general de los `blockerBots`:
+   El motor guarda el motivo en `review/skip-ledger.json`; no hace falta conservarlo en el
+   contexto. En rondas intermedias no publicar resúmenes, no resolver threads `SKIP` ni reconocer
+   comentarios `SKIP`: siguen pendientes hasta el cierre. No incluir datos privados del ledger de
+   triage en el motivo.
+10. Cerrar la revisión sólo cuando una ronda quieta deje todo el feedback automatizado pendiente
+   como `SKIP` registrado, sin `FIX`, `NEEDS_USER_DECISION` ni reparación de Actions por hacer.
+   Entonces, como pasos finales y sin volver a ejecutar `wait-review`:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> publish-skip-summary
+   ```
+
+   El comando consulta ambas superficies en vivo, exige que cada blocker pendiente esté registrado
+   y publica un comentario nuevo con los `SKIP` aún no publicados. Nunca edita un resumen anterior:
+   si el run vuelve a revisar más tarde, el siguiente cierre publica otro comentario sólo con los
+   nuevos. Después resolver los threads inline con `SKIP` y reconocer cada comentario general de los
+   `blockerBots`:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> acknowledge-blocker --comment-id <id> --decision SKIP
    ```
 
    `acknowledge-blocker` añade idempotentemente `+1` bajo la identidad configurada, registra el
-   recibo y rechaza un `SKIP` sin resumen público.
+   recibo y rechaza un `SKIP` sin resumen público. Continuar con `review-gate` y el checkpoint.
 11. Monitorear Actions. Reparar sólo fallos causados o agravados por la branch. Tratar una
     reparación de Actions como `FIX` remoto y aplicar los pasos 4–8, usando el nombre del check en
     `--fix`.
