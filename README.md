@@ -72,7 +72,7 @@ supported primary-reviewer capability gap; the plugin does not install or add it
   in the target repository. The plugin does not install either into product code.
 - macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
 - A personal Linear API key exposed as `LINEAR_API_KEY`. Linear publication fails closed if the
-  variable is unavailable or the pinned identity does not match.
+  variable is unavailable or the key's user or workspace does not match the expected ones.
 
 If HTTPS Git credentials are not already configured:
 
@@ -160,6 +160,8 @@ At minimum, configure:
 ```dotenv
 LINEAR_API_KEY=lin_api_...
 LINEAR_EXPECTED_EMAIL=you@example.com
+# Optional: the workspace slug from linear.app/<workspace>/...
+LINEAR_EXPECTED_WORKSPACE=your-workspace
 GITHUB_EXPECTED_LOGIN=your-github-login
 ISSUE_DELIVERY_REPOSITORY=/absolute/path/to/repository
 ```
@@ -191,22 +193,24 @@ chmod 600 ~/.config/issue-delivery-orchestrator/.env
 Both the deterministic engine and bundled `codex-linear` command consume `LINEAR_API_KEY` only
 from their process environment. Locally, they load the personal file above into that environment;
 they do not search the product repository or worktree for credentials. In a sandbox, CI runner, or
-hosted environment such as Vercel, inject `LINEAR_API_KEY` and `LINEAR_EXPECTED_EMAIL` with that
+hosted environment such as Vercel or Conductor Cloud, inject `LINEAR_API_KEY`,
+`LINEAR_EXPECTED_EMAIL` and optionally `LINEAR_EXPECTED_WORKSPACE` with that
 platform's secret/environment configuration instead of creating a file. Existing `gh`
 authentication is used for GitHub, and its login must match `GITHUB_EXPECTED_LOGIN`.
 
-After exposing the variables, pin and verify the intended Linear identity once:
+Before every Linear operation, the engine and `codex-linear` check that the key's user has
+`LINEAR_EXPECTED_EMAIL` and, when `LINEAR_EXPECTED_WORKSPACE` is set, that it belongs to that
+workspace. Nothing is pinned on disk: switching keys or workspaces only requires updating these
+variables. Verify the configuration with:
 
 ```bash
-PATH="<installed-plugin-root>/bin:$PATH" codex-linear identity pin \
-  --expected-email you@example.com
 PATH="<installed-plugin-root>/bin:$PATH" codex-linear doctor
 ```
 
 The plugin bundles both `$linear-local` and the CLI fallback under `bin/codex-linear`; no manual
 edit inside the Codex plugin cache is required. The agent never reads, prints, or passes the token
 as a command argument. During a run, publication stops explicitly if the skill, command,
-credential, or pinned identity is unavailable. It never falls back to Linear MCP, a connector,
+credential, or expected identity is unavailable or does not match. It never falls back to Linear MCP, a connector,
 direct agent-side API calls, or browser automation.
 
 From a clone of this repository, inspect the effective non-secret configuration:

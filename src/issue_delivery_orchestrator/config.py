@@ -31,6 +31,7 @@ class Settings:
     runtime_init_command: tuple[str, ...]
     runtime_cleanup_command: tuple[str, ...]
     linear_expected_email: str
+    linear_expected_workspace: str
     github_expected_login: str
     bot_names: tuple[str, ...]
     blocker_bots: tuple[str, ...]
@@ -114,6 +115,7 @@ def settings() -> Settings:
             os.environ.get("LINEAR_EXPECTED_EMAIL", "").strip()
             or str(identity.get("linearExpectedEmail") or "").strip()
         ),
+        linear_expected_workspace=os.environ.get("LINEAR_EXPECTED_WORKSPACE", "").strip().lower(),
         github_expected_login=(
             os.environ.get("GITHUB_EXPECTED_LOGIN", "").strip()
             or str(identity.get("githubExpectedLogin") or "").strip()

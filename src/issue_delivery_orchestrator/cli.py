@@ -724,6 +724,12 @@ def _verified_linear() -> tuple[LinearClient, str]:
             f"Linear identity mismatch: expected {expected_email}, "
             f"got {viewer.email or '<empty>'}"
         )
+    expected_workspace = settings().linear_expected_workspace
+    if expected_workspace and viewer.workspace != expected_workspace:
+        raise IdentityMismatch(
+            f"Linear workspace mismatch: expected {expected_workspace}, "
+            f"got {viewer.workspace or '<empty>'}"
+        )
     return client, secret.source
 
 

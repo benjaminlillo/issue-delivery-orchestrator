@@ -1,6 +1,6 @@
 ---
 name: linear-local
-description: Access Linear through the local codex-linear CLI using LINEAR_API_KEY from the environment and a pinned user identity. Use for every Linear read or mutation performed by a skill, including reading, creating, assigning, updating, or commenting on issues and generating reports from Linear data. Never use a Linear MCP or expose the API key.
+description: Access Linear through the local codex-linear CLI using LINEAR_API_KEY from the environment and the expected user and workspace. Use for every Linear read or mutation performed by a skill, including reading, creating, assigning, updating, or commenting on issues and generating reports from Linear data. Never use a Linear MCP or expose the API key.
 ---
 
 # Linear Local
@@ -17,14 +17,15 @@ identity.
 
 ## Safety contract
 
-- Let the CLI read `LINEAR_API_KEY` and `LINEAR_EXPECTED_EMAIL` from the process
-  environment. It may populate those variables from the user-owned
+- Let the CLI read `LINEAR_API_KEY`, `LINEAR_EXPECTED_EMAIL` and the optional
+  `LINEAR_EXPECTED_WORKSPACE` from the process environment. It may populate those variables from the user-owned
   `~/.config/issue-delivery-orchestrator/.env`; it must never load credentials
   from the product repository or worktree.
 - Never print, log, persist, request, or pass the API key as an argument.
-- Require a pinned identity before every normal Linear read or mutation. The CLI
-  performs this check automatically and fails closed when the authenticated user
-  changes. Only `whoami` and `identity` may inspect an unpinned credential.
+- Require the expected identity before every normal Linear read or mutation. The
+  CLI checks automatically that the key's user has `LINEAR_EXPECTED_EMAIL` and,
+  when configured, belongs to `LINEAR_EXPECTED_WORKSPACE`, and fails closed
+  otherwise. Only `whoami` may inspect a credential without this check.
 - Use the authenticated viewer ID explicitly for self-assignment.
 - Treat GraphQL responses containing `errors` as failures even when HTTP is 200.
 - Re-read mutated issues and verify their observable final state.
@@ -34,7 +35,6 @@ identity.
 ```bash
 codex-linear doctor
 codex-linear whoami
-codex-linear identity status
 codex-linear team get "Software"
 codex-linear issue get SFW-123
 codex-linear issue create \

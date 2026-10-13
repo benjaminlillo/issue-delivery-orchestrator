@@ -14,13 +14,12 @@ from typing import Any
 
 
 API_URL = "https://api.linear.app/graphql"
-CONFIG_DIR = Path.home() / ".config" / "codex-linear"
-IDENTITY_FILE = CONFIG_DIR / "identity.json"
 ORCHESTRATOR_CONFIG_DIR = Path.home() / ".config" / "issue-delivery-orchestrator"
 
 VIEWER_QUERY = """
 query CodexLinearViewer {
   viewer { id name displayName email }
+  organization { id name urlKey }
 }
 """
 
@@ -52,6 +51,7 @@ class Credential:
     value: str
     source: str
     account: str
+    workspace: str
 
 
 def _load_orchestrator_environment() -> None:
@@ -76,7 +76,7 @@ def _load_orchestrator_environment() -> None:
         value = value.strip()
         if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
-        if key in {"LINEAR_API_KEY", "LINEAR_EXPECTED_EMAIL"}:
+        if key in {"LINEAR_API_KEY", "LINEAR_EXPECTED_EMAIL", "LINEAR_EXPECTED_WORKSPACE"}:
             os.environ.setdefault(key, value)
 
 
@@ -94,7 +94,8 @@ def _read_environment_credential() -> Credential:
             "LINEAR_EXPECTED_EMAIL is required in the environment or "
             "~/.config/issue-delivery-orchestrator/.env"
         )
-    return Credential(value=value, source="environment", account=account)
+    workspace = os.environ.get("LINEAR_EXPECTED_WORKSPACE", "").strip().lower()
+    return Credential(value=value, source="environment", account=account, workspace=workspace)
 
 
 def _json_dump(value: Any) -> None:
@@ -127,60 +128,29 @@ def _graphql(credential: Credential, query: str, variables: dict[str, Any]) -> d
 
 
 def _viewer(credential: Credential) -> dict[str, Any]:
-    viewer = _graphql(credential, VIEWER_QUERY, {}).get("viewer")
+    data = _graphql(credential, VIEWER_QUERY, {})
+    viewer = data.get("viewer")
+    organization = data.get("organization")
     if not isinstance(viewer, dict) or not viewer.get("id") or not viewer.get("email"):
         raise LinearCliError("Linear viewer response is incomplete")
+    if not isinstance(organization, dict) or not organization.get("urlKey"):
+        raise LinearCliError("Linear organization response is incomplete")
     viewer["email"] = str(viewer["email"]).lower()
+    viewer["organization"] = organization
     return viewer
 
 
-def _read_identity() -> dict[str, Any] | None:
-    if not IDENTITY_FILE.exists():
-        return None
-    try:
-        value = json.loads(IDENTITY_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
-        raise LinearCliError(f"Pinned identity is invalid: {IDENTITY_FILE}") from error
-    if not isinstance(value, dict) or not value.get("id") or not value.get("email"):
-        raise LinearCliError(f"Pinned identity is incomplete: {IDENTITY_FILE}")
-    return value
-
-
-def _pin_identity(credential: Credential, expected_email: str) -> dict[str, Any]:
-    viewer = _viewer(credential)
-    normalized = expected_email.strip().lower()
-    if viewer["email"] != normalized:
-        raise LinearCliError(
-            f"Linear identity mismatch: expected {normalized}, got {viewer['email']}"
-        )
-    identity = {
-        "id": viewer["id"],
-        "email": viewer["email"],
-        "name": viewer.get("name") or "",
-        "displayName": viewer.get("displayName") or "",
-    }
-    CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(CONFIG_DIR, 0o700)
-    temporary = IDENTITY_FILE.with_suffix(".tmp")
-    temporary.write_text(json.dumps(identity, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.chmod(temporary, 0o600)
-    temporary.replace(IDENTITY_FILE)
-    os.chmod(IDENTITY_FILE, 0o600)
-    return identity
-
-
 def _verify_identity(credential: Credential) -> dict[str, Any]:
-    expected = _read_identity()
-    if expected is None:
-        raise LinearCliError(
-            "Linear identity is not pinned; run codex-linear identity pin --expected-email <email>"
-        )
+    """Require the expected user and, when configured, the expected Linear workspace."""
     actual = _viewer(credential)
-    if actual["id"] != expected["id"] or actual["email"] != expected["email"]:
+    workspace = str(actual["organization"]["urlKey"]).lower()
+    if actual["email"] != credential.account:
         raise LinearCliError(
-            "Linear identity mismatch: "
-            f"expected {expected['email']} ({expected['id']}), "
-            f"got {actual['email']} ({actual['id']})"
+            f"Linear identity mismatch: expected {credential.account}, got {actual['email']}"
+        )
+    if credential.workspace and workspace != credential.workspace:
+        raise LinearCliError(
+            f"Linear workspace mismatch: expected {credential.workspace}, got {workspace}"
         )
     return actual
 
@@ -332,12 +302,6 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("whoami")
     commands.add_parser("doctor")
 
-    identity = commands.add_parser("identity")
-    identity_commands = identity.add_subparsers(dest="identity_command", required=True)
-    identity_commands.add_parser("status")
-    pin = identity_commands.add_parser("pin")
-    pin.add_argument("--expected-email", required=True)
-
     team = commands.add_parser("team")
     team_commands = team.add_subparsers(dest="team_command", required=True)
     team_get = team_commands.add_parser("get")
@@ -381,23 +345,8 @@ def _run(args: argparse.Namespace) -> Any:
         return {
             "ok": True,
             "credential": {"source": credential.source, "account": credential.account},
+            "expectedWorkspace": credential.workspace or None,
             "viewer": viewer,
-            "identityPinned": True,
-            "identityMatches": True,
-        }
-    if args.command == "identity":
-        if args.identity_command == "pin":
-            return {"pinned": _pin_identity(credential, args.expected_email)}
-        expected = _read_identity()
-        actual = _viewer(credential)
-        return {
-            "pinned": expected,
-            "actual": actual,
-            "matches": bool(
-                expected
-                and expected.get("id") == actual.get("id")
-                and expected.get("email") == actual.get("email")
-            ),
         }
     if args.command == "team":
         _verify_identity(credential)

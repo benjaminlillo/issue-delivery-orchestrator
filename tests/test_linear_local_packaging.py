@@ -93,6 +93,31 @@ class LinearLocalPackagingTests(unittest.TestCase):
         self.assertEqual("environment", credential.source)
         self.assertEqual("developer@example.com", credential.account)
 
+    def test_cli_verifies_email_and_optional_workspace_without_a_pinned_id(self) -> None:
+        response = {
+            "viewer": {"id": "new-workspace-user", "email": "Dev@Example.com"},
+            "organization": {"urlKey": "TurboShop", "name": "TurboShop"},
+        }
+        credential = self.linear_cli.Credential(
+            value="token", source="environment", account="dev@example.com", workspace=""
+        )
+        with patch.object(self.linear_cli, "_graphql", return_value=response):
+            self.assertEqual(
+                "TurboShop", self.linear_cli._verify_identity(credential)["organization"]["urlKey"]
+            )
+            for account, workspace, message in (
+                ("other@example.com", "", "identity mismatch"),
+                ("dev@example.com", "old-workspace", "workspace mismatch"),
+            ):
+                with self.subTest(account=account, workspace=workspace):
+                    with self.assertRaisesRegex(self.linear_cli.LinearCliError, message):
+                        self.linear_cli._verify_identity(
+                            self.linear_cli.Credential("token", "environment", account, workspace)
+                        )
+            self.linear_cli._verify_identity(
+                self.linear_cli.Credential("token", "environment", "dev@example.com", "turboshop")
+            )
+
     def test_cli_loads_credential_from_personal_environment_file(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             config_dir = Path(raw)

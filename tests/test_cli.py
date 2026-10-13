@@ -388,3 +388,30 @@ class CliModeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VerifiedLinearTests(unittest.TestCase):
+    def test_requires_the_expected_workspace_when_configured(self):
+        from issue_delivery_orchestrator.cli import _verified_linear
+        from issue_delivery_orchestrator.errors import IdentityMismatch
+        from issue_delivery_orchestrator.linear import LinearViewer
+
+        viewer = LinearViewer(
+            id="u", name="", display_name="", email="dev@example.com", workspace="turboshop"
+        )
+        for workspace, allowed in (("", True), ("turboshop", True), ("old-workspace", False)):
+            with self.subTest(workspace=workspace), patch.dict(
+                os.environ,
+                {
+                    "LINEAR_API_KEY": "token",
+                    "LINEAR_EXPECTED_EMAIL": "dev@example.com",
+                    "LINEAR_EXPECTED_WORKSPACE": workspace,
+                },
+            ), patch(
+                "issue_delivery_orchestrator.cli.LinearClient.viewer", return_value=viewer
+            ):
+                if allowed:
+                    _verified_linear()
+                else:
+                    with self.assertRaisesRegex(IdentityMismatch, "workspace mismatch"):
+                        _verified_linear()

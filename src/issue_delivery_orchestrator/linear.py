@@ -18,6 +18,7 @@ class LinearViewer:
     name: str
     display_name: str
     email: str
+    workspace: str
 
 
 @dataclass(frozen=True)
@@ -37,11 +38,14 @@ class LinearClient:
         self.api_key = api_key
 
     def viewer(self) -> LinearViewer:
-        data = self._graphql(
-            "query OrchestrationViewer { viewer { id name displayName email } }",
+        result = self._graphql(
+            "query OrchestrationViewer { viewer { id name displayName email } "
+            "organization { urlKey } }",
             {},
-        )["viewer"]
+        )
+        data = result["viewer"]
         return LinearViewer(
+            workspace=str((result.get("organization") or {}).get("urlKey") or "").lower(),
             id=data["id"],
             name=data.get("name") or "",
             display_name=data.get("displayName") or "",
