@@ -83,7 +83,8 @@ Paquetes de las etapas aisladas:
   por pasada. El principal prepara runtime y apps; el worker ejecuta la skill del reviewer,
   prepara el manifiesto, ejecuta `prepare-evidence`, inspecciona la copia anotada y devuelve
   veredicto, findings y rutas de evidencia.
-- `independent-review` (Local Review): el paquete de la sección 5 del orquestador.
+- `independent-review` (Local Review): el bloque de alcance de `review-pr` descrito en la sección 5
+  del orquestador; los modelos aplican a sus carriles y al verificador.
 
 El principal no vuelve a abrir logs, screenshots ni diffs completos que el worker ya verificó:
 decide con el resultado del worker y los gates del motor (checkpoints, recibos y SHA). Si un

@@ -7,7 +7,7 @@ from typing import Any
 from .config import settings
 from .errors import RunBlocked
 from .state import now, run_root, save_state
-from .util import read_json, run
+from .util import code_head, read_json, run
 
 
 RESTORABLE_STATUSES = {"awaiting_manual_review", "completed_preserved"}
@@ -28,7 +28,7 @@ def restore_runtime(state: dict[str, Any]) -> dict[str, Any]:
         raise RunBlocked("The final runtime handoff does not match the active runtime")
     worktree = Path(state["worktree"])
     dirty = run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree).stdout.strip()
-    head = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    head = code_head(worktree)
     if dirty or head != handoff.get("verifiedCommit"):
         raise RunBlocked("Code changed since the handoff; use resume and repeat the repair flow instead")
     configuration = settings()

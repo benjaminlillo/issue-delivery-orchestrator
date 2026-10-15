@@ -1,13 +1,14 @@
 ---
 name: issue-delivery-implement
-description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obediencia a AGENTS.md, seguimiento exacto del spec, validaciones enfocadas del repositorio y un commit local por ticket o causa raíz. Usar también ante ajustes dentro de Issue Delivery Orchestrator; exigir revisión UI en delivery full o refresco verificable del runtime en manual-runtime."
+description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obediencia a las reglas del repositorio, seguimiento exacto del spec, validaciones enfocadas del repositorio y un commit local por ticket o causa raíz. Usar también ante ajustes dentro de Issue Delivery Orchestrator; exigir revisión UI en delivery full o refresco verificable del runtime en manual-runtime."
 ---
 
 # Implement
 
 Implementar una unidad de trabajo a la vez. Exigir como entrada el spec vigente —incluyendo
-`Architecture Constraints`—, ticket o finding, SHA inicial y criterios de aceptación. Leer todos
-los `AGENTS.md` y fuentes arquitectónicas citadas por el spec antes de editar.
+`Architecture Constraints`—, ticket o finding, SHA inicial y criterios de aceptación. Aplicar las
+reglas del repositorio según [repo-rules.md](../issue-delivery-orchestrator/references/repo-rules.md) y leer las fuentes
+arquitectónicas citadas por el spec antes de editar.
 
 Leer [validation.md](references/validation.md) antes de calcular o ejecutar validaciones.
 
@@ -21,7 +22,7 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
    `Consistency`, reutilizar los componentes, espaciados y estilos de los hermanos nombrados y de la
    app; no introducir una estética propia.
 5. Tratar las `Architecture Constraints` aprobadas como contrato vinculante. Si el pedido o el spec
-   contradicen un `AGENTS.md` aplicable o una fuente arquitectónica citada, no editar. Devolver
+   contradicen una regla aplicable del repositorio o una fuente arquitectónica citada, no editar. Devolver
    `NEEDS_USER_DECISION` con las fuentes en conflicto.
 6. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
 
@@ -99,4 +100,4 @@ Antes del commit, devolver:
 
 Crear un commit descriptivo sólo cuando todo lo atribuible al ticket esté verde. Para una reparación de review, usar un commit por causa raíz; agrupar únicamente findings inseparables.
 
-Durante Refactor, limitar cambios al allowlist entregado. Salir de él sólo para una violación concreta de `AGENTS.md` y registrar regla, path y razón.
+Durante Refactor, limitar cambios al allowlist entregado. Salir de él sólo para una violación concreta de una regla del repositorio y registrar regla, path y razón.

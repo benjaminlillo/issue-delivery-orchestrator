@@ -28,6 +28,3 @@ def current_harness() -> str:
         )
     return host or "codex"
 
-
-def native_reviewer() -> str:
-    return f"{current_harness()}-native-subagent"

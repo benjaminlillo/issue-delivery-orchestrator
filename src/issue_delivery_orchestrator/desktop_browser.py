@@ -23,7 +23,7 @@ from .config import settings
 from .errors import RunBlocked
 from .runtime import _alive, register_owned_process
 from .state import now, run_root, save_state
-from .util import read_json, run
+from .util import code_head, read_json
 
 DISPLAY = ":1"
 DISPLAY_SOCKET = Path("/tmp/.X11-unix/X1")
@@ -139,7 +139,7 @@ def _final_runtime(state: dict[str, Any]) -> tuple[str, str]:
     reset = state.get("finalRuntimeReset") or {}
     if not runtime_id or reset.get("runtimeId") != runtime_id:
         raise RunBlocked("The active runtime does not match the final reset receipt")
-    commit = run(["git", "rev-parse", "HEAD"], cwd=Path(state["worktree"])).stdout.strip()
+    commit = code_head(Path(state["worktree"]))
     if reset.get("verifiedCommit") != commit:
         raise RunBlocked("HEAD changed after the final runtime reset; reset it again first")
     return runtime_id, commit

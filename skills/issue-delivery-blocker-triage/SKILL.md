@@ -11,7 +11,7 @@ Evaluar feedback de review sin modificar código, responder comentarios ni resol
 
 1. Identificar el repositorio, la branch actual y la PR correspondiente. Usar la integración de GitHub disponible o `gh` sólo para lecturas. Si no existe una PR accesible, continuar con la branch y los comentarios entregados por el usuario.
 2. Tratar los comentarios entregados por el usuario como la lista de blockers a evaluar. Si no entrega comentarios, recuperar los blockers o threads pendientes de la PR.
-3. Leer todos los `AGENTS.md` aplicables, el diff completo de la PR y los archivos, tests y documentación relevantes para cada comentario.
+3. Aplicar las reglas del repositorio según [repo-rules.md](../issue-delivery-orchestrator/references/repo-rules.md). Leer el diff completo de la PR y los archivos, tests y documentación relevantes para cada comentario.
 4. Buscar acuerdos explícitos en la conversación actual, descripción de la PR, issue enlazada, PRD, ADR y documentación del repositorio. No inferir un acuerdo por ausencia de discusión.
 5. Delimitar el alcance `Now`: comportamientos requeridos por la PR, issue, spec o acuerdos vigentes, más regresiones y riesgos materiales introducidos o agravados por la PR. No convertir posibilidades futuras en requisitos actuales.
 6. Separar un comentario en varios blockers sólo cuando contenga problemas independientes que puedan recibir decisiones distintas. Deduplicar comentarios que describan la misma causa raíz.

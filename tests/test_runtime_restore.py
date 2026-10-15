@@ -77,6 +77,20 @@ class RuntimeRestoreTests(unittest.TestCase):
         with self.assertRaisesRegex(RunBlocked, "different runtime"):
             self.restore()
 
+    def test_lesson_cards_committed_after_the_handoff_do_not_count_as_code_changes(self):
+        lessons = self.worktree / "docs" / "lessons"
+        lessons.mkdir(parents=True)
+        (lessons / "2026-10-15-leccion.md").write_text("# Lección\n")
+        git(self.worktree, "add", ".")
+        git(self.worktree, "commit", "-qm", "docs(lessons): add card")
+        self.assertEqual(self.restore()["services"], ["backend", "shops-app"])
+        self.state["status"] = "awaiting_manual_review"
+        (self.worktree / "code.ts").write_text("x")
+        git(self.worktree, "add", ".")
+        git(self.worktree, "commit", "-qm", "fix: change code")
+        with self.assertRaisesRegex(RunBlocked, "Code changed"):
+            self.restore()
+
     def test_failed_command_blocks_and_keeps_the_previous_status(self):
         self.settings.runtime_services_command = ("false",)
         with self.assertRaisesRegex(RunBlocked, "Runtime restore failed at `false`"):

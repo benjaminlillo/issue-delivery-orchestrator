@@ -6,7 +6,7 @@ from typing import Any
 from .errors import RunBlocked
 from .runtime import cleanup_runtimes, initialize_runtime, stop_owned_processes
 from .state import handoff_mode, now, run_root, save_state
-from .util import atomic_write_json, run
+from .util import atomic_write_json, code_head, run
 
 
 def reset_final_runtime(state: dict[str, Any]) -> dict[str, Any]:
@@ -20,7 +20,7 @@ def reset_final_runtime(state: dict[str, Any]) -> dict[str, Any]:
             "Final runtime reset requires a clean committed worktree; "
             "commit or remove pending product changes first"
         )
-    commit = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    commit = code_head(worktree)
     previous_runtime_id = state.get("activeRuntimeId")
     stopped = stop_owned_processes(state)
     cleaned = cleanup_runtimes(state)

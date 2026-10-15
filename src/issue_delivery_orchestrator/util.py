@@ -52,3 +52,25 @@ def ensure_within(path: Path, root: Path) -> Path:
     except ValueError as error:
         raise OrchestrationError(f"Artifact must live inside the worktree: {path}") from error
     return resolved
+
+
+LESSONS_DIRECTORY = "docs/lessons/"
+
+
+def code_head(worktree: Path) -> str:
+    """Return HEAD, skipping trailing commits that only add lesson cards.
+
+    The repository's lessons-learned skill commits cards on the PR branch after the handoff; those
+    commits do not change the code that was verified and handed off.
+    """
+    commit = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    while True:
+        parents = run(["git", "rev-list", "--parents", "-n", "1", commit], cwd=worktree).stdout.split()
+        if len(parents) != 2:
+            return commit
+        paths = run(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit], cwd=worktree
+        ).stdout.split()
+        if not paths or not all(path.startswith(LESSONS_DIRECTORY) for path in paths):
+            return commit
+        commit = parents[1]

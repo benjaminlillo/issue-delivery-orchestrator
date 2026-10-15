@@ -14,7 +14,7 @@ from .errors import RunBlocked
 from .runtime import _alive
 from .state import handoff_mode, now, run_root, save_state
 from .token_usage import collect_token_usage
-from .util import atomic_write_json, read_json, run
+from .util import atomic_write_json, code_head, read_json, run
 from .warmup import validate_warmup
 
 
@@ -85,7 +85,7 @@ def prepare_runtime_handoff(
             "Runtime handoff requires a clean committed worktree; "
             "commit or remove pending product changes first"
         )
-    commit = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    commit = code_head(worktree)
     if reset.get("verifiedCommit") != commit:
         raise RunBlocked(
             "HEAD changed after the final runtime reset; reset it again before handoff"

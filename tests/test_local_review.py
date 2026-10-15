@@ -1,10 +1,8 @@
 import json
-import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from issue_delivery_orchestrator.errors import RunBlocked
 from issue_delivery_orchestrator.local_review import validate_local_review
@@ -31,48 +29,49 @@ class LocalReviewTests(unittest.TestCase):
         self.path = run_root(self.worktree, "run-1") / "validation" / "local-review.json"
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.addCleanup(self.tmp.cleanup)
-        environment = patch.dict(os.environ)
-        environment.start()
-        self.addCleanup(environment.stop)
-        for key in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID"):
-            os.environ.pop(key, None)
 
-    def write(self, **overrides):
+    def head(self):
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.worktree, text=True).strip()
+
+    def write(self, report=None, **overrides):
+        report_path = self.worktree / ".context" / "reviews" / "feature.md"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(report if report is not None else f"SHA revisado: {self.head()}\n")
         payload = {
-            "receiptVersion": 1, "status": "PASS", "reviewer": "codex-native-subagent",
-            "verifiedCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=self.worktree, text=True).strip(),
-            "findings": [], "checked": ["AGENTS.md", "diff"],
+            "receiptVersion": 2, "status": "PASS", "reviewer": "review-pr",
+            "mode": "orchestrated", "verifiedCommit": self.head(),
+            "report": ".context/reviews/feature.md", "findings": [],
         }
         payload.update(overrides)
         self.path.write_text(json.dumps(payload))
 
-    def test_accepts_pass_for_current_head(self):
+    def test_accepts_a_review_pr_pass_for_current_head(self):
         self.write()
         receipt = validate_local_review(self.state, str(self.path))
         self.assertEqual(receipt["status"], "PASS")
         self.assertEqual(receipt["validatedCommit"], receipt["verifiedCommit"])
+        self.assertEqual(receipt["report"], ".context/reviews/feature.md")
 
-    def test_rejects_stale_or_wrong_reviewer(self):
+    def test_rejects_stale_receipts_other_reviewers_and_reports_for_another_sha(self):
         self.write(verifiedCommit="stale")
         with self.assertRaisesRegex(RunBlocked, "targets"):
             validate_local_review(self.state, str(self.path))
-        self.write(reviewer="codex-exec")
-        with self.assertRaisesRegex(RunBlocked, "codex-native-subagent"):
+        self.write(reviewer="codex-native-subagent")
+        with self.assertRaisesRegex(RunBlocked, "review-pr skill"):
+            validate_local_review(self.state, str(self.path))
+        self.write(report="SHA revisado: 0000000\n")
+        with self.assertRaisesRegex(RunBlocked, "reviewed SHA"):
+            validate_local_review(self.state, str(self.path))
+        self.write(report="")
+        with self.assertRaisesRegex(RunBlocked, "missing or empty"):
             validate_local_review(self.state, str(self.path))
 
-    def test_claude_code_requires_its_own_native_reviewer(self):
-        os.environ["CLAUDECODE"] = "1"
-        self.write()
-        with self.assertRaisesRegex(RunBlocked, "claude-native-subagent"):
+    def test_pass_cannot_keep_corregir_findings(self):
+        self.write(findings=[{"id": "R1", "estado": "Corregir", "disposition": "SKIP"}])
+        with self.assertRaisesRegex(RunBlocked, "Corregir"):
             validate_local_review(self.state, str(self.path))
-        self.write(reviewer="claude-native-subagent")
+        self.write(findings=[{"id": "S1", "estado": "Considerar", "disposition": "SKIP"}])
         self.assertEqual(validate_local_review(self.state, str(self.path))["status"], "PASS")
-
-    def test_ambiguous_host_blocks_the_receipt(self):
-        os.environ.update({"CLAUDECODE": "1", "CODEX_THREAD_ID": "thread"})
-        self.write()
-        with self.assertRaisesRegex(RunBlocked, "Ambiguous agent host"):
-            validate_local_review(self.state, str(self.path))
 
     def test_rejects_non_pass_checkpoint_and_outside_artifact(self):
         self.write(status="FIX")

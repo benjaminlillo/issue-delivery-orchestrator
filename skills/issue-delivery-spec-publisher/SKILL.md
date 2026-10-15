@@ -25,6 +25,10 @@ For a prefix `<prefix>`, write the spec only between:
 <!-- <prefix>:spec:end -->
 ```
 
+If the description still has blocks with the legacy prefix `turboshop-dev-loop`, treat them as
+the current blocks: replace each legacy block with the `<prefix>` markers in the same position,
+so the description never keeps both.
+
 Preserve all content outside the orchestrator blocks. If no tickets markers exist, initialize:
 
 ```md

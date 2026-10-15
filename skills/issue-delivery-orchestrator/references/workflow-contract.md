@@ -6,9 +6,9 @@
 |---|---|---|
 | `grill` | Issue, repo, AGENTS, ADRs, context/docs, diseños | Spec con restricciones arquitectónicas y tickets aprobados/publicados |
 | `implement` | Spec y tickets | Commits locales o NO_OP por ticket |
-| `refactor` | Diff, spec y fuentes arquitectónicas citadas | Conformidad arquitectónica, AGENTS y gates estructurales validados |
+| `refactor` | Diff, spec y fuentes arquitectónicas citadas | Conformidad arquitectónica, reglas del repositorio y gates estructurales validados |
 | `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
-| `local-review` | HEAD integrado, spec y fuentes arquitectónicas | Recibo independiente `PASS` para el SHA exacto |
+| `local-review` | HEAD integrado, spec y reglas del repositorio | Recibo `PASS` de `review-pr` para el SHA exacto |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
 | `pr-creation` | Commits y evidencias | PR creada como draft hacia `<target>` |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
@@ -129,7 +129,7 @@ runtime fresco, no aceptación UI, y el handoff debe declararlo sin ambigüedad.
 
 ## Contrato de arquitectura
 
-Grill debe extraer desde los `AGENTS.md` aplicables, ADRs aceptados, context maps y documentación
+Grill debe extraer desde las reglas del repositorio ([repo-rules.md](repo-rules.md)), ADRs aceptados, context maps y documentación
 del dominio sólo las restricciones materiales para el cambio. El spec las persiste en la tabla
 canónica `Architecture Constraints`, con fuente repository-relative o decisión aprobada,
 restricción, alcance y verificación observable en Refactor. Los patrones existentes son evidencia,
@@ -145,7 +145,7 @@ Refactor ejecuta primero el gate de conformidad arquitectónica y clasifica sus 
   reparación alteraría una decisión aprobada. Bloquear antes de editar o completar Refactor.
 - `OUT_OF_SCOPE`: deuda preexistente no causada ni agravada por la branch. Registrar, no reparar.
 
-Este gate no amplía el allowlist. Sólo una infracción concreta de `AGENTS.md` permite salir de él;
+Este gate no amplía el allowlist. Sólo una infracción concreta de una regla del repositorio permite salir de él;
 si otro `FIX` requiere modificar archivos externos, tratarlo como `NEEDS_USER_DECISION`. Tras cada
 `FIX`, repetir validación enfocada y volver a evaluar el gate. El checkpoint exige un recibo sin
 decisiones pendientes.

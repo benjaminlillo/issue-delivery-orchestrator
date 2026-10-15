@@ -16,7 +16,7 @@ Return the canonical spec in the conversation unless the user explicitly request
 
 ## Build repository awareness
 
-Read every applicable `AGENTS.md` before evaluating the proposal. Resolve the repository root, then inspect the relevant context map, domain documentation, accepted ADRs, source task, owning code, schemas, routes, and existing tests. Record the exact repository-relative path of each architectural source that materially constrains the change.
+Apply the repository rule layers described in [repo-rules.md](../issue-delivery-orchestrator/references/repo-rules.md) before evaluating the proposal. Never treat `docs/lessons/` cards as rules. Resolve the repository root, then inspect the relevant context map, domain documentation, accepted ADRs, source task, owning code, schemas, routes, and existing tests. Record the exact repository-relative path of each architectural source that materially constrains the change.
 
 Use repository exploration to answer factual questions instead of asking the user. Verify claims about current behavior and use canonical terminology from the code and documentation. Distinguish verified facts, user decisions, and inferences; never turn an inference into an agreed requirement.
 
@@ -34,7 +34,7 @@ For each question:
 4. Explain only the meaningful alternatives and how they change the solution.
 5. Ask for one decision.
 
-Do not revisit settled decisions unless new evidence contradicts them. Do not debate rules already governed by `AGENTS.md`; state the rule briefly and apply it.
+Do not revisit settled decisions unless new evidence contradicts them. Do not debate rules already governed by the repository rule layers; state the rule briefly and apply it.
 
 Walk the decision tree in dependency order:
 
@@ -118,14 +118,14 @@ this fixed closure phase into a separate implementation ticket.
 
 Define a high-level implementation architecture sufficient for an autonomous implementer. Cover the relevant owner, boundary, data flow, persistence, authorization, failure behavior, rollout, and testing decisions without prescribing a file-by-file patch.
 
-Extract the applicable architectural constraints from `AGENTS.md`, accepted ADRs, context maps and
+Extract the applicable architectural constraints from the repository rule layers, accepted ADRs, context maps and
 domain documentation. Treat an existing code pattern as evidence, not automatically as a rule.
 For every material constraint, record its source, the concrete rule, the part of the change it
 governs and how Refactor can verify it from the final diff. Do not copy unrelated repository
 guidance into the spec.
 
 Call out conflicts between the proposal, user choices and repository sources immediately. Apply
-the most specific applicable `AGENTS.md`; never silently override it from the spec. Resolve
+the most specific applicable repository rule; never silently override it from the spec. Resolve
 conflicting or obsolete documentation with the user before approval, or move dependent behavior
 out of `Now`. Prefer existing module boundaries and naming. Do not produce a premature architecture
 summary while blocking decisions remain unresolved.
@@ -227,7 +227,7 @@ Before presenting the spec, verify:
 - `Now` contains no speculative capability.
 - Every changed seam has the required ownership record.
 - Every material architectural constraint has a precise source, applicability and verification.
-- No approved constraint silently contradicts an applicable `AGENTS.md`, accepted ADR or current
+- No approved constraint silently contradicts an applicable repository rule, accepted ADR or current
   architecture document.
 - Every material risk has a coverage decision and unique signal.
 - Every agreed behavior and design decision appears once in `User Experience Acceptance` with a
@@ -248,7 +248,7 @@ If the user approves a Linear publication, invoke `issue-delivery-spec-publisher
 After publishing the spec, report that `issue-delivery-ticket-publisher` must produce the approved
 ticket block before `issue-delivery-orchestrator` can enter Implement.
 
-Do not modify `AGENTS.md` during the interview. If the resulting decision creates a genuinely general architectural rule, explain it after the spec is complete and ask for explicit approval before editing `AGENTS.md`.
+Do not modify repository rule files. If the resulting decision looks like a general rule, record it as a lesson signal as described in `repo-rules.md`.
 
 ## Offer ADRs sparingly
 

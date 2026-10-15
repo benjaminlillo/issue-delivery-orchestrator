@@ -96,7 +96,10 @@ For prefix `<prefix>`, replace only:
 <!-- <prefix>:tickets:end -->
 ```
 
-Preserve the spec block and all unrelated description content. Before operating with Linear:
+Preserve the spec block and all unrelated description content. If the description still has blocks
+with the legacy prefix `turboshop-dev-loop`, treat them as the current blocks: replace each legacy
+block with the `<prefix>` markers in the same position, so the description never keeps both. Before
+operating with Linear:
 
 1. Resolve `<plugin-root>` as the directory containing `.codex-plugin/plugin.json` and invoke the
    bundled `linear-local` skill. If `codex-linear` is not already available, prepend

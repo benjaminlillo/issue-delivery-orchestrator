@@ -58,7 +58,7 @@
     "pollSeconds": 15
   },
   "linear": {
-    "markerPrefix": "turboshop-dev-loop",
+    "markerPrefix": "turboshop",
     "uiSection": "UI enhancements"
   }
 }

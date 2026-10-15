@@ -147,6 +147,17 @@ These steps follow the official
 [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
 [plugin usage](https://learn.chatgpt.com/docs/plugins) guidance.
 
+## Repository rules
+
+Every stage applies the target repository's rule layers as its root `AGENTS.md` defines them. In
+TurboShop that is `AGENTS.md`, `CODING_STANDARDS.md`, the matching `docs/rules/` files and the
+`AGENTS.md` of each touched app. Cards in `docs/lessons/` are never treated as rules. Local Review
+runs the repository's `review-pr` skill against `REVIEW.md`, and repairs are re-reviewed before
+each push. Commits follow `docs/rules/git.md`. During a run the agent only records lesson signals;
+when the user asks to mark the draft PR ready, it runs `lessons-learned` and then `gh pr ready`.
+Commits that only add `docs/lessons/` cards do not invalidate the handoff. See
+[repository rules](skills/issue-delivery-orchestrator/references/repo-rules.md).
+
 ## Configure
 
 Create the per-user configuration file:
@@ -329,7 +340,7 @@ python3 scripts/issue-delivery TS-123 --worktree /ruta/worktree \
 Son IDs de ejemplo; deben estar disponibles en la herramienta nativa del entorno. En Claude Code
 usar `sonnet`, `opus`, `haiku` o `fable`; el CLI rechaza otros valores. Las etapas
 sin selección heredan el modelo de la sesión principal. Implement (un worker por ticket o
-reparación), Local Review y la revisión UI (salvo Codex Browser) corren siempre en subagentes
+reparación), los carriles y el verificador de `review-pr` y la revisión UI (salvo Codex Browser) corren siempre en subagentes
 nativos sin historial, con un paquete explícito de contexto; la revisión UI recibe sólo historias,
 criterios y runtime, como una prueba de caja negra. Un override delega también las demás etapas.
 El principal conserva las aprobaciones y los comandos del motor. El reporte final desglosa el

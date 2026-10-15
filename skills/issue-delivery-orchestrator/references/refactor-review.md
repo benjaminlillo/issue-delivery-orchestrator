@@ -1,7 +1,8 @@
 # Criterios obligatorios de Refactor
 
 Aplicar esta revisión únicamente al código humano de producto creado o modificado por el run.
-Obedecer primero los `AGENTS.md` aplicables cuando establezcan una regla más específica. Excluir
+Obedecer primero las reglas del repositorio ([repo-rules.md](repo-rules.md)) cuando establezcan
+una regla más específica. Excluir
 lockfiles, migraciones generadas, snapshots y otros artefactos generados mecánicamente; registrar
 cada exclusión.
 
@@ -31,7 +32,7 @@ archivo de producto que originó el cambio y la referencia concreta que debió a
 1. Construir el scope de Refactor desde los archivos de producto del diff de implementación y los
    commits adoptados de la issue. Mantener los tests en un conjunto separado de alineación.
 2. Leer el spec aprobado completo y extraer su tabla `Architecture Constraints`. Releer todos los
-   `AGENTS.md`, ADRs aceptados, context maps y documentos citados por esas filas; registrar paths y
+   las reglas del repositorio, ADRs aceptados, context maps y documentos citados por esas filas; registrar paths y
    revisiones inspeccionadas. Para una spec legacy que no tenga la tabla, crear un snapshot local
    bajo el directorio ignorado del run con esas fuentes y sólo las decisiones arquitectónicas ya
    explícitas en el spec. No actualizar Linear ni inferir decisiones nuevas; cualquier ambigüedad
@@ -45,7 +46,7 @@ archivo de producto que originó el cambio y la referencia concreta que debió a
 ## Gate de conformidad arquitectónica
 
 Ejecutar este gate antes de los gates de capas, helpers, diseño y tamaño. Comparar el diff completo
-con cada `Architecture Constraint`, los `AGENTS.md` aplicables y las fuentes citadas. No usar esta
+con cada `Architecture Constraint`, las reglas aplicables del repositorio y las fuentes citadas. No usar esta
 fase para inventar una arquitectura mejor ni reabrir decisiones aprobadas.
 
 Registrar cada hallazgo con una de estas decisiones:
@@ -61,7 +62,7 @@ Registrar cada hallazgo con una de estas decisiones:
 
 Corregir cada `FIX`, repetir unit tests y typecheck afectados y volver a ejecutar este gate. Un
 `FIX` resuelto queda registrado con su commit y resultado final `PASS`. `OUT_OF_SCOPE` no habilita
-refactors vecinos. Este gate no amplía el allowlist: sólo una violación concreta de `AGENTS.md`
+refactors vecinos. Este gate no amplía el allowlist: sólo una violación concreta de una regla del repositorio
 permite modificar un archivo externo; cualquier otra reparación que lo requiera pasa a
 `NEEDS_USER_DECISION`.
 
@@ -143,7 +144,7 @@ Medir con `wc -l` todos los archivos humanos de producto creados o modificados. 
   cohesión o profundidad del módulo.
 
 Si un formato humano es indivisible por contrato y supera el límite, bloquear o registrar una
-excepción sustentada en el spec o `AGENTS.md`; no inventar excepciones por conveniencia.
+excepción sustentada en el spec o una regla del repositorio; no inventar excepciones por conveniencia.
 
 ## Recibo y cierre
 
@@ -168,7 +169,7 @@ Incluir además:
 - allowlist final;
 - tests excluidos del Refactor y tests ajustados únicamente para alinear referencias;
 - excepciones y exclusiones justificadas;
-- archivos que salieron del allowlist para corregir `AGENTS.md`;
+- archivos que salieron del allowlist para corregir una regla del repositorio;
 - comandos de unit tests y typecheck ejecutados después del último refactor;
 - resultado final y validaciones no ejecutadas.
 

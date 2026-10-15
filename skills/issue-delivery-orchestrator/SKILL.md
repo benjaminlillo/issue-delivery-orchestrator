@@ -210,7 +210,8 @@ modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones
 
 ## 1. Grill
 
-1. Leer la issue, el repositorio, todos los `AGENTS.md` aplicables, ADRs aceptados, context maps y
+1. Leer [repo-rules.md](references/repo-rules.md) y aplicar sus capas en todas las etapas. Leer la
+   issue, el repositorio, las reglas aplicables, ADRs aceptados, context maps y
    documentación arquitectónica del dominio afectado.
 2. Invocar `issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
 3. Si existe Figma, inspeccionarlo mediante su MCP. Si no es accesible, bloquear antes de implementar, salvo que el usuario entregue explícitamente un PNG o PDF como fallback.
@@ -257,10 +258,10 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase implemen
 ## 3. Refactor
 
 Leer [refactor-review.md](references/refactor-review.md) completamente. Revisar el diff de
-implementación contra los `AGENTS.md` aplicables y ejecutar cada gate de esa referencia.
+implementación contra las reglas aplicables del repositorio y ejecutar cada gate de esa referencia.
 
 - Ejecutar primero el gate de conformidad arquitectónica contra el spec aprobado, sus
-  `Architecture Constraints`, los `AGENTS.md`, ADRs aceptados y documentación citada.
+  `Architecture Constraints`, las reglas del repositorio, ADRs aceptados y documentación citada.
 - Clasificar cada hallazgo como `PASS`, `FIX`, `NEEDS_USER_DECISION` u `OUT_OF_SCOPE`. Reparar sólo
   los `FIX`; si existe `NEEDS_USER_DECISION`, registrar `block --decision` y pausar sin completar
   Refactor.
@@ -270,7 +271,7 @@ implementación contra los `AGENTS.md` aplicables y ejecutar cada gate de esa re
   el snapshot local descrito en la referencia. No modificar Linear silenciosamente ni convertir
   inferencias en decisiones aprobadas.
 - Allowlist: archivos cambiados por la implementación de este run y por commits preexistentes adoptados de la issue.
-- Salir del allowlist sólo para corregir una violación concreta de `AGENTS.md`; registrar regla, archivo y razón.
+- Salir del allowlist sólo para corregir una violación concreta de una regla del repositorio; registrar regla, archivo y razón.
 - No hacer refactors especulativos.
 - Repetir unit tests y typecheck afectados antes de cada commit de refactor.
 - Guardar el recibo de revisión bajo el directorio ignorado del run. No completar la fase con
@@ -295,49 +296,50 @@ integrado exacto; si no es causado ni agravado por la branch, registrarlo como b
 
 Completar la fase con `python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase merge-target`.
 
-## 5. Revisión local independiente
+## 5. Revisión local con `review-pr`
 
 Ejecutar esta etapa después de integrar `target` y antes de iniciar el runtime o la revisión
-manual. No usar el historial de esta conversación para el reviewer. Lanzar un subagente nativo del
-host desde el principal, con `spawnOptions` de `stage-plan --phase local-review`, sin crear otro worktree ni otra sesión de Conductor, y entregarle únicamente un paquete
-explícito con:
+manual. La revisión es la skill `review-pr` del repositorio (`.agents/skills/review-pr`), que
+aplica `REVIEW.md` y las capas de [repo-rules.md](references/repo-rules.md). Si el worktree no la
+tiene, bloquear con `block` y explicar que la branch debe partir de una `development` que la
+incluya. No usar el historial de esta conversación como fuente de la revisión.
 
-- issue de Linear, spec y tickets aprobados;
-- SHA actual y `base`/`target` persistidos;
-- ruta del worktree y del directorio del run;
-- lista y contenido de los archivos modificados respecto de `origin/<target>`;
-- `AGENTS.md`, `CLAUDE.md`, ADRs aceptados, context maps y documentación del dominio aplicables.
+1. Invocar `review-pr` desde el principal en modo `orchestrated`: el principal lanza los tres
+   carriles y luego el verificador como subagentes nativos, con los modelos de
+   `stage-plan --phase local-review`. Usar `single-agent` sólo si el host no puede lanzar
+   subagentes, y registrarlo. No crear otro worktree ni otra sesión de Conductor.
+2. Pasar como objetivo la branch del run con base `origin/<target>`. En el bloque de alcance, como
+   spec, pegar el spec aprobado completo y los tickets, incluidos `Architecture Constraints` y
+   `User Experience Acceptance`, para que el carril de spec contraste cada criterio con el código.
+   En "Already run", listar las validaciones del run con su resultado.
+3. `review-pr` es de sólo lectura y deja su reporte en `.context/reviews/<slug>.md`.
+4. Disponer cada hallazgo:
+   - `Corregir`: `FIX`. Entregarlo a `issue-delivery-implement`, validar, repetir Refactor e
+     integrar `target` cuando corresponda. Registrar la señal de lección.
+   - `Considerar`: resolverlo con los criterios de `issue-delivery-blocker-triage`: `SKIP` si no
+     vale la pena según YAGNI y el spec, `FIX` si es material, o `NEEDS_USER_DECISION` si
+     contradice un acuerdo o pide cambiar scope.
+   - `Descartado`: no requiere acción.
+5. Después de cada reparación, volver a ejecutar `review-pr` con el SHA de la revisión anterior
+   como base, hasta que no queden `Corregir` ni `FIX` pendientes. No rebajar un hallazgo para
+   obtener `PASS`.
 
-El prompt del reviewer debe exigir que lea por completo esas fuentes y que inspeccione el diff,
-imports, dependencias, tipos, interfaces y flujo de datos relacionado. Debe evaluar objetivo del
-ticket, regresiones y blast radius, arquitectura y patrones del proyecto, clean code y cambios
-fuera de scope. Debe contrastar cada criterio de `User Experience Acceptance` con el código: el
-comportamiento, los estados y textos acordados, y que el diseño reutilice los componentes y estilos
-de los hermanos nombrados en vez de introducir una estética propia. El reviewer no puede editar archivos, ejecutar comandos destructivos, crear otro
-worktree, publicar en GitHub/Linear ni cambiar el estado del run.
-
-Guardar un único recibo JSON en el directorio del run, por ejemplo
-`validation/local-review.json`, con este contrato mínimo:
+Guardar en el directorio del run un recibo JSON, por ejemplo `validation/local-review.json`:
 
 ```json
 {
-  "receiptVersion": 1,
-  "reviewer": "<harness>-native-subagent",
+  "receiptVersion": 2,
+  "reviewer": "review-pr",
+  "mode": "orchestrated",
   "status": "PASS",
   "verifiedCommit": "<HEAD>",
-  "base": "development",
-  "target": "test",
-  "checked": ["AGENTS.md", "CLAUDE.md", "ADR-001", "diff"],
-  "findings": [],
-  "summary": "..."
+  "base": "origin/test",
+  "report": ".context/reviews/<slug>.md",
+  "findings": [
+    {"id": "R1", "estado": "Considerar", "disposition": "SKIP", "reason": "..."}
+  ]
 }
 ```
-
-Cada finding debe incluir categoría (`LOGIC`, `SECURITY`, `ARCHITECTURE`, `DATA`, `REGRESSION`,
-`UX` o `SCOPE`), severidad, paths, evidencia y disposición. Usar `FIX` para una infracción concreta que
-puede repararse sin cambiar acuerdos; usar `NEEDS_USER_DECISION` si contradice una decisión
-aprobada o requiere cambiar scope; registrar problemas heredados como `OUT_OF_SCOPE`. No rebajar
-un finding para obtener `PASS`.
 
 Completar la etapa sólo con un recibo `PASS` para el HEAD exacto:
 
@@ -346,12 +348,11 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint \
   --phase local-review --artifact local-review=validation/local-review.json
 ```
 
-`reviewer` es `codex-native-subagent` o `claude-native-subagent` según el `harness` de
-`stage-plan`. El motor rechaza recibos fuera del run, otro SHA, otro reviewer o estados `FIX`/
-`NEEDS_USER_DECISION`. Con `FIX`, entregar los findings a `issue-delivery-implement`, validar,
-repetir Refactor y volver a integrar `target` cuando corresponda antes de ejecutar otra vez esta
-etapa. Con `NEEDS_USER_DECISION`, ejecutar `block --decision` y detenerse. Todo cambio posterior que
-pueda afectar el flujo invalida el recibo y exige repetir la revisión local y la revisión UI.
+El motor exige `reviewer: review-pr`, un modo válido, un reporte no vacío bajo `.context/reviews/`
+que nombre el SHA revisado, y rechaza un `PASS` con hallazgos `Corregir` o disposiciones `FIX` o
+`NEEDS_USER_DECISION`. Con `NEEDS_USER_DECISION`, ejecutar `block --decision` y detenerse. Todo
+cambio posterior que pueda afectar el flujo invalida el recibo y exige repetir la revisión local y
+la revisión UI.
 
 En un run `manual-runtime`, esta etapa sí se ejecuta; después de su `PASS` continuar directamente
 con `runtime-reset` y `runtime-handoff`, sin Computer Use ni PR.
@@ -576,8 +577,10 @@ no consume presupuesto de reparación.
 7. Con presupuesto disponible, reparar cada `FIX` mediante `issue-delivery-implement` y aplicar
    íntegramente la invariante de reparación y handoff. Usar un commit por causa raíz; agrupar sólo
    cambios íntimamente relacionados.
-8. Validar y ejecutar el reviewer seleccionado antes de un único push por reparación. Después del
-   push registrar una sola vez el SHA y todos los `FIX` incluidos:
+8. Validar y ejecutar el reviewer seleccionado antes de un único push por reparación. Antes del
+   push, ejecutar también `review-pr` con el SHA previo a la reparación como base y reparar sus
+   `Corregir`. Registrar una señal de lección por cada `FIX`. Después del push registrar una sola
+   vez el SHA y todos los `FIX` incluidos:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> record-review-repair \
@@ -694,6 +697,12 @@ Si el código cambió o el usuario pide un ajuste, aplicar la invariante de repa
 
 Sólo en `conductor-cloud` y cuando el usuario lo pida después del handoff, abrir la app en el
 escritorio de Conductor con `desktop-open` según [desktop-browser.md](references/desktop-browser.md).
+
+## Pasar la PR a ready
+
+Sólo cuando el usuario lo pida, ejecutar `lessons-learned` y luego `gh pr ready` según la sección
+"Lecciones al pasar la PR a ready" de [repo-rules.md](references/repo-rules.md). En
+`manual-runtime`, ejecutar `lessons-learned` cuando el usuario dé por terminada la tarea.
 
 ## Review humano posterior y cleanup
 

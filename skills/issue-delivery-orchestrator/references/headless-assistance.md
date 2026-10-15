@@ -48,7 +48,7 @@ con Chrome es el reviewer principal y debe usar `issue-delivery-playwright-revie
    .local-runtime/issue-delivery-orchestrator/<run-id>/validation/headless-assistance/<story-id>/
    ```
 
-6. Respetar `AGENTS.md` y los comandos de runtime/E2E del repositorio.
+6. Respetar las reglas del repositorio ([repo-rules.md](repo-rules.md)) y los comandos de runtime/E2E del repositorio.
 7. No considerar un test verde como verificación visual. Inspeccionar cada screenshot y contrastarlo
    con el criterio esperado.
 

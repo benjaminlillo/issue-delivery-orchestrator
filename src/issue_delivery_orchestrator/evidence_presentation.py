@@ -14,7 +14,7 @@ def linear_run_section(
     for asset in assets:
         caption = _asset_caption(asset, original_url=asset.get("originalUrl"))
         items.append(
-            f"#### {asset['storyId']} — {asset['title']}\n\n"
+            f"#### {asset['storyId']}. {asset['title']}\n\n"
             f"![{asset['title']}]({asset['url']}){caption}"
         )
     # Linear renders image syntax pointing to an uploaded video as an inline player.
@@ -44,7 +44,7 @@ def pr_body(
             original_url=asset.get("githubOriginalUrl"),
         )
         items.append(
-            f"### {asset['storyId']} — {asset['title']}\n\n"
+            f"### {asset['storyId']}. {asset['title']}\n\n"
             f"![{asset['title']}]({github_url}){caption}"
         )
     # GitHub cannot play videos from the API; link to the Linear player instead.

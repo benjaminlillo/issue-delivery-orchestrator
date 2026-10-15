@@ -249,7 +249,7 @@ def publish_skip_summary(state: dict[str, Any]) -> dict[str, Any]:
     marker = f"<!-- issue-delivery-skip-summary:{state['runId']}:{number} -->"
     lines = [
         marker,
-        "## Blockers revisados — SKIP",
+        "## Blockers que no voy a corregir",
         "",
         (
             "Revisé los siguientes blockers automatizados y no aplicaré cambios por "
