@@ -53,6 +53,7 @@
       "x100-production"
     ],
     "repairBatchSize": 5,
+    "readyLabel": "ASSIGN_REVIEWER",
     "quietSeconds": 600,
     "maximumWaitSeconds": 1200,
     "pollSeconds": 15

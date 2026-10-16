@@ -25,6 +25,7 @@ from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
 from .local_review import validate_local_review
+from .pr_ready import mark_pr_ready
 from .runtime_handoff import prepare_runtime_handoff
 from .runtime_restore import restore_runtime
 from .runtime_reset import reset_final_runtime
@@ -225,6 +226,10 @@ def parser() -> argparse.ArgumentParser:
 
     actions.add_parser("review-gate")
 
+    actions.add_parser(
+        "pr-ready", help="Mark the handed-off draft PR ready for review and add its review label"
+    )
+
     cleanup = actions.add_parser("cleanup")
     cleanup.add_argument("--force", action="store_true")
     return result
@@ -296,6 +301,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         "record-skip",
         "publish-skip-summary",
         "review-gate",
+        "pr-ready",
     }:
         raise RunBlocked(
             "This action belongs to full delivery and is disabled for manual-runtime; "
@@ -469,6 +475,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return publish_skip_summary(state)
     if args.action == "review-gate":
         return assert_review_converged(state)
+    if args.action == "pr-ready":
+        return mark_pr_ready(state)
     if args.action == "cleanup":
         return final_cleanup(state, force=args.force)
     raise OrchestrationError(f"Unknown action: {args.action}")

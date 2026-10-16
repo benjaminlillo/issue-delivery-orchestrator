@@ -36,6 +36,7 @@ class Settings:
     bot_names: tuple[str, ...]
     blocker_bots: tuple[str, ...]
     review_repair_batch_size: int
+    ready_label: str
     quiet_seconds: int
     maximum_wait_seconds: int
     poll_seconds: int
@@ -126,6 +127,7 @@ def settings() -> Settings:
             review,
             "repairBatchSize" if "repairBatchSize" in review else "maximumRounds",
         ),
+        ready_label=str(review.get("readyLabel") or "").strip(),
         quiet_seconds=_positive_integer(review, "quietSeconds"),
         maximum_wait_seconds=_positive_integer(review, "maximumWaitSeconds"),
         poll_seconds=_positive_integer(review, "pollSeconds"),

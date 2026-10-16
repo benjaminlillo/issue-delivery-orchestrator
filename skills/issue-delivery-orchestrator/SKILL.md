@@ -700,9 +700,29 @@ escritorio de Conductor con `desktop-open` según [desktop-browser.md](reference
 
 ## Pasar la PR a ready
 
-Sólo cuando el usuario lo pida, ejecutar `lessons-learned` y luego `gh pr ready` según la sección
-"Lecciones al pasar la PR a ready" de [repo-rules.md](references/repo-rules.md). En
-`manual-runtime`, ejecutar `lessons-learned` cuando el usuario dé por terminada la tarea.
+Sólo cuando el usuario lo pida, en este orden:
+
+1. Revisar si la PR tiene conflictos con `target` (`gh pr view --json mergeable`; si dice
+   `UNKNOWN`, esperar y repetir). Si los tiene, hacer merge de `origin/<target>` en la branch y
+   resolverlos con las reglas de "4. Integrar la branch objetivo", preservando spec y
+   comportamiento de ambas ramas. Como cambia el código, aplicar íntegramente la invariante de
+   reparación y handoff: validación, `review-pr` desde el SHA anterior, reviewer UI del modo,
+   evidencia y un handoff final nuevo. Luego hacer push.
+2. Ejecutar `lessons-learned` según "Lecciones al pasar la PR a ready" en
+   [repo-rules.md](references/repo-rules.md).
+3. Ejecutar:
+
+   ```bash
+   python3 <plugin-root>/scripts/issue-delivery <issue> pr-ready
+   ```
+
+   El motor exige que el código sea el del último handoff (sólo admite commits de
+   `docs/lessons/` encima), que la PR no tenga conflictos y que su head sea el HEAD local. Después
+   la pasa a ready, agrega la label `review.readyLabel` del perfil (`ASSIGN_REVIEWER` en
+   TurboShop) y verifica ambas cosas en GitHub.
+
+En `manual-runtime` no hay PR: ejecutar `lessons-learned` cuando el usuario dé por terminada la
+tarea.
 
 ## Review humano posterior y cleanup
 

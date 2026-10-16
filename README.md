@@ -154,7 +154,9 @@ TurboShop that is `AGENTS.md`, `CODING_STANDARDS.md`, the matching `docs/rules/`
 `AGENTS.md` of each touched app. Cards in `docs/lessons/` are never treated as rules. Local Review
 runs the repository's `review-pr` skill against `REVIEW.md`, and repairs are re-reviewed before
 each push. Commits follow `docs/rules/git.md`. During a run the agent only records lesson signals;
-when the user asks to mark the draft PR ready, it runs `lessons-learned` and then `gh pr ready`.
+when the user asks to mark the draft PR ready, it resolves conflicts with the target through the
+repair flow, runs `lessons-learned`, and then `pr-ready` marks the PR ready and adds the profile's
+`review.readyLabel` (`ASSIGN_REVIEWER` in TurboShop).
 Commits that only add `docs/lessons/` cards do not invalidate the handoff. See
 [repository rules](skills/issue-delivery-orchestrator/references/repo-rules.md).
 

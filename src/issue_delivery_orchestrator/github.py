@@ -107,6 +107,22 @@ class GitHubClient:
             raise OrchestrationError(f"Could not resolve PR head SHA for {reference}")
         return head_sha
 
+    def readiness(self, reference: str) -> dict[str, Any]:
+        result = run(
+            [
+                "gh", "pr", "view", reference,
+                "--json", "number,url,isDraft,mergeable,headRefOid,labels",
+            ],
+            cwd=self.cwd,
+        )
+        return json.loads(result.stdout)
+
+    def mark_ready(self, reference: str) -> None:
+        run(["gh", "pr", "ready", reference], cwd=self.cwd)
+
+    def add_label(self, reference: str, label: str) -> None:
+        run(["gh", "pr", "edit", reference, "--add-label", label], cwd=self.cwd)
+
     def create(self, head: str, title: str, body_file: Path) -> PullRequest:
         result = run(
             [

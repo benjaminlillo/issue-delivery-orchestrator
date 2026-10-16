@@ -55,5 +55,6 @@ El run deja la PR en draft. Cuando el usuario pida pasarla a ready, o dé por te
 2. La skill commitea sólo tarjetas de `docs/lessons/` y hace push. El motor ignora esos commits al
    comparar el código entregado, así que el handoff, `runtime-restore` y el escritorio siguen
    válidos.
-3. Recién entonces ejecutar `gh pr ready`. No correr `lessons-learned` sobre una PR draft ni en
-   medio del run.
+3. Recién entonces ejecutar `pr-ready`, que pasa la PR a ready y agrega la label de revisión. Los
+   conflictos se resuelven antes del paso 1, como indica "Pasar la PR a ready" del orquestador. No
+   correr `lessons-learned` sobre una PR draft ni en medio del run.
