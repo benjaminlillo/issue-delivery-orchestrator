@@ -165,8 +165,10 @@ explícitas que ya existan en el spec. Toda regla que requiera inferir una decis
 Los SKIP son pegajosos por causa raíz. Guardarlos mediante `issue-delivery-blocker-triage` dentro de `.local-runtime/issue-delivery-orchestrator/<run-id>/blocker-triage/`, incluyendo un motivo público breve y sin información sensible.
 
 Después de cerrar cada comentario general de los `blockerBots` con `FIX` validado/pusheado, ejecutar
-`acknowledge-blocker --decision FIX`. El comando valida autor, PR y presencia de blockers reales,
-añade `+1` idempotente como la identidad GitHub configurada y persiste `reviewAcknowledgements`.
+`acknowledge-blocker --decision FIX`. Un comentario de los `blockerBots` que el agente leyó y no trae
+blockers se reconoce con `--decision NONE`. El comando valida autor y PR, sin interpretar el texto
+del bot, añade `+1` idempotente como la identidad GitHub configurada y persiste
+`reviewAcknowledgements`.
 
 Registrar cada `SKIP` en cuanto se decide con `record-skip --comment-id <id> --title <t> --reason <motivo>`. El motor guarda el motivo público en `review/skip-ledger.json` sin tocar GitHub; en rondas intermedias los `SKIP` no se publican, resuelven ni reconocen.
 
@@ -183,8 +185,8 @@ Antes de completar `review-convergence`, ejecutar `review-gate`. El gate vuelve 
 GitHub en vivo y exige simultáneamente:
 
 - cero `reviewThreads` inline no resueltos que contengan comentarios de bots configurados;
-- cero comentarios generales accionables de los `blockerBots` sin reacción `+1` de la identidad
-  GitHub configurada;
+- cero comentarios generales de los `blockerBots` sin reacción `+1` de la identidad GitHub
+  configurada, sea cual sea su formato;
 - cero reconocimientos `SKIP` que no estén incluidos en el resumen público.
 
 Los comentarios humanos quedan fuera del ciclo automático. El propio

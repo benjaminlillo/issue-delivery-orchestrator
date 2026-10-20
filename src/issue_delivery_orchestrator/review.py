@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -86,6 +85,10 @@ def review_snapshot(worktree: Path, pr_number: int) -> dict[str, Any]:
     }
 
 
+# NONE marks a blocker bot comment the agent read and found without blockers to process.
+DECISIONS = {"FIX", "SKIP", "NONE"}
+
+
 def acknowledge_processed_blocker(
     state: dict[str, Any],
     *,
@@ -99,13 +102,13 @@ def acknowledge_processed_blocker(
     comment_pr = int(str(comment.get("issue_url") or "").rstrip("/").rsplit("/", 1)[-1])
     if comment_pr != pr.number:
         raise RunBlocked(f"Comment {comment_id} does not belong to PR #{pr.number}")
-    if not _is_actionable_blocker_comment(comment):
+    if not _is_blocker_bot(str((comment.get("user") or {}).get("login") or "")):
         raise RunBlocked(
-            f"Comment {comment_id} is not an actionable blocker comment from "
+            f"Comment {comment_id} is not from the blocker bots "
             f"{', '.join(settings().blocker_bots)}"
         )
-    if decision not in {"FIX", "SKIP"}:
-        raise RunBlocked("Processed blocker decision must be FIX or SKIP")
+    if decision not in DECISIONS:
+        raise RunBlocked("Processed blocker decision must be FIX, SKIP or NONE")
     if decision == "SKIP":
         published_ids = {
             int(item)
@@ -239,7 +242,8 @@ def publish_skip_summary(state: dict[str, Any]) -> dict[str, Any]:
     if missing:
         raise RunBlocked(
             "Publish the SKIP summary only when the review ends with every pending automated "
-            f"blocker recorded as SKIP with record-skip; missing={missing}"
+            "blocker recorded as SKIP with record-skip, and every comment without blockers "
+            f"acknowledged with --decision NONE; missing={missing}"
         )
     summary = _skip_summary(state)
     if not to_publish:
@@ -454,36 +458,13 @@ def _flatten(value: Any) -> list[dict[str, Any]]:
 
 
 def _is_relevant_bot(comment: dict[str, Any]) -> bool:
-    author = str((comment.get("user") or {}).get("login") or "").lower()
-    configuration = settings()
-    if not any(name in author for name in configuration.bot_names):
-        return False
-    if _is_blocker_bot(author, configuration.blocker_bots):
-        return _is_actionable_blocker_comment(comment)
-    return True
+    """Keep every comment from a configured bot; the agent, not a text pattern, reads it.
 
-
-def _is_actionable_blocker_comment(comment: dict[str, Any]) -> bool:
+    Bots change their wording and markup without notice. Filtering by format once let a
+    review full of blockers pass the gate unread, so nothing here inspects the body.
+    """
     author = str((comment.get("user") or {}).get("login") or "").lower()
-    if not _is_blocker_bot(author):
-        return False
-    body = str(comment.get("body") or "")
-    match = re.search(
-        r"(?is)\bblockers?\s*:\s*(.*?)(?=\n\s*[🟡🟢🔵]|\Z)",
-        body,
-    )
-    if not match:
-        return False
-    content = match.group(1).strip()
-    return bool(content) and not bool(
-        re.match(
-            r"(?is)^[-*]?\s*("
-            r"ninguno|none|no blockers?|"
-            r"no encontr[ée]\b.*\b(blockers?|defectos?|regresiones?)"
-            r")\b",
-            content,
-        )
-    )
+    return any(name in author for name in settings().bot_names)
 
 
 def _is_blocker_bot(

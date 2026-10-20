@@ -166,59 +166,50 @@ class ReviewFilterTests(unittest.TestCase):
                 artifact="review/request.json",
             )
 
-    def test_includes_coderabbit_and_configured_blocker_bots(self):
-        self.assertTrue(
-            _is_relevant_bot(
-                {"user": {"login": "coderabbitai[bot]"}, "body": "Concrete issue"}
-            )
+    def test_keeps_every_configured_bot_comment_regardless_of_its_format(self):
+        bodies = (
+            "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
+            "🔴 **BLOCKERS**\n\n- **B1** `file.ts:10` Broken",
+            "**Sin blockers nuevos** frente a la ronda anterior",
+            "🔴 BLOCKERS:\n\n- Ninguno.",
+            "Refactor suggestion",
         )
-        self.assertTrue(
-            _is_relevant_bot(
-                {
-                    "user": {"login": "Hellonston"},
-                    "body": "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
-                }
-            )
-        )
-        self.assertTrue(
-            _is_relevant_bot(
-                {
-                    "user": {"login": "x100-production[bot]"},
-                    "body": "🔴 BLOCKERS:\n\n- Broken\n\n🟡 SUGERENCIAS:",
-                }
-            )
-        )
+        for login in ("coderabbitai[bot]", "Hellonston", "x100-production[bot]"):
+            for body in bodies:
+                with self.subTest(login=login, body=body):
+                    self.assertTrue(_is_relevant_bot({"user": {"login": login}, "body": body}))
         self.assertFalse(
-            _is_relevant_bot(
-                {
-                    "user": {"login": "Hellonston"},
-                    "body": "🔴 BLOCKERS:\n\n- Ninguno.\n\n🟡 SUGERENCIAS:",
+            _is_relevant_bot({"user": {"login": "human-reviewer"}, "body": "Please change this"})
+        )
+
+    def test_acknowledges_blocker_bot_comments_without_blockers_as_none(self):
+        with tempfile.TemporaryDirectory() as raw:
+            state = {
+                "worktree": raw,
+                "runId": "run-1",
+                "pr": {"url": "https://github.com/example/repo/pull/10"},
+                "reviewAcknowledgements": [],
+            }
+            client = Mock()
+            client.view.return_value = SimpleNamespace(number=10)
+            client.issue_comment.return_value = {
+                "id": 123,
+                "issue_url": "https://api.github.com/repos/example/repo/issues/10",
+                "html_url": "https://github.com/example/repo/pull/10#issuecomment-123",
+                "user": {"login": "x100-production[bot]"},
+                "body": "**Sin blockers nuevos** frente a la ronda anterior",
+            }
+            client.add_issue_comment_reaction.return_value = True
+            with patch("issue_delivery_orchestrator.review.GitHubClient", return_value=client):
+                result = acknowledge_processed_blocker(state, comment_id=123, decision="NONE")
+                client.issue_comment.return_value = {
+                    **client.issue_comment.return_value, "user": {"login": "human-reviewer"},
                 }
-            )
-        )
-        self.assertFalse(
-            _is_relevant_bot(
-                {
-                    "user": {"login": "Hellonston"},
-                    "body": (
-                        "🔴 BLOCKERS:\n\n"
-                        "- No encontré defectos funcionales ni regresiones que "
-                        "bloqueen la aprobación.\n\n"
-                        "🟡 SUGERENCIAS:"
-                    ),
-                }
-            )
-        )
-        self.assertFalse(
-            _is_relevant_bot(
-                {"user": {"login": "Hellonston"}, "body": "Refactor suggestion"}
-            )
-        )
-        self.assertFalse(
-            _is_relevant_bot(
-                {"user": {"login": "human-reviewer"}, "body": "Please change this"}
-            )
-        )
+                with self.assertRaisesRegex(RunBlocked, "not from the blocker bots"):
+                    acknowledge_processed_blocker(state, comment_id=123, decision="NONE")
+
+            self.assertEqual(result["decision"], "NONE")
+            client.add_issue_comment_reaction.assert_called_once_with(123, content="+1")
 
     def test_acknowledges_processed_blocker_and_records_decision(self):
         with tempfile.TemporaryDirectory() as raw:

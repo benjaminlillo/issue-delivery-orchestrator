@@ -211,7 +211,7 @@ def parser() -> argparse.ArgumentParser:
 
     acknowledgement = actions.add_parser("acknowledge-blocker")
     acknowledgement.add_argument("--comment-id", type=int, required=True)
-    acknowledgement.add_argument("--decision", choices=("FIX", "SKIP"), required=True)
+    acknowledgement.add_argument("--decision", choices=("FIX", "SKIP", "NONE"), required=True)
 
     skip = actions.add_parser(
         "record-skip", help="Record a SKIP's public reason until the review ends"

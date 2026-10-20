@@ -530,10 +530,18 @@ python3 <plugin-root>/scripts/issue-delivery <issue> wait-review
 
 Cada ronda usa los tiempos y autores automatizados declarados por el perfil. En el perfil TurboShop,
 esperar diez minutos de quietud desde el último cambio relevante, con un máximo de veinte minutos
-por ronda y polling cada quince segundos. Procesar sólo problemas concretos de los bots configurados
-y sólo la sección `BLOCKERS` de los `blockerBots`; ignorar summaries, walkthroughs, sugerencias
-opcionales y comentarios humanos durante el ciclo automático. `wait-review` guarda un snapshot pero
-no consume presupuesto de reparación.
+por ronda y polling cada quince segundos. Procesar sólo problemas concretos de los bots configurados;
+ignorar summaries, walkthroughs, sugerencias opcionales y comentarios humanos durante el ciclo
+automático. `wait-review` guarda un snapshot pero no consume presupuesto de reparación.
+
+El motor no interpreta el texto de los bots: el snapshot trae todo comentario de un `blockerBot` y
+cada uno queda pendiente hasta procesarlo. Leer cada comentario completo, sin depender de su
+formato, emojis ni encabezados, que los bots cambian sin aviso. Son blockers los problemas que el
+bot presenta como bloqueantes o requeridos antes de aprobar; no lo son sus sugerencias,
+cumplimientos ni resúmenes. Si un comentario no trae blockers que procesar (por ejemplo, "sin
+blockers nuevos" o sólo blockers ya reportados y resueltos), reconocerlo con
+`acknowledge-blocker --comment-id <id> --decision NONE`. Si no se puede saber si un comentario trae
+blockers, tratarlo como blocker y llevarlo a triage.
 
 1. Invocar `issue-delivery-blocker-triage` con el snapshot.
 2. Si una solicitud contradice spec, ticket o decisión del Grill, registrar `NEEDS_USER_DECISION` y pausar.
@@ -646,7 +654,7 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase review-c
 
 `review-gate` consulta en vivo los `reviewThreads` inline mediante GraphQL y los comentarios
 generales de la PR. Debe bloquear mientras exista un thread automatizado sin resolver o un
-comentario general accionable de los `blockerBots` sin `+1` de la identidad GitHub configurada; los comentarios humanos
+comentario general de los `blockerBots` sin `+1` de la identidad GitHub configurada; los comentarios humanos
 no participan del gate automático. El checkpoint de `review-convergence` vuelve a ejecutar el
 mismo gate y no puede omitirse aunque el snapshot de una ronda esté incompleto o desactualizado.
 También rechaza todo `SKIP` reconocido que no figure en un resumen público. Procesar todo
