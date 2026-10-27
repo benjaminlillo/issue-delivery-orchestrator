@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-orchestrator
-description: "Orquestar una issue de Linear en modo Codex, Superset, Vanilla o Conductor Cloud: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores."
+description: "Orquestar una issue de Linear en modo Codex, Superset, Vanilla o Conductor Cloud: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores. Funciona igual en sesiones de Codex y de Claude Code; para lanzarlo en una sesión nueva, usar el agente que tenga credenciales y, si Conductor rechaza uno por falta de credenciales, crear la sesión con el otro."
 ---
 
 # Issue Delivery Orchestrator

@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.32.1",
+  "version": "0.32.2",
   "description": "Deliver Linear issues through a verified PR or hand off a fresh healthy runtime for manual review.",
   "author": {
     "name": "Benjamin Lillo"
@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Issue Delivery Orchestrator",
     "shortDescription": "Deliver issues to a PR or a manual runtime.",
-    "longDescription": "A resumable delivery workflow for Codex, Superset, standalone Vanilla, and Conductor Cloud worktrees, with full verified-PR delivery and a fresh Local Runtime handoff for user testing.",
+    "longDescription": "A resumable delivery workflow, for Codex or Claude Code sessions, in Codex, Superset, standalone Vanilla, and Conductor Cloud worktrees, with full verified-PR delivery and a fresh Local Runtime handoff for user testing.",
     "developerName": "Benjamin Lillo",
     "category": "Productivity",
     "capabilities": [

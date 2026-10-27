@@ -63,7 +63,9 @@ supported primary-reviewer capability gap; the plugin does not install or add it
 
 ### Prerequisites
 
-- Codex CLI with plugin support.
+- Codex CLI or Claude Code with plugin support. Only one of them is needed; runs behave the same in
+  both, except `codex` mode, which needs the Codex app. When launching a run in a new Conductor
+  session, use whichever agent has credentials and fall back to the other if Conductor rejects one.
 - Git and GitHub CLI (`gh`) authenticated with access to this private repository.
 - Python 3.9 or newer.
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
