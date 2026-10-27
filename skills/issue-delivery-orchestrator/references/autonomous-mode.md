@@ -31,8 +31,12 @@ cumpla la issue:
    imprescindible va a `Deferred`.
 2. Las reglas del repositorio y los patrones existentes de la app. Una regla del repositorio gana
    sobre el spec: corregir el spec antes de implementar.
-3. El comportamiento actual en todo lo que la issue no pide cambiar.
-4. Sin Figma u otro diseño, la estética de la app y los componentes hermanos de la página.
+3. Lo más consistente para el usuario final: que el cambio se comporte como los flujos parecidos
+   que ya usa en la app. Mismos pasos, textos, estados vacíos, mensajes de error, confirmaciones,
+   ubicación de acciones y navegación. Si dos opciones cumplen la issue, elegir la que el usuario
+   ya conoce de otra pantalla y nombrarla en el fundamento.
+4. El comportamiento actual en todo lo que la issue no pide cambiar.
+5. Sin Figma u otro diseño, la estética de la app y los componentes hermanos de la página.
 
 Registrar cada decisión en `.local-runtime/issue-delivery-orchestrator/<run-id>/decisions.md`:
 etapa, pregunta, decisión, fundamento y alternativas descartadas. El registro permite al usuario
@@ -41,7 +45,9 @@ revisar después lo que el run decidió.
 ## Por etapa
 
 - **Grill.** No entrevistar. Responder cada pregunta que se habría hecho con su decisión y
-  fundamento, incluidos los criterios `UX-NNN` y `UXD-NNN`. Si Figma no es accesible, seguir sin él
+  fundamento, incluidos los criterios `UX-NNN` y `UXD-NNN`. En cada decisión que el usuario
+  final verá, buscar en la app los flujos parecidos y citar en `decisions.md` cuál se tomó como
+  referencia. Si Figma no es accesible, seguir sin él
   y registrarlo.
 - **Spec y tickets.** Una vez que superan todas las validaciones de los publicadores, quedan
   aprobados automáticamente. Publicarlos en Linear sin esperar. La nota de publicación dice que el
