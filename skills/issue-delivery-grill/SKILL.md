@@ -5,6 +5,8 @@ description: Relentlessly interview the user and inspect the repository to refin
 
 # Grill To Spec
 
+In an autonomous run (`autonomy: autonomous` in `status`), follow [autonomous-mode.md](../issue-delivery-orchestrator/references/autonomous-mode.md) instead of asking or waiting for approval.
+
 ## Own the spec, not its destination
 
 Own the interview, repository research, decision quality, and final spec body. Do not create

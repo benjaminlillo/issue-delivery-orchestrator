@@ -5,6 +5,8 @@ description: Slice an approved Issue Delivery Orchestrator spec into implementat
 
 # Issue Delivery Ticket Publisher
 
+In an autonomous run (`autonomy: autonomous` in `status`), follow [autonomous-mode.md](../issue-delivery-orchestrator/references/autonomous-mode.md) instead of asking or waiting for approval.
+
 Own ticket slicing, AFK/HITL classification, dependencies, approval and Linear publication. Use the
 approved canonical spec as the only source of product scope.
 

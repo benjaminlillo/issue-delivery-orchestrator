@@ -5,6 +5,8 @@ description: "Analizar comentarios o blockers de code review de la PR asociada a
 
 # Blocker Triage
 
+En un run autónomo (`autonomy: autonomous` en `status`), seguir [autonomous-mode.md](../issue-delivery-orchestrator/references/autonomous-mode.md) en lugar de pedir una decisión al usuario.
+
 Evaluar feedback de review sin modificar código, responder comentarios ni resolver threads. Entregar una decisión argumentada por blocker, incluir un motivo público breve para cada `SKIP` y guardar el historial local de la PR para mantener criterios entre rondas. La publicación posterior corresponde al orquestador.
 
 ## Preparar el contexto

@@ -34,6 +34,8 @@ PHASES = (
 REVIEW_METHODS = ("cua-driver", "codex-browser", "playwright-chrome")
 DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud")
 HANDOFF_MODES = ("full", "manual-runtime")
+# Autonomous runs never wait for the user: the agent decides, approves and records each decision.
+AUTONOMY_MODES = ("interactive", "autonomous")
 MODE_REVIEWERS = {
     "codex": "codex-browser",
     "superset": "cua-driver",
@@ -91,6 +93,7 @@ def create_state(
     identities: dict[str, str],
     mode: str = "superset",
     handoff: str = "full",
+    autonomy: str = "interactive",
     profile: dict[str, Any] | None = None,
     target: str = DEFAULT_PR_TARGET_BRANCH,
 ) -> dict[str, Any]:
@@ -98,6 +101,8 @@ def create_state(
         raise OrchestrationError(f"Unsupported development mode: {mode}")
     if handoff not in HANDOFF_MODES:
         raise OrchestrationError(f"Unsupported handoff mode: {handoff}")
+    if autonomy not in AUTONOMY_MODES:
+        raise OrchestrationError(f"Unsupported autonomy mode: {autonomy}")
     reviewer_method = MODE_REVIEWERS[mode]
     review_repair_batch_size = settings().review_repair_batch_size
     root = run_root(worktree, run_id)
@@ -148,6 +153,10 @@ def create_state(
         },
         "handoff": {
             "mode": handoff,
+            "selectedAt": now(),
+        },
+        "autonomy": {
+            "mode": autonomy,
             "selectedAt": now(),
         },
         "reviewer": {
@@ -298,6 +307,13 @@ def resume_run(state: dict[str, Any], *, full_delivery: bool = False) -> None:
     )
     state["blocker"] = None
     save_state(state)
+
+
+def autonomy_mode(state: dict[str, Any]) -> str:
+    mode = str((state.get("autonomy") or {}).get("mode") or "interactive")
+    if mode not in AUTONOMY_MODES:
+        raise OrchestrationError(f"Run has unsupported autonomy mode: {mode}")
+    return mode
 
 
 def handoff_mode(state: dict[str, Any]) -> str:

@@ -46,6 +46,8 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    pedir al usuario que abra manualmente otro con su setup local.
 4. Elegir el objetivo de entrega. Usar `full` por defecto. Sólo si el usuario pide detenerse tras la
    implementación para revisar y preparar la PR manualmente, seleccionar `manual-runtime`.
+   Si el usuario pide "modo autónomo", agregar `--autonomy autonomous` y seguir
+   [autonomous-mode.md](references/autonomous-mode.md) en todo el run.
    Ejecutar, agregando `--mode <codex|superset|vanilla|conductor-cloud>` sólo cuando el usuario
    indique uno y
    `--handoff manual-runtime` sólo para esa solicitud explícita:
@@ -53,7 +55,7 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
      [--mode <codex|superset|vanilla|conductor-cloud>] \
-     [--handoff manual-runtime] \
+     [--handoff manual-runtime] [--autonomy autonomous] \
      --base <branch-base> --target <branch-target> [--new-run]
    ```
 
@@ -209,6 +211,10 @@ preguntas, aprobaciones y gates; sólo delega el trabajo delimitado de la etapa.
 modelo ni sustituirlo silenciosamente. Esta regla también aplica a reparaciones posteriores.
 
 ## 1. Grill
+
+Si `status` muestra `autonomy: autonomous`, cada pregunta, aprobación o `NEEDS_USER_DECISION` de
+este documento y de las skills que invoca se resuelve según
+[autonomous-mode.md](references/autonomous-mode.md), sin esperar al usuario.
 
 1. Leer [repo-rules.md](references/repo-rules.md) y aplicar sus capas en todas las etapas. Leer la
    issue, el repositorio, las reglas aplicables, ADRs aceptados, context maps y

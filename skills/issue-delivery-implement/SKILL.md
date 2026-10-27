@@ -5,6 +5,8 @@ description: "Implementar o reparar un ticket aprobado con alcance YAGNI, obedie
 
 # Implement
 
+En un run autónomo (`autonomy: autonomous` en `status`), seguir [autonomous-mode.md](../issue-delivery-orchestrator/references/autonomous-mode.md) en lugar de pedir una decisión al usuario.
+
 Implementar una unidad de trabajo a la vez. Exigir como entrada el spec vigente —incluyendo
 `Architecture Constraints`—, ticket o finding, SHA inicial y criterios de aceptación. Aplicar las
 reglas del repositorio según [repo-rules.md](../issue-delivery-orchestrator/references/repo-rules.md) y leer las fuentes

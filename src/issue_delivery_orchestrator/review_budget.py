@@ -151,7 +151,9 @@ def request_review_extension(
     }
 
 
-def approve_review_extension(state: dict[str, Any]) -> dict[str, Any]:
+def approve_review_extension(
+    state: dict[str, Any], *, source: str = "explicit-user-approval"
+) -> dict[str, Any]:
     blocker = state.get("blocker") or {}
     if (
         state.get("status") != "needs_user_decision"
@@ -172,7 +174,7 @@ def approve_review_extension(state: dict[str, Any]) -> dict[str, Any]:
             "newLimit": previous_limit + increment,
             "pendingFixes": blocker.get("pendingFixes", []),
             "requestArtifact": blocker.get("requestArtifact"),
-            "source": "explicit-user-approval",
+            "source": source,
         }
     )
     resume_run(state)

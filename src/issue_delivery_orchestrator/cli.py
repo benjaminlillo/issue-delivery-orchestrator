@@ -50,10 +50,12 @@ from .runtime import (
     stop_owned_processes,
 )
 from .state import (
+    AUTONOMY_MODES,
     DEVELOPMENT_MODES,
     HANDOFF_MODES,
     PHASES,
     REVIEW_METHODS,
+    autonomy_mode,
     block_run,
     complete_phase,
     create_state,
@@ -74,6 +76,10 @@ from .stage_models import parse_stage_models, stage_plan, update_stage_models
 from .token_usage import attach_token_usage
 from .util import ensure_within, run
 from .ux_acceptance import assert_acceptance_verified
+
+
+# Extra repair blocks an autonomous run may grant itself before skipping remaining fixes.
+AUTONOMOUS_REVIEW_EXTENSIONS = 2
 
 
 def parser() -> argparse.ArgumentParser:
@@ -111,6 +117,11 @@ def parser() -> argparse.ArgumentParser:
         "--handoff",
         choices=HANDOFF_MODES,
         help="Delivery target for a new run; defaults to full",
+    )
+    result.add_argument(
+        "--autonomy",
+        choices=AUTONOMY_MODES,
+        help="Whether a new run asks the user (interactive, default) or decides alone (autonomous)",
     )
     result.add_argument(
         "--stage-model", action="append", default=[], metavar="STAGE=MODEL",
@@ -346,6 +357,11 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             stopped = stop_owned_processes(state)
         return {"state": _public_state(state), "stoppedPids": stopped}
     if args.action == "block":
+        if args.decision and autonomy_mode(state) == "autonomous":
+            raise RunBlocked(
+                "Autonomous runs never wait for a user decision: decide with the autonomous "
+                "criteria and record it, or block without --decision for a technical impediment"
+            )
         stopped = stop_owned_processes(state)
         block_run(state, args.reason, args.decision)
         return {"state": _public_state(state), "stoppedPids": stopped}
@@ -449,12 +465,23 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             run_root(Path(state["worktree"]), state["runId"]),
         )
         fixes = _review_extension_fixes(request_path)
+        autonomous = autonomy_mode(state) == "autonomous"
+        extensions = len((state.get("reviewRepairBudget") or {}).get("extensions", []))
+        if autonomous and extensions >= AUTONOMOUS_REVIEW_EXTENSIONS:
+            raise RunBlocked(
+                "The autonomous repair budget is exhausted: decide each remaining FIX as SKIP "
+                "with a public reason and close the review"
+            )
         result = request_review_extension(
             state,
             fixes=fixes,
             artifact=str(request_path.relative_to(Path(state["worktree"]))),
         )
         stopped = stop_owned_processes(state)
+        if autonomous:
+            budget = approve_review_extension(state, source="autonomous-mode")
+            return {**result, "budget": budget, "autoApproved": True, "stoppedPids": stopped,
+                    "state": _public_state(state)}
         return {**result, "stoppedPids": stopped, "state": _public_state(state)}
     if args.action == "approve-review-extension":
         budget = approve_review_extension(state)
@@ -522,6 +549,11 @@ def bootstrap(
             raise RunBlocked(
                 f"Run {previous['runId']} already uses {handoff_mode(previous)} handoff; "
                 "handoff mode cannot change during bootstrap"
+            )
+        if args.autonomy and args.autonomy != autonomy_mode(previous):
+            raise RunBlocked(
+                f"Run {previous['runId']} is {autonomy_mode(previous)}; "
+                "autonomy cannot change during bootstrap"
             )
         selections = parse_stage_models(args.stage_model)
         if selections:
@@ -617,6 +649,7 @@ def bootstrap(
         },
         mode=mode,
         handoff=args.handoff or "full",
+        autonomy=args.autonomy or "interactive",
         profile=configuration.public_dict(),
     )
     update_stage_models(state, parse_stage_models(args.stage_model))
@@ -986,6 +1019,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "currentPhase": state.get("currentPhase"),
         "reviewerMethod": review_method(state),
         "handoffMode": handoff_mode(state),
+        "autonomy": autonomy_mode(state),
         "manualHandoff": state.get("manualHandoff"),
         "finalRuntimeReset": state.get("finalRuntimeReset"),
         "finalRuntimeHandoff": state.get("finalRuntimeHandoff"),

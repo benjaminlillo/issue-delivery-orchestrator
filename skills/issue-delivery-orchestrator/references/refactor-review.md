@@ -175,3 +175,6 @@ Incluir además:
 
 No emitir el checkpoint de Refactor mientras exista un gate `FAIL`, `FIX` sin resolver,
 `NEEDS_USER_DECISION`, una excepción sin fuente o una validación atribuible al refactor pendiente.
+
+En un run autónomo, todo `NEEDS_USER_DECISION` de esta revisión se resuelve según
+[autonomous-mode.md](autonomous-mode.md).

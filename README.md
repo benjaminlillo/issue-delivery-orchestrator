@@ -147,6 +147,15 @@ These steps follow the official
 [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
 [plugin usage](https://learn.chatgpt.com/docs/plugins) guidance.
 
+## Autonomous mode
+
+For small, direct issues, ask for "modo autónomo" to create the run with `--autonomy autonomous`.
+The run never waits for the user: Grill answers its own questions with the most conservative option,
+spec and tickets are approved and published once they pass validation, and every finding or blocker
+is decided by the agent that evaluates it. The engine rejects `block --decision` and grants up to
+two extra repair blocks on its own. Each decision is recorded in the run's `decisions.md`. See
+[autonomous mode](skills/issue-delivery-orchestrator/references/autonomous-mode.md).
+
 ## Repository rules
 
 Every stage applies the target repository's rule layers as its root `AGENTS.md` defines them. In

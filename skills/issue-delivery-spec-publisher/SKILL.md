@@ -5,6 +5,8 @@ description: Publish an approved Issue Delivery Orchestrator spec into its canon
 
 # Issue Delivery Spec Publisher
 
+In an autonomous run (`autonomy: autonomous` in `status`), follow [autonomous-mode.md](../issue-delivery-orchestrator/references/autonomous-mode.md) instead of asking or waiting for approval.
+
 Own only the Linear destination and format contract. The approved spec body must come from
 `issue-delivery-grill`; do not rewrite architecture or scope while publishing.
 
