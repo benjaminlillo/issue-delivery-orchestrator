@@ -84,6 +84,15 @@ criteria are approval requirements: implementation, local review and the final U
 satisfy each one, and the orchestrator blocks UI review completion until every criterion is
 verified as PASS with evidence.
 
+## Prototype the user interface
+
+When the change has UI stories, words alone rarely settle how it should look and behave. After the
+user experience branch and before presenting the spec, build a cheap mock that replicates the real
+UI and its Tailwind styles, show it to the user, and iterate on their comments until they approve
+it, following [prototype.md](../issue-delivery-orchestrator/references/prototype.md). Skip it only when the user says "sin prototipo", there is no UI
+change, or the run is autonomous, and record the skip. Once approved, record `Prototype: <screenshot
+title>` as the source of every design decision it defines.
+
 ## Enforce YAGNI and Deep Modules
 
 Require observable evidence for every item in `Now`: a current actor, current workflow, current defect, or current operational need.
@@ -204,7 +213,7 @@ Spec ID: SPEC-...
 ### Design
 | ID | Screen | Decision | Design source |
 | --- | --- | --- | --- |
-| UXD-001 | <screen or entry point> | <placement, hierarchy, reused components, responsive behavior> | <`Figma: <url>`, `Provided: <reference>`, or `Consistency: <sibling components and screen paths>`> |
+| UXD-001 | <screen or entry point> | <placement, hierarchy, reused components, responsive behavior> | <`Figma: <url>`, `Provided: <reference>`, `Prototype: <approved screenshot title>`, or `Consistency: <sibling components and screen paths>`> |
 
 ## Implementation Decisions
 <Relevant ownership, dependency, API/data-flow, persistence, permission, audit,

@@ -235,10 +235,14 @@ este documento y de las skills que invoca se resuelve según
    consistencia con la estética de la app y con los componentes hermanos del mismo nivel de la
    página, nombrados con su ruta. Estos criterios son requisitos de aprobación: obtener su
    aprobación explícita y no aceptarlos como implícitos.
-7. Obtener aprobación explícita del spec y del desglose.
-8. Invocar, en orden, `issue-delivery-spec-publisher` y `issue-delivery-ticket-publisher`.
-9. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
-10. Guardar snapshots aprobados dentro del run y completar:
+7. Si hay historias de UI, prototipar la interfaz según
+   [prototype.md](references/prototype.md) antes de presentar el spec, o registrar por qué se
+   omite. Incluir la carpeta y las capturas aprobadas en el paquete de cada worker de Implement y
+   de revisión UI.
+8. Obtener aprobación explícita del spec y del desglose.
+9. Invocar, en orden, `issue-delivery-spec-publisher` y `issue-delivery-ticket-publisher`.
+10. Informar inmediatamente todo ticket HITL: ID, título, justificación, acción humana, dependencias y momento aproximado de pausa. No usar HITL para tareas difíciles que un agente sí puede resolver.
+11. Guardar snapshots aprobados dentro del run y completar:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase grill \

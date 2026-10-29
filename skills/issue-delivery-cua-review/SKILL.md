@@ -66,6 +66,9 @@ No editar código ni aceptar diferencias visuales basándose sólo en intención
 ## Criterios de experiencia de usuario
 
 Verificar además cada criterio `UX-NNN` y `UXD-NNN` del spec. Para `UXD-NNN` con fuente
+`Prototype`, comparar con la captura aprobada del mismo título (`prototype.screenshots` en
+`status`) y reportar como `FAIL` cada diferencia visible de estructura, textos, estados o
+jerarquía; las diferencias de datos falsos no cuentan. Para `UXD-NNN` con fuente
 `Consistency`, comparar visualmente con los componentes hermanos nombrados y con la app: tipografía,
 espaciados, colores, componentes y alineación. Registrar cada resultado en el manifiesto:
 

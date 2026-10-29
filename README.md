@@ -149,6 +149,16 @@ These steps follow the official
 [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
 [plugin usage](https://learn.chatgpt.com/docs/plugins) guidance.
 
+## UI prototype in Grill
+
+When a change has UI stories, Grill builds a cheap HTML mock in the run directory that copies the
+real components and compiles the app's own Tailwind styles. On Conductor Cloud, `prototype-open`
+shows it in Chrome on the workspace desktop, and the user iterates on it without a runtime or app
+start. Once approved, `prototype-approve` publishes its screenshots to the Linear issue under
+"Prototipo aprobado"; they become the `Prototype` source of the design criteria, a visual reference
+for Implement and the baseline for the final UI review. Say "sin prototipo" to skip it; autonomous
+runs skip it. See [prototype](skills/issue-delivery-orchestrator/references/prototype.md).
+
 ## Fewer questions after Grill
 
 Grill walks through the implementation of every story before finalizing and settles the questions

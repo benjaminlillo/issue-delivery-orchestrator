@@ -33,7 +33,8 @@ esa política. En el grill todavía no hay spec aprobado: empezar por el segundo
 - **Grill.** No entrevistar. Responder cada pregunta que se habría hecho con su decisión y
   fundamento, incluidos los criterios `UX-NNN` y `UXD-NNN`. En cada decisión que el usuario
   final verá, buscar en la app los flujos parecidos y citar en `decisions.md` cuál se tomó como
-  referencia. Si Figma no es accesible, seguir sin él
+  referencia. No prototipar: registrar la omisión con `prototype-approve --skip-reason`. Si Figma
+  no es accesible, seguir sin él
   y registrarlo.
 - **Spec y tickets.** Una vez que superan todas las validaciones de los publicadores, quedan
   aprobados automáticamente. Publicarlos en Linear sin esperar. La nota de publicación dice que el

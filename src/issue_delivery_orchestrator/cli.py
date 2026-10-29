@@ -26,6 +26,7 @@ from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
 from .local_review import validate_local_review
 from .pr_ready import mark_pr_ready
+from .prototype import approve_prototype, open_prototype
 from .runtime_handoff import prepare_runtime_handoff
 from .runtime_restore import restore_runtime
 from .runtime_reset import reset_final_runtime
@@ -187,6 +188,18 @@ def parser() -> argparse.ArgumentParser:
     actions.add_parser(
         "desktop-open", help="Open the handed-off runtime on the Conductor desktop and replay"
     )
+
+    prototype = actions.add_parser(
+        "prototype-open", help="Show the Grill UI prototype on the Conductor Cloud desktop"
+    )
+    prototype.add_argument("--path", type=Path, required=True)
+
+    approval = actions.add_parser(
+        "prototype-approve", help="Publish the approved prototype screenshots, or record why there is none"
+    )
+    choice = approval.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--manifest", type=Path)
+    choice.add_argument("--skip-reason")
 
     actions.add_parser("stop-processes")
 
@@ -421,6 +434,22 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             args.service,
             args.path,
             _resolve_in_worktree(args.replay, Path(state["worktree"])),
+        )
+    if args.action == "prototype-open":
+        if run_mode(state) != "conductor-cloud":
+            raise RunBlocked(
+                "The prototype window runs on the Conductor Cloud desktop; in other modes give "
+                "the user the prototype file path to open locally"
+            )
+        return open_prototype(state, _resolve_in_worktree(args.path, Path(state["worktree"])))
+    if args.action == "prototype-approve":
+        if args.skip_reason:
+            return approve_prototype(state, linear=None, skip_reason=args.skip_reason)
+        linear, _ = _verified_linear()
+        return approve_prototype(
+            state,
+            linear=linear,
+            manifest=_resolve_in_worktree(args.manifest, Path(state["worktree"])),
         )
     if args.action == "stop-processes":
         return {"stoppedPids": stop_owned_processes(state), "state": _public_state(state)}
@@ -1020,6 +1049,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "reviewerMethod": review_method(state),
         "handoffMode": handoff_mode(state),
         "autonomy": autonomy_mode(state),
+        "prototype": state.get("prototype"),
         "manualHandoff": state.get("manualHandoff"),
         "finalRuntimeReset": state.get("finalRuntimeReset"),
         "finalRuntimeHandoff": state.get("finalRuntimeHandoff"),
