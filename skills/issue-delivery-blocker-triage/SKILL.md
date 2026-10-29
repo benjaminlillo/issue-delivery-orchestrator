@@ -62,7 +62,7 @@ Decidir `FIX` cuando el problema sea válido, alcanzable y material para el alca
 
 Decidir `SKIP` cuando el problema sea inexistente, ya esté cubierto, no sea causado ni agravado por la PR, tenga efecto práctico insignificante frente al costo o riesgo de solucionarlo, contradiga un acuerdo explícito vigente, solicite capacidad especulativa fuera del alcance `Now` sin evidencia material, o ya tenga un `SKIP` en el ledger. No usar YAGNI ni “fuera de alcance” para ocultar una regresión material de la PR, un requisito vigente o un riesgo real de seguridad o datos.
 
-Decidir `NEEDS_USER_DECISION` en vez de `SKIP` cuando el reviewer automatizado solicite un cambio que contradiga explícitamente un spec, ticket o decisión de Grill vigente y todavía no exista una decisión del usuario para ese conflicto. Citar ambos lados y formular la elección mínima necesaria. No editar ni sugerir que el loop continúe hasta resolverla.
+Cuando el reviewer automatizado pida un cambio que contradiga un spec, ticket o decisión de Grill vigente, decidir `SKIP` manteniendo lo aprobado. Decidir `NEEDS_USER_DECISION` sólo si mantenerlo causaría un defecto real (regresión, riesgo de seguridad o de datos) y todavía no existe una decisión del usuario para ese conflicto, como indica [decision-policy.md](../issue-delivery-orchestrator/references/decision-policy.md). Citar ambos lados y formular la elección mínima necesaria. No editar ni sugerir que el loop continúe hasta resolverla.
 
 Si después de una inspección razonable no es posible sustentar el riesgo, decidir `SKIP` con la incertidumbre declarada.
 

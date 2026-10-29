@@ -24,23 +24,9 @@ en el paquete de cada worker y subagente.
 
 ## Cómo decidir
 
-Ante cada decisión que en modo interactivo iría al usuario, elegir la opción más conservadora que
-cumpla la issue:
-
-1. Lo que la issue pide de forma literal, con el menor alcance posible (YAGNI). Lo no
-   imprescindible va a `Deferred`.
-2. Las reglas del repositorio y los patrones existentes de la app. Una regla del repositorio gana
-   sobre el spec: corregir el spec antes de implementar.
-3. Lo más consistente para el usuario final: que el cambio se comporte como los flujos parecidos
-   que ya usa en la app. Mismos pasos, textos, estados vacíos, mensajes de error, confirmaciones,
-   ubicación de acciones y navegación. Si dos opciones cumplen la issue, elegir la que el usuario
-   ya conoce de otra pantalla y nombrarla en el fundamento.
-4. El comportamiento actual en todo lo que la issue no pide cambiar.
-5. Sin Figma u otro diseño, la estética de la app y los componentes hermanos de la página.
-
-Registrar cada decisión en `.local-runtime/issue-delivery-orchestrator/<run-id>/decisions.md`:
-etapa, pregunta, decisión, fundamento y alternativas descartadas. El registro permite al usuario
-revisar después lo que el run decidió.
+Ante cada decisión que en modo interactivo iría al usuario, decidir con los criterios de
+[decision-policy.md](decision-policy.md), en su orden, y registrarla en `decisions.md` como indica
+esa política. En el grill todavía no hay spec aprobado: empezar por el segundo criterio.
 
 ## Por etapa
 
@@ -65,5 +51,6 @@ revisar después lo que el run decidió.
 
 ## Mensaje final
 
-Además del cierre habitual, resumir las decisiones de `decisions.md` que el usuario debería
-conocer y dar la ruta del archivo. Sin preguntas al final.
+Incluir el resumen "Decisiones tomadas sin tu aprobación" de
+[decision-policy.md](decision-policy.md). En un run autónomo abarca todas las decisiones del run,
+también las del grill. Sin preguntas al final.

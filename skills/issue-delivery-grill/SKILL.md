@@ -134,6 +134,35 @@ summary while blocking decisions remain unresolved.
 
 At the end of the interview, summarize the agreed architecture and compare it with the original source task. Surface obsolete requirements, changed invariants, new constraints, resolved ambiguities, API or data-model changes, permission or audit implications, and newly excluded scope.
 
+## Pre-resolve implementation questions
+
+Questions that surface during implementation pause the run, so settle them here. Before
+finalizing, walk through the implementation of every user story and changed seam as the
+implementer will, and list each decision they would otherwise have to ask about. Cover at least:
+
+- Data shapes, validation rules, defaults, limits, ordering and formats such as dates, time zones,
+  currency and rounding.
+- Loading, empty, partial, error and permission-denied states, and the exact copy for each.
+- What happens to existing records, other entry points to the same data, and every consumer of a
+  changed seam.
+- Concurrent edits, retries, duplicate submissions and behavior when an external system fails.
+- Web and mobile parity, notifications, audit entries, rollout and compatibility with the version
+  in production.
+
+Go beyond what the issue lists as pending. Read the owning code and neighboring flows to find
+the cases the issue does not mention but the implementation will hit, especially at the edges of
+`Now` and in features that share data with it.
+
+Resolve each question yourself when the repository rule layers, existing patterns, the most
+consistent behavior for the end user in similar flows, or decisions already settled in this
+interview determine the answer. Ask the user only when the answer is a genuine product or scope
+choice that none of those sources determines and the options lead to materially different
+outcomes. Ask those questions in the interview like any other, with a recommendation.
+
+Record every pre-resolved question in `### Pre-resolved questions` under
+`## Implementation Decisions`, with the source that settled it. Implementers apply that table
+without asking again, and later stages follow the orchestrator's decision policy for anything new.
+
 ## Generate the canonical spec
 
 Reuse an existing `Spec ID` when updating a spec. Otherwise use `SPEC-<LINEAR-IDENTIFIER>` when a Linear identifier is available. If neither exists, ask for the intended Spec ID before generating the final artifact.
@@ -186,6 +215,11 @@ transaction, error-handling, rollout, migration, and compatibility decisions.>
 | --- | --- | --- | --- | --- | --- |
 | ... | ... | ... | ... | ... | ... |
 
+### Pre-resolved questions
+| Question | Decision | Source |
+| --- | --- | --- |
+| <what an implementer would ask> | <the answer to apply> | <rule path, sibling flow, user decision or issue text> |
+
 ## Architecture Constraints
 
 | Source | Constraint | Applies to | Refactor verification |
@@ -217,7 +251,9 @@ section. Keep
 - `Rejected`: considered solution choices deliberately not selected.
 - `Out of Scope`: neighboring behavior this spec does not change.
 
-When no public seam changes, keep `### Changed seams` and state `None`; do not invent one.
+When no public seam changes, keep `### Changed seams` and state `None`; do not invent one. Keep
+`### Pre-resolved questions` with its exact header; write `None` only when the walkthrough found
+no decision an implementer would need to ask about.
 
 Output the spec body without orchestrator HTML markers. `issue-delivery-spec-publisher` owns
 insertion between the canonical markers and initialization of the tickets block.
@@ -236,6 +272,8 @@ Before presenting the spec, verify:
   unique ID, and every design row names its source. Without a provided design, each row requires
   consistency with named sibling components and the app's aesthetic.
 - No unresolved material decision remains.
+- The implementation walkthrough ran for every user story and changed seam, and each question it
+  produced is either answered in `Pre-resolved questions` or was decided by the user.
 - The spec is internally consistent with repository rules and the source task.
 
 ## Reconcile and publish

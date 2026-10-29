@@ -43,7 +43,7 @@ Preserve all content outside the orchestrator blocks. If no tickets markers exis
 
 Before publishing, require a non-empty `Spec ID`, title, and exactly one occurrence of every
 canonical heading in the order produced by `issue-delivery-grill`. Require the exact
-`Architecture Constraints` and `Testing Decisions` table headers. Require every material
+`Architecture Constraints`, `Testing Decisions` and `Pre-resolved questions` table headers. Require every material
 architecture row to name its source, applicability and Refactor verification. Reject placeholders,
 unresolved material decisions and silent conflicts with an applicable repository source.
 

@@ -149,6 +149,16 @@ These steps follow the official
 [Codex plugin packaging](https://developers.openai.com/plugins/build/plugins) and
 [plugin usage](https://learn.chatgpt.com/docs/plugins) guidance.
 
+## Fewer questions after Grill
+
+Grill walks through the implementation of every story before finalizing and settles the questions
+an implementer would ask, recording them in the spec's `Pre-resolved questions` table. After Grill,
+every stage follows a shared [decision policy](skills/issue-delivery-orchestrator/references/decision-policy.md):
+deduce the answer from the spec, repository rules and similar flows in the app, and pause only for
+contradictions that would cause real defects, undetermined user-visible choices or high-risk
+irreversible changes. Each decision taken without the user goes to the run's `decisions.md`, and
+the final message lists them under "Decisiones tomadas sin tu aprobación".
+
 ## Autonomous mode
 
 For small, direct issues, ask for "modo autónomo" to create the run with `--autonomy autonomous`.

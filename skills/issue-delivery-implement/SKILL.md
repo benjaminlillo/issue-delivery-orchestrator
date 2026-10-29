@@ -26,7 +26,11 @@ Leer [validation.md](references/validation.md) antes de calcular o ejecutar vali
 5. Tratar las `Architecture Constraints` aprobadas como contrato vinculante. Si el pedido o el spec
    contradicen una regla aplicable del repositorio o una fuente arquitectónica citada, no editar. Devolver
    `NEEDS_USER_DECISION` con las fuentes en conflicto.
-6. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
+6. Ante cualquier otra duda, aplicar [decision-policy.md](../issue-delivery-orchestrator/references/decision-policy.md): deducir la respuesta del spec,
+   su tabla `Pre-resolved questions`, las reglas y los flujos parecidos de la app, y decidir.
+   Devolver `NEEDS_USER_DECISION` sólo en los casos que esa política lista. Devolver al principal
+   cada decisión tomada, con su fuente, para el registro del run.
+7. Mantener cualquier log, prompt o memoria bajo el directorio del run en `.local-runtime`.
 
 ## Implementar
 

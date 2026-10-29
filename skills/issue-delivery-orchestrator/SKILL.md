@@ -181,6 +181,11 @@ indica `contextPackage` (ver [stage-models.md](references/stage-models.md)); el 
 sólo su resultado. Tras un fallo, lanzar un worker nuevo de reparación, no continuar el trabajo en
 el principal.
 
+Después del grill, toda duda de cualquier etapa se resuelve con
+[decision-policy.md](references/decision-policy.md): se deduce y se decide, y sólo se pregunta en
+los casos que esa política lista. Incluirla en el paquete de cada worker. El principal registra en
+`decisions.md` las decisiones que devuelven los workers y las suyas.
+
 En el principal y en todo worker, dirigir la salida extensa de tests, builds, Playwright, traces y
 logs a archivos bajo `.local-runtime/issue-delivery-orchestrator/<run-id>/logs/` y leer sólo el
 resumen y las fallas (por ejemplo, las últimas líneas o los tests fallidos). No volcar al contexto
@@ -408,7 +413,9 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
 8. Terminar la ejecución mostrando el SHA, runtime ID, cada URL/puerto saludable, las páginas
    precargadas con su tiempo y las fallidas u omitidas, la lista de criterios de
    `User Experience Acceptance` como checklist para la revisión del usuario, logs disponibles, path del recibo y
-   `cleanupCommand`, el enlace reproducible o descargable de la demo (o su omisión/fallo) y, en
+   `cleanupCommand`, el resumen "Decisiones tomadas sin tu aprobación" de
+   [decision-policy.md](references/decision-policy.md), el enlace reproducible o descargable de la
+   demo (o su omisión/fallo) y, en
    `conductor-cloud`, la línea informativa sobre el escritorio, sin preguntar.
    Decir expresamente: revisión Computer Use no ejecutada, evidencia de aprobación no creada y
    PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
@@ -686,7 +693,9 @@ del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces e
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
 cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
-(o su omisión/fallo) y, en `conductor-cloud`, la línea informativa sobre el escritorio, sin
+(o su omisión/fallo), el resumen "Decisiones tomadas sin tu aprobación" de
+[decision-policy.md](references/decision-policy.md) y, en `conductor-cloud`, la línea informativa
+sobre el escritorio, sin
 preguntar. Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 
 ## Restaurar el runtime tras una suspensión
