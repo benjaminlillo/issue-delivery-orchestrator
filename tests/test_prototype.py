@@ -1,4 +1,6 @@
 import json
+import os
+import urllib.request
 import tempfile
 import unittest
 from pathlib import Path
@@ -38,23 +40,48 @@ class PrototypeTests(unittest.TestCase):
             self.addCleanup(patcher.stop)
 
     def tearDown(self):
-        pid = (self.state.get("prototype") or {}).get("pid")
-        if pid:
-            desktop_browser._stop_group(pid)
+        for key in ("pid", "serverPid"):
+            pid = (self.state.get("prototype") or {}).get(key)
+            if pid:
+                desktop_browser._stop_group(pid)
+
+    def test_shares_the_prototype_at_the_preview_url_and_reuses_its_server(self):
+        bin_dir = self.worktree.parent / "bin"
+        bin_dir.mkdir()
+        calls = self.worktree.parent / "conductor-calls.txt"
+        conductor = bin_dir / "conductor"
+        conductor.write_text(
+            f'#!/bin/sh\necho "$@" >> {calls}\n'
+            'echo \'{"preview": {"port": 1, "url": "https://ws.conductor.show/"}}\'\n'
+        )
+        conductor.chmod(0o755)
+        nested = prototype_root(self.state) / "flows" / "nueva ot.html"
+        nested.parent.mkdir()
+        nested.write_text("<html>OT</html>")
+        with patch.dict(os.environ, {"PATH": f"{bin_dir}:{os.environ['PATH']}"}):
+            first = open_prototype(self.state, nested)
+            second = open_prototype(self.state, self.page)
+        self.assertEqual(first["url"], "https://ws.conductor.show/flows/nueva%20ot.html")
+        self.assertEqual(second["url"], "https://ws.conductor.show/index.html")
+        self.assertEqual(first["serverPid"], second["serverPid"])
+        port = first["serverPort"]
+        self.assertIn(f"preview set --port {port} --json", calls.read_text())
+        served = urllib.request.urlopen(f"http://127.0.0.1:{port}/flows/nueva%20ot.html").read()
+        self.assertEqual(served, b"<html>OT</html>")
 
     def test_opens_the_prototype_on_the_desktop_only_when_it_is_open(self):
         with self.assertRaisesRegex(RunBlocked, "desktop is not open"):
-            open_prototype(self.state, self.page)
+            open_prototype(self.state, self.page, desktop=True)
         self.socket.touch()
-        first = open_prototype(self.state, self.page)
+        first = open_prototype(self.state, self.page, desktop=True)
         self.assertEqual(first["status"], "IN_REVIEW")
         self.assertTrue(self.opened.read_text().startswith(":1 "))
         self.assertIn(self.page.resolve().as_uri(), self.opened.read_text())
-        second = open_prototype(self.state, self.page)
+        second = open_prototype(self.state, self.page, desktop=True)
         self.assertFalse(desktop_browser._alive(first["pid"]))
         self.assertNotEqual(first["pid"], second["pid"])
         with self.assertRaisesRegex(RunBlocked, "inside"):
-            open_prototype(self.state, self.worktree / "outside.html")
+            open_prototype(self.state, self.worktree / "outside.html", desktop=True)
 
     def test_publishes_the_approved_screenshots_to_linear(self):
         approved = prototype_root(self.state) / "approved" / "form.png"

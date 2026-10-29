@@ -41,20 +41,26 @@ del producto. No levantar el Local Runtime, la app ni el backend.
 
 ## Mostrarlo e iterar
 
-- En `conductor-cloud`, el escritorio de Conductor debe estar abierto. Ejecutar
+- En `conductor-cloud`, ejecutar
   `python3 <plugin-root>/scripts/issue-delivery <issue> prototype-open --path <prototipo>/index.html`.
-  Si el motor responde que el escritorio no está abierto, pedir al usuario que lo abra desde la app
-  y esperar su aviso antes de reintentar.
+  El motor sirve la carpeta del prototipo y la comparte en el preview URL del workspace con
+  `conductor preview set`. Entregar al usuario la `url` que devuelve: la abre en su navegador con
+  su sesión de Conductor. El workspace tiene un solo preview URL; el prototipo lo ocupa mientras se
+  itera.
+- Si Conductor no comparte el preview, reintentar una vez y luego usar `--desktop`, que abre el
+  prototipo en Chrome en el escritorio de Conductor. Ese modo exige el escritorio abierto: si el
+  motor responde que no lo está, pedir al usuario que lo abra desde la app y esperar su aviso.
 - En los otros modos, entregar la ruta del archivo para que el usuario lo abra en su navegador.
-- No tomar capturas ni videos mientras se itera. Tras cada comentario, ajustar el mock, recompilar
-  el CSS si cambiaron clases y volver a ejecutar `prototype-open`, que reemplaza la ventana.
+- No tomar capturas ni videos mientras se itera. Tras cada comentario, ajustar el mock y
+  recompilar el CSS si cambiaron clases. El servidor entrega siempre la versión actual: basta con
+  pedir al usuario que recargue. Ejecutar otra vez `prototype-open` sólo para mostrar otra página.
 
 ## Aprobarlo
 
 Cuando el usuario apruebe:
 
-1. Tomar capturas PNG de cada estado acordado con Chrome headless del workspace, al tamaño de la
-   ventana del escritorio, en `prototype/approved/`.
+1. Tomar capturas PNG de cada estado acordado con Chrome headless del workspace, a 1440x900,
+   en `prototype/approved/`.
 2. Escribir `prototype/approved/manifest.json` con `{"screenshots": [{"title", "path"}]}` y
    ejecutar `prototype-approve --manifest <ruta>`. El motor sube las capturas a la issue de Linear,
    en la sección "Prototipo aprobado", y registra el prototipo en el estado del run.

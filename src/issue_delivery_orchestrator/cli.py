@@ -190,9 +190,12 @@ def parser() -> argparse.ArgumentParser:
     )
 
     prototype = actions.add_parser(
-        "prototype-open", help="Show the Grill UI prototype on the Conductor Cloud desktop"
+        "prototype-open", help="Share the Grill UI prototype at the Conductor Cloud preview URL"
     )
     prototype.add_argument("--path", type=Path, required=True)
+    prototype.add_argument(
+        "--desktop", action="store_true", help="Open it on the Conductor desktop instead of the preview URL"
+    )
 
     approval = actions.add_parser(
         "prototype-approve", help="Publish the approved prototype screenshots, or record why there is none"
@@ -438,10 +441,12 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.action == "prototype-open":
         if run_mode(state) != "conductor-cloud":
             raise RunBlocked(
-                "The prototype window runs on the Conductor Cloud desktop; in other modes give "
-                "the user the prototype file path to open locally"
+                "The prototype preview runs on Conductor Cloud; in other modes give the user "
+                "the prototype file path to open locally"
             )
-        return open_prototype(state, _resolve_in_worktree(args.path, Path(state["worktree"])))
+        return open_prototype(
+            state, _resolve_in_worktree(args.path, Path(state["worktree"])), desktop=args.desktop
+        )
     if args.action == "prototype-approve":
         if args.skip_reason:
             return approve_prototype(state, linear=None, skip_reason=args.skip_reason)

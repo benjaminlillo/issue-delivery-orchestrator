@@ -1,11 +1,15 @@
-"""Show a cheap UI prototype on the Conductor desktop during Grill and publish the approved one."""
+"""Share a cheap UI prototype during Grill and publish the approved one."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+import sys
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urljoin
 
 from . import desktop_browser
 from .errors import RunBlocked
@@ -21,11 +25,63 @@ def prototype_root(state: dict[str, Any]) -> Path:
     return run_root(Path(state["worktree"]), state["runId"]) / "prototype"
 
 
-def open_prototype(state: dict[str, Any], page: Path) -> dict[str, Any]:
+def open_prototype(state: dict[str, Any], page: Path, *, desktop: bool = False) -> dict[str, Any]:
     root = prototype_root(state).resolve()
     page = page.resolve()
     if not page.is_relative_to(root) or not page.is_file():
         raise RunBlocked(f"The prototype page must be a file inside {root}")
+    shown = _open_on_desktop(state, root, page) if desktop else _share_preview(state, root, page)
+    state["prototype"] = {
+        **(state.get("prototype") or {}),
+        **shown,
+        "status": "IN_REVIEW",
+        "page": str(page.relative_to(Path(state["worktree"]).resolve())),
+        "openedAt": now(),
+    }
+    save_state(state)
+    return state["prototype"]
+
+
+def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
+    """Serve the prototype directory and share it at the workspace's Conductor preview URL."""
+    previous = state.get("prototype") or {}
+    pid, port = previous.get("serverPid"), previous.get("serverPort")
+    if not (pid and port and _alive(int(pid)) and _serves(int(port))):
+        port = desktop_browser._free_port()
+        command = [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1",
+                   "--directory", str(root)]
+        with (root / "prototype-server.log").open("a") as log:
+            server = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT,
+                                      stdin=subprocess.DEVNULL, start_new_session=True)
+        deadline = time.monotonic() + 10
+        while not _serves(port):
+            if server.poll() is not None or time.monotonic() > deadline:
+                raise RunBlocked(f"The prototype server did not start; inspect {root / 'prototype-server.log'}")
+            time.sleep(0.2)
+        register_owned_process(state, server.pid, kind="prototype-server", command=" ".join(command))
+        pid = server.pid
+    result = subprocess.run(["conductor", "preview", "set", "--port", str(port), "--json"],
+                            capture_output=True, text=True)
+    try:
+        base = json.loads(result.stdout)["preview"]["url"]
+    except (json.JSONDecodeError, KeyError, TypeError) as error:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RunBlocked(
+            f"Conductor did not share the prototype preview ({detail}); retry or use --desktop"
+        ) from error
+    url = urljoin(base if base.endswith("/") else f"{base}/", quote(str(page.relative_to(root))))
+    return {"serverPid": pid, "serverPort": port, "url": url}
+
+
+def _serves(port: int) -> bool:
+    try:
+        urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2).close()
+        return True
+    except OSError:
+        return False
+
+
+def _open_on_desktop(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
     if not desktop_browser.DISPLAY_SOCKET.exists():
         raise RunBlocked(
             "The Conductor desktop is not open; ask the user to open it from the app and "
@@ -53,15 +109,7 @@ def open_prototype(state: dict[str, Any], page: Path) -> dict[str, Any]:
     if chrome.poll() is not None:
         raise RunBlocked(f"The prototype window exited early; inspect {log_path}")
     register_owned_process(state, chrome.pid, kind="prototype-browser", command=" ".join(command))
-    state["prototype"] = {
-        **(state.get("prototype") or {}),
-        "status": "IN_REVIEW",
-        "page": str(page.relative_to(Path(state["worktree"]).resolve())),
-        "pid": chrome.pid,
-        "openedAt": now(),
-    }
-    save_state(state)
-    return state["prototype"]
+    return {"pid": chrome.pid}
 
 
 def approve_prototype(
