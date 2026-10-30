@@ -12,6 +12,8 @@ from .util import code_head, run
 
 MERGEABLE_ATTEMPTS = 6
 MERGEABLE_WAIT_SECONDS = 5
+REVIEWER_ATTEMPTS = 31
+REVIEWER_WAIT_SECONDS = 10
 
 
 def mark_pr_ready(
@@ -20,7 +22,8 @@ def mark_pr_ready(
     github: GitHubClient | None = None,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
-    """Move the handed-off draft PR to ready for review once it merges cleanly, then label it."""
+    """Move the handed-off draft PR to ready for review once it merges cleanly, label it and
+    wait until the label's workflow requests a reviewer."""
     if not state.get("pr"):
         raise RunBlocked("There is no PR to mark ready for review")
     if state.get("status") != "completed_preserved":
@@ -61,10 +64,23 @@ def mark_pr_ready(
     pr = github.readiness(reference)
     if pr.get("isDraft") or (label and not _has_label(pr, label)):
         raise RunBlocked("GitHub did not record the PR as ready with its review label")
+    if label:
+        for _ in range(REVIEWER_ATTEMPTS - 1):
+            if _reviewers(pr):
+                break
+            sleeper(REVIEWER_WAIT_SECONDS)
+            pr = github.readiness(reference)
+        if not _reviewers(pr):
+            raise RunBlocked(
+                f"The PR is ready with {label}, but no reviewer was assigned after "
+                f"{(REVIEWER_ATTEMPTS - 1) * REVIEWER_WAIT_SECONDS} seconds; check the GitHub "
+                "Actions run triggered by the label"
+            )
     state["readyForReview"] = {
         "markedAt": now(),
         "headSha": local_head,
         "label": label or None,
+        "reviewers": _reviewers(pr),
     }
     save_state(state)
     return {"pr": pr.get("url"), **state["readyForReview"]}
@@ -74,3 +90,8 @@ def _has_label(pr: dict[str, Any], label: str) -> bool:
     return any(
         str(item.get("name") or "").lower() == label.lower() for item in pr.get("labels") or []
     )
+
+
+def _reviewers(pr: dict[str, Any]) -> list[str]:
+    names = (str(item.get("login") or item.get("name") or "") for item in pr.get("reviewRequests") or [])
+    return sorted(name for name in names if name)

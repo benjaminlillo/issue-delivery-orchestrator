@@ -254,7 +254,7 @@ def parser() -> argparse.ArgumentParser:
     actions.add_parser("review-gate")
 
     actions.add_parser(
-        "pr-ready", help="Mark the handed-off draft PR ready for review and add its review label"
+        "pr-ready", help="Mark the handed-off draft PR ready for review, label it and wait for its reviewer"
     )
 
     cleanup = actions.add_parser("cleanup")

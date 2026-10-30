@@ -727,7 +727,8 @@ escritorio de Conductor con `desktop-open` según [desktop-browser.md](reference
 
 ## Pasar la PR a ready
 
-Sólo cuando el usuario lo pida, en este orden:
+Sólo cuando el usuario lo pida (por ejemplo "ready for review" o "pásala a ready"), en este orden.
+Nunca usar `gh pr ready` directo: sin `pr-ready` la PR queda sin label ni revisor.
 
 1. Revisar si la PR tiene conflictos con `target` (`gh pr view --json mergeable`; si dice
    `UNKNOWN`, esperar y repetir). Si los tiene, hacer merge de `origin/<target>` en la branch y
@@ -746,7 +747,12 @@ Sólo cuando el usuario lo pida, en este orden:
    El motor exige que el código sea el del último handoff (sólo admite commits de
    `docs/lessons/` encima), que la PR no tenga conflictos y que su head sea el HEAD local. Después
    la pasa a ready, agrega la label `review.readyLabel` del perfil (`ASSIGN_REVIEWER` en
-   TurboShop) y verifica ambas cosas en GitHub.
+   TurboShop) y verifica ambas cosas en GitHub. Con label, espera hasta 5 minutos a que la action
+   que dispara la label pida revisión a alguien.
+4. Informar al usuario el revisor asignado (`reviewers` en la salida). Si el comando se bloquea
+   porque no se asignó revisor, revisar el run de la action (`gh run list --event pull_request`
+   y `gh run view <id> --log-failed`) e informar la causa. Volver a ejecutar `pr-ready` sólo si la
+   action sigue en cola o corriendo; no asignar un revisor a mano.
 
 En `manual-runtime` no hay PR: ejecutar `lessons-learned` cuando el usuario dé por terminada la
 tarea.

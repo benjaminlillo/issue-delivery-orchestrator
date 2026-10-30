@@ -38,17 +38,25 @@ class PrReadyTests(unittest.TestCase):
         self.github = Mock()
         self.pr = {
             "url": self.state["pr"]["url"], "isDraft": True, "mergeable": "MERGEABLE",
-            "headRefOid": self.head, "labels": [],
+            "headRefOid": self.head, "labels": [], "reviewRequests": [],
         }
-        self.github.readiness.side_effect = lambda _ref: dict(self.pr)
         self.github.mark_ready.side_effect = lambda _ref: self.pr.update(isDraft=False)
         self.github.add_label.side_effect = lambda _ref, label: self.pr.update(labels=[{"name": label}])
+        self.workflow_delay = 2
+        self.github.readiness.side_effect = self.readiness
         patcher = patch(
             "issue_delivery_orchestrator.pr_ready.settings",
             return_value=Mock(ready_label="ASSIGN_REVIEWER"),
         )
         patcher.start()
         self.addCleanup(patcher.stop)
+
+    def readiness(self, _ref):
+        if self.pr["labels"] and not self.pr["reviewRequests"]:
+            self.workflow_delay -= 1
+            if self.workflow_delay < 0:
+                self.pr["reviewRequests"] = [{"login": "reviewer"}]
+        return dict(self.pr)
 
     def ready(self):
         return mark_pr_ready(self.state, github=self.github, sleeper=lambda _seconds: None)
@@ -59,14 +67,21 @@ class PrReadyTests(unittest.TestCase):
         self.github.mark_ready.assert_called_once_with(self.state["pr"]["url"])
         self.github.add_label.assert_called_once_with(self.state["pr"]["url"], "ASSIGN_REVIEWER")
         self.assertEqual(result["label"], "ASSIGN_REVIEWER")
+        self.assertEqual(result["reviewers"], ["reviewer"])
         self.assertEqual(self.state["readyForReview"]["headSha"], self.head)
+
+    def test_blocks_when_the_label_workflow_assigns_no_reviewer(self):
+        self.workflow_delay = 10**6
+        with self.assertRaisesRegex(RunBlocked, "no reviewer was assigned"):
+            self.ready()
+        self.assertNotIn("readyForReview", self.state)
 
     def test_blocks_on_conflicts_and_waits_while_github_computes_mergeability(self):
         self.pr["mergeable"] = "CONFLICTING"
         with self.assertRaisesRegex(RunBlocked, "conflicts"):
             self.ready()
         states = iter(["UNKNOWN", "UNKNOWN", "MERGEABLE"])
-        self.github.readiness.side_effect = lambda _ref: {**self.pr, "mergeable": next(states, "MERGEABLE")}
+        self.github.readiness.side_effect = lambda ref: {**self.readiness(ref), "mergeable": next(states, "MERGEABLE")}
         self.pr["mergeable"] = "MERGEABLE"
         self.ready()
         self.github.mark_ready.assert_called_once()

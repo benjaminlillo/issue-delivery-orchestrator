@@ -111,7 +111,7 @@ class GitHubClient:
         result = run(
             [
                 "gh", "pr", "view", reference,
-                "--json", "number,url,isDraft,mergeable,headRefOid,labels",
+                "--json", "number,url,isDraft,mergeable,headRefOid,labels,reviewRequests",
             ],
             cwd=self.cwd,
         )
