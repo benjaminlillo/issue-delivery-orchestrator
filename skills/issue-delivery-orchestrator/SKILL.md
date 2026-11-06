@@ -9,6 +9,10 @@ Operar como plano de control conversacional. Usar el CLI privado como motor dete
 
 Leer [workflow-contract.md](references/workflow-contract.md) antes de iniciar o reanudar una ejecución.
 
+Si el primer mensaje de la sesión dice `Despachado por el PM del proyecto <proyecto>`, aplicar
+[pm-dispatched.md](references/pm-dispatched.md) durante todo el run: el PM es la contraparte de la
+conversación, puede traer un spec ya aprobado y lee el estado en la línea `IDO-STATUS`.
+
 El plugin funciona en Codex y en Claude Code. Las skills hermanas se nombran sin prefijo: en Codex
 se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
 `issue-delivery-orchestrator:<skill>`. El motor detecta el host y lo informa como `harness` en
@@ -224,7 +228,9 @@ este documento y de las skills que invoca se resuelve según
 1. Leer [repo-rules.md](references/repo-rules.md) y aplicar sus capas en todas las etapas. Leer la
    issue, el repositorio, las reglas aplicables, ADRs aceptados, context maps y
    documentación arquitectónica del dominio afectado.
-2. Invocar `issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
+2. En un run despachado por un PM, verificar primero el spec pre-aprobado según
+   [pm-dispatched.md](references/pm-dispatched.md); con `approved: true`, seguir ese documento en
+   lugar de los pasos 2 a 10. Si no, invocar `issue-delivery-grill` según el plan de modelos; mantener preguntas y aprobaciones en esta conversación. Si ya existe spec/tickets, tratarlos como base y reconciliar los mismos bloques e IDs.
 3. Si existe Figma, inspeccionarlo mediante su MCP. Si no es accesible, bloquear antes de implementar, salvo que el usuario entregue explícitamente un PNG o PDF como fallback.
 4. Etiquetar cada user story con una superficie verificable: `UI`, `API-assembled` o `command-test`.
 5. Exigir en el spec la tabla canónica `Architecture Constraints`, con fuente, regla,

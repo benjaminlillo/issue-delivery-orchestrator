@@ -57,13 +57,13 @@ unresolved material decisions and silent conflicts with an applicable repository
    `codex-linear issue get <issue>`. Preserve its current description.
 3. Validate the already approved spec without changing its decisions.
 4. Replace only the canonical spec block; initialize only a missing tickets block.
-5. Write the complete candidate description to a file inside the ignored run directory and update
+5. Write the complete candidate description to a file inside the ignored run directory (outside a run, in a temporary directory outside the repository) and update
    Linear exclusively with
    `codex-linear issue update-description <issue> --description-file <path>`.
 6. Read the issue again with `codex-linear issue get <issue>` and verify that only the canonical
    spec block changed, the tickets block was preserved or initialized as approved, and all
    unrelated content remained byte-for-byte unchanged.
-7. Write the approved publication note to a file inside the ignored run directory and post it
+7. Write the approved publication note to a file inside the ignored run directory (outside a run, in a temporary directory outside the repository) and post it
    exclusively with `codex-linear comment create <issue> --body-file <path>`, identifying the
    published Spec ID.
 
