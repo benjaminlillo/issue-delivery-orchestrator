@@ -179,6 +179,19 @@ is decided by the agent that evaluates it. The engine rejects `block --decision`
 two extra repair blocks on its own. Each decision is recorded in the run's `decisions.md`. See
 [autonomous mode](skills/issue-delivery-orchestrator/references/autonomous-mode.md).
 
+## Runs dispatched by a PM
+
+A PM agent can open a Conductor Cloud workspace per issue and drive the run on the user's behalf.
+Its first message says `Despachado por el PM del proyecto <project>`. The PM answers in the user's
+place, but actions reserved to the user (more repair blocks, marking the PR ready, `cleanup --force`)
+need the user's decision quoted in the PM's message.
+
+When the PM already agreed the spec and tickets with the user, it posts an approval comment carrying
+the hash that `codex-linear issue spec-approval` computes over both canonical blocks. If the hash
+still matches, the run validates the spec and skips the Grill interview. Every message that ends a
+turn closes with an `IDO-STATUS` line the PM can parse. See
+[PM-dispatched runs](skills/issue-delivery-orchestrator/references/pm-dispatched.md).
+
 ## Repository rules
 
 Every stage applies the target repository's rule layers as its root `AGENTS.md` defines them. In

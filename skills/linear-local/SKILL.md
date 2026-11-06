@@ -46,9 +46,32 @@ codex-linear issue create \
   --assign-viewer
 codex-linear issue update-description SFW-123 \
   --description-file /absolute/path/description.md
+codex-linear issue update SFW-123 --state "In Progress" \
+  --add-label needs-decision --remove-label ready-for-agent \
+  --project "<project>" --parent SFW-100 --blocked-by SFW-120
+codex-linear issue spec-approval SFW-123 --prefix turboshop
 codex-linear comment create SFW-123 --body-file /absolute/path/comment.md
+codex-linear comment list SFW-123
+codex-linear project get "<project name, URL, slug ID or ID>"
+codex-linear project issues "<project>"
+codex-linear project update-content "<project>" \
+  --content-file /absolute/path/content.md
 codex-linear request --file /absolute/path/graphql-request.json
 ```
+
+`issue update` resolves the state in the issue's team and each label in the
+issue's team first, then at workspace level, and re-reads the issue to verify
+the result. `project issues` returns each issue with its state, labels,
+`blocks` and `blockedBy`. `project update-content` replaces the long
+description shown in the project overview; `description` in the JSON is the
+short summary.
+
+`issue spec-approval` hashes the text between the canonical `spec` and
+`tickets` markers of the given prefix, exactly as Linear stores it, and looks
+for a comment containing the matching `approvalMarker`. It returns
+`approved: true` only when both blocks have content and an approval comment
+carries the current hash. A changed spec or ticket breakdown needs a new
+approval comment.
 
 Use `request --file` only for operations not covered by a dedicated command. The
 file must contain `{"query": "...", "variables": {...}}`. Mutations remain

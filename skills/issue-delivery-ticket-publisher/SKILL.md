@@ -109,13 +109,13 @@ operating with Linear:
    never continue with another identity or transport.
 2. Run `codex-linear doctor` and read the issue exclusively with
    `codex-linear issue get <issue>`.
-3. Write the complete candidate description to a file inside the ignored run directory and publish
+3. Write the complete candidate description to a file inside the ignored run directory (outside a run, in a temporary directory outside the repository) and publish
    it exclusively with
    `codex-linear issue update-description <issue> --description-file <path>`.
 4. Read the issue again with `codex-linear issue get <issue>` and verify that only the canonical
    tickets block changed, while the spec block and all unrelated content remained byte-for-byte
    unchanged.
-5. Write the approved ticket publication note to a file inside the ignored run directory and post
+5. Write the approved ticket publication note to a file inside the ignored run directory (outside a run, in a temporary directory outside the repository) and post
    it exclusively with `codex-linear comment create <issue> --body-file <path>`, listing the
    published ticket IDs.
 
