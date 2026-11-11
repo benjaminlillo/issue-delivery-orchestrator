@@ -4,7 +4,7 @@ Usar Playwright headless sólo después de demostrar que el reviewer principal n
 operación necesaria. Los kinds permitidos son `file-upload` y `hover`. La asistencia no cambia
 modo, provider, worktree ni runtime.
 
-Este contrato aplica sólo a modos `codex`, `superset` y `vanilla`. En `conductor-cloud` y `t3-runner`, Playwright
+Este contrato aplica sólo a modos `codex`, `superset` y `vanilla`. En `conductor-cloud`, `t3-runner` y `paseo-runner`, Playwright
 con Chrome es el reviewer principal y debe usar `issue-delivery-playwright-review`; no crear
 `headlessAssistance` ni exigir un intento previo con otro provider.
 

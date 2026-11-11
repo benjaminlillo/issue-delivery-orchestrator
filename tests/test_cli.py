@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from issue_delivery_orchestrator.cli import (
     _is_conductor_cloud,
-    _is_t3_runner,
+    _is_gate_runner,
     _mode_decision,
     _new_run_routing,
     _new_run_mode,
@@ -323,7 +323,7 @@ class CliModeTests(unittest.TestCase):
     def test_detects_t3_runner_from_runner_environment(self):
         configuration = self._settings()
         with patch.dict(os.environ, {"T3_RUNNER": "1"}, clear=True):
-            self.assertTrue(_is_t3_runner())
+            self.assertTrue(_is_gate_runner("t3-runner"))
             self.assertEqual(
                 _new_run_mode(
                     None,
@@ -337,7 +337,7 @@ class CliModeTests(unittest.TestCase):
         configuration = self._settings()
         for value in ("", "0", "true"):
             with patch.dict(os.environ, {"T3_RUNNER": value}, clear=True):
-                self.assertFalse(_is_t3_runner())
+                self.assertFalse(_is_gate_runner("t3-runner"))
                 self.assertEqual(
                     _new_run_mode(None, Path("/tmp/workspace"), configuration),
                     ("vanilla", "vanilla-fallback"),
@@ -367,6 +367,30 @@ class CliModeTests(unittest.TestCase):
                 _new_run_mode("t3-runner", Path("/tmp/workspace"), configuration),
                 ("t3-runner", "explicit"),
             )
+
+    def test_detects_paseo_runner_from_runner_environment(self):
+        configuration = self._settings()
+        with patch.dict(os.environ, {"PASEO_RUNNER": "1"}, clear=True):
+            self.assertEqual(
+                _new_run_mode(
+                    None,
+                    Path("/home/paseo/.paseo/worktrees/turboshop/feature-x"),
+                    configuration,
+                ),
+                ("paseo-runner", "paseo-runner-environment"),
+            )
+
+    def test_explicit_paseo_runner_requires_runner_environment(self):
+        configuration = self._settings()
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(RunBlocked, "requires PASEO_RUNNER=1"):
+                _new_run_mode("paseo-runner", Path("/tmp/workspace"), configuration)
+
+    def test_both_runner_flags_require_an_explicit_mode(self):
+        configuration = self._settings()
+        with patch.dict(os.environ, {"T3_RUNNER": "1", "PASEO_RUNNER": "1"}, clear=True):
+            with self.assertRaisesRegex(RunBlocked, "Pass --mode explicitly"):
+                _new_run_mode(None, Path("/tmp/workspace"), configuration)
 
     def test_parses_explicit_t3_runner_mode(self):
         args = parser().parse_args(

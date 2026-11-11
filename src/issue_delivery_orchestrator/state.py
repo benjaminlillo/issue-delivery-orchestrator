@@ -32,7 +32,7 @@ PHASES = (
 )
 
 REVIEW_METHODS = ("cua-driver", "codex-browser", "playwright-chrome")
-DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud", "t3-runner")
+DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud", "t3-runner", "paseo-runner")
 HANDOFF_MODES = ("full", "manual-runtime")
 # Autonomous runs never wait for the user: the agent decides, approves and records each decision.
 AUTONOMY_MODES = ("interactive", "autonomous")
@@ -42,6 +42,14 @@ MODE_REVIEWERS = {
     "vanilla": "cua-driver",
     "conductor-cloud": "playwright-chrome",
     "t3-runner": "playwright-chrome",
+    "paseo-runner": "playwright-chrome",
+}
+# Remote Linux runners without a desktop. Each image exports <SIGNAL>=1 to every agent and shares
+# runtimes and prototypes through its authenticated preview gate, registered under
+# <PREFIX>_PREVIEW_REGISTRY on a port in <PREFIX>_PREVIEW_PORTS.
+GATE_RUNNERS = {
+    "t3-runner": {"signal": "T3_RUNNER", "preview": "T3_PREVIEW", "name": "T3 Code"},
+    "paseo-runner": {"signal": "PASEO_RUNNER", "preview": "PASEO_PREVIEW", "name": "Paseo"},
 }
 RESUMABLE_STATUSES = {
     "active",
@@ -366,7 +374,7 @@ def select_review_method(state: dict[str, Any], method: str) -> dict[str, Any]:
     if state.get("mode"):
         raise RunBlocked(
             "Reviewer is fixed by development mode; choose codex, superset, vanilla, "
-            "conductor-cloud, or t3-runner when creating a run"
+            "conductor-cloud, t3-runner, or paseo-runner when creating a run"
         )
     if method not in REVIEW_METHODS:
         raise OrchestrationError(f"Unsupported reviewer method: {method}")

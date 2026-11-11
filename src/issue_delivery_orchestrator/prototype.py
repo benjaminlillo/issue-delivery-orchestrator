@@ -18,7 +18,7 @@ from . import desktop_browser
 from .errors import RunBlocked
 from .linear import LinearClient, upsert_markdown_section
 from .runtime import _alive, register_owned_process
-from .state import now, run_mode, run_root, save_state
+from .state import GATE_RUNNERS, now, run_mode, run_root, save_state
 from .util import atomic_write_json, read_json
 
 LINEAR_SECTION = "Prototipo aprobado"
@@ -33,10 +33,14 @@ def open_prototype(state: dict[str, Any], page: Path, *, desktop: bool = False) 
     page = page.resolve()
     if not page.is_relative_to(root) or not page.is_file():
         raise RunBlocked(f"The prototype page must be a file inside {root}")
-    if run_mode(state) == "t3-runner":
+    mode = run_mode(state)
+    if mode in GATE_RUNNERS:
         if desktop:
-            raise RunBlocked("The T3 Code runner has no desktop; share the prototype through the gate")
-        shown = _share_gate_preview(state, root, page)
+            raise RunBlocked(
+                f"The {GATE_RUNNERS[mode]['name']} runner has no desktop; share the prototype "
+                "through the gate"
+            )
+        shown = _share_gate_preview(state, root, page, GATE_RUNNERS[mode]["preview"])
     elif desktop:
         shown = _open_on_desktop(state, root, page)
     else:
@@ -92,13 +96,15 @@ def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, A
     return {"serverPid": pid, "serverPort": port, "url": url}
 
 
-def _share_gate_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
-    """Serve the prototype and register it with the T3 Code runner's preview gate."""
-    registry = os.environ.get("T3_PREVIEW_REGISTRY", "").strip()
-    ports = _port_range(os.environ.get("T3_PREVIEW_PORTS", ""))
+def _share_gate_preview(
+    state: dict[str, Any], root: Path, page: Path, prefix: str
+) -> dict[str, Any]:
+    """Serve the prototype and register it with the runner's preview gate."""
+    registry = os.environ.get(f"{prefix}_REGISTRY", "").strip()
+    ports = _port_range(os.environ.get(f"{prefix}_PORTS", ""))
     if not registry or not ports:
         raise RunBlocked(
-            "The runner does not expose T3_PREVIEW_REGISTRY and T3_PREVIEW_PORTS; update the "
+            f"The runner does not expose {prefix}_REGISTRY and {prefix}_PORTS; update the "
             "runner image to share prototypes through its gate"
         )
     pid, port = _ensure_server(state, root, ports)

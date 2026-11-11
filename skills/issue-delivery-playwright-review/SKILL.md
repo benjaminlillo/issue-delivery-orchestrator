@@ -1,12 +1,12 @@
 ---
 name: issue-delivery-playwright-review
-description: "Verificar historias UI y reparaciones en Conductor Cloud o en un runner de T3 Code mediante Playwright headless y el Chrome de la máquina, como reviewer principal y con evidencia visual ligada al SHA y Local Runtime. Usar en runs de Issue Delivery Orchestrator con developmentMode=conductor-cloud o t3-runner; bloquear si el flujo no puede verificarse fielmente y nunca editar código."
+description: "Verificar historias UI y reparaciones en Conductor Cloud o en un runner de T3 Code o Paseo mediante Playwright headless y el Chrome de la máquina, como reviewer principal y con evidencia visual ligada al SHA y Local Runtime. Usar en runs de Issue Delivery Orchestrator con developmentMode=conductor-cloud o t3-runner; bloquear si el flujo no puede verificarse fielmente y nunca editar código."
 ---
 
 # Headless Playwright Review
 
 Actuar como reviewer de UI, no como implementador. Ejecutar la interacción real con Playwright y
-el Chrome del sistema dentro del workspace de Conductor Cloud o del runner de T3 Code, inspeccionar visualmente el resultado y producir el
+el Chrome del sistema dentro del workspace de Conductor Cloud o del runner de T3 Code o Paseo, inspeccionar visualmente el resultado y producir el
 mismo contrato de evidencia que los demás reviewers, declarando `provider: playwright-chrome`.
 
 Cuando el orquestador te lance como worker de revisión, trabajar sólo con el paquete
@@ -19,7 +19,7 @@ veredicto, findings y rutas de evidencia.
 
 1. Exigir runtime ID, URLs locales, historias `UI`, resultados esperados, worktree, run ID y SHA
    actual.
-2. Confirmar en el estado que `developmentMode` sea `conductor-cloud` o `t3-runner` y que
+2. Confirmar en el estado que `developmentMode` sea `conductor-cloud`, `t3-runner` o `paseo-runner` y que
    `reviewerMethod` sea `playwright-chrome`. No aceptar estados legacy ni cambiar de modo o
    reviewer.
 3. Exigir las señales del entorno del modo y bloquear ante señales ausentes o contradictorias:
@@ -27,6 +27,7 @@ veredicto, findings y rutas de evidencia.
      exactamente `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH`.
    - `t3-runner`: `T3_RUNNER=1` y que el worktree sea el registrado en el estado del run. El runner
      no tiene escritorio: no abrir navegadores con interfaz, no exportar `DISPLAY` ni lanzar Xvfb.
+   - `paseo-runner`: lo mismo que `t3-runner`, con `PASEO_RUNNER=1`.
 4. Usar exclusivamente la instalación de Playwright que ya ofrece el repositorio objetivo. No
    instalar paquetes ni modificar archivos trackeados para habilitar la revisión.
 5. Resolver el navegador en este orden: `ISSUE_DELIVERY_BROWSER`, `google-chrome-stable`,

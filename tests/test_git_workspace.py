@@ -239,11 +239,12 @@ class GitWorkspaceTests(unittest.TestCase):
 
             workspace = GitWorkspace(checkout)
             workspace.fetch("development")
-            result = workspace.adopt_t3_runner(
+            result = workspace.adopt_gate_runner(
                 checkout,
                 "benjamin/ts-19-t3-runner",
                 "development",
                 "TS-19",
+                mode="t3-runner",
             )
 
             self.assertEqual(result.path, checkout.resolve())

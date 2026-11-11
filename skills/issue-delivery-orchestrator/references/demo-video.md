@@ -8,7 +8,7 @@ UI: incluye cambios de comportamiento observables mediante la interfaz aunque el
 Si sólo hay cambios internos sin impacto visible ni comportamiento revisable por UI, no grabar y
 registrar `SKIPPED` con el motivo. No pedir al usuario elegir herramienta ni alojamiento.
 
-Aplica a Codex, Superset, Vanilla, Conductor Cloud y runner de T3 Code, tanto en `full` como en `manual-runtime`.
+Aplica a Codex, Superset, Vanilla, Conductor Cloud y runners de T3 Code y Paseo, tanto en `full` como en `manual-runtime`.
 La demo es para que el usuario vea el resultado; no reemplaza las capturas ni aprueba la revisión UI.
 En `manual-runtime` se permite automatizar el navegador para esta grabación sin completar Computer
 Use. Las restricciones de reviewer de las otras etapas siguen vigentes.
