@@ -108,6 +108,29 @@ class PrototypeTests(unittest.TestCase):
         served = urllib.request.urlopen(f"http://127.0.0.1:{port}/flows/nueva%20ot.html").read()
         self.assertEqual(served, b"<html>OT</html>")
 
+    def test_paseo_runner_uses_its_own_gate_registry(self):
+        self.state["mode"]["name"] = "paseo-runner"
+        root = self.worktree.parent
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        registry = root / "paseo-previews"
+        link = bin_dir / "preview-link"
+        link.write_text('#!/bin/sh\necho "https://paseo.example/__gate/login?t=signed"\n')
+        link.chmod(0o755)
+        environment = {
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "T3_PREVIEW_REGISTRY": "",
+            "T3_PREVIEW_PORTS": "",
+            "PASEO_PREVIEW_REGISTRY": str(registry),
+            "PASEO_PREVIEW_PORTS": "27000-27999",
+        }
+        with patch.dict(os.environ, environment):
+            shown = open_prototype(self.state, self.page)
+
+        self.assertEqual(shown["url"], "https://paseo.example/__gate/login?t=signed")
+        entry = json.loads((registry / "ts-1-prototype.json").read_text())
+        self.assertEqual(entry["port"], shown["serverPort"])
+
     def test_t3_runner_blocks_without_the_gate_registry(self):
         self.state["mode"]["name"] = "t3-runner"
         with patch.dict(os.environ, {"T3_PREVIEW_REGISTRY": "", "T3_PREVIEW_PORTS": ""}):

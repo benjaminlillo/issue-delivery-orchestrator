@@ -53,7 +53,8 @@ del producto. No levantar el Local Runtime, la app ni el backend.
 - En `t3-runner`, ejecutar el mismo `prototype-open`: el motor sirve la carpeta, la registra en el
   gate del runner y devuelve en `url` un link de un solo uso que abre el prototipo (también desde el
   celular). Entregar ese link y, si vence, repetir `prototype-open` para emitir otro. Ver
-  [t3-runner.md](t3-runner.md).
+  [t3-runner.md](t3-runner.md). En `paseo-runner` funciona igual; ver
+  [paseo-runner.md](paseo-runner.md).
 - En los otros modos, entregar la ruta del archivo para que el usuario lo abra en su navegador.
 - No tomar capturas ni videos mientras se itera. Tras cada comentario, ajustar el mock y
   recompilar el CSS si cambiaron clases. El servidor entrega siempre la versión actual: basta con

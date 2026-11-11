@@ -12,6 +12,7 @@ from .util import run
 _INFERRED_MODE_DECISIONS = {
     "vanilla": ("vanilla-fallback", "cua-driver"),
     "t3-runner": ("t3-runner-environment", "playwright-chrome"),
+    "paseo-runner": ("paseo-runner-environment", "playwright-chrome"),
 }
 
 
@@ -105,22 +106,24 @@ class GitWorkspace:
             allow_nonmatching_branch=True,
         )
 
-    def adopt_t3_runner(
+    def adopt_gate_runner(
         self,
         path: Path,
         expected_branch: str,
         base: str,
         issue: str,
         *,
+        mode: str,
         allow_discard: bool = False,
     ) -> Worktree:
-        # T3 Code names its worktrees t3/<id>, so the starting branch never matches Linear.
+        # T3 Code (t3/<id>) and Paseo name their worktree branches themselves, so the starting
+        # branch never matches Linear.
         return self._adopt_switchable(
             path,
             expected_branch,
             base,
             issue,
-            mode="t3-runner",
+            mode=mode,
             allowed_start_branches={base},
             allow_discard=allow_discard,
             allow_nonmatching_branch=True,

@@ -189,21 +189,23 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(state), "conductor-cloud")
         self.assertEqual(review_method(state), "playwright-chrome")
 
-    def test_t3_runner_mode_selects_playwright_reviewer(self):
-        state = create_state(
-            worktree=self.worktree,
-            run_id="run-t3-runner",
-            issue={"id": "id", "identifier": "TS-1", "title": "Title"},
-            branch="benjamin/ts-1",
-            base="development",
-            created_from="t3-runner:origin/development",
-            adopted_head="abc",
-            identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
-            mode="t3-runner",
-        )
+    def test_gate_runner_modes_select_playwright_reviewer(self):
+        for mode in ("t3-runner", "paseo-runner"):
+            with self.subTest(mode=mode):
+                state = create_state(
+                    worktree=self.worktree,
+                    run_id=f"run-{mode}",
+                    issue={"id": "id", "identifier": "TS-1", "title": "Title"},
+                    branch="benjamin/ts-1",
+                    base="development",
+                    created_from=f"{mode}:origin/development",
+                    adopted_head="abc",
+                    identities={"linear": "benjalillo@turboshop.cl", "github": "benjaminlillo"},
+                    mode=mode,
+                )
 
-        self.assertEqual(run_mode(state), "t3-runner")
-        self.assertEqual(review_method(state), "playwright-chrome")
+                self.assertEqual(run_mode(state), mode)
+                self.assertEqual(review_method(state), "playwright-chrome")
 
     def test_new_mode_cannot_change_reviewer_independently(self):
         with self.assertRaisesRegex(RunBlocked, "fixed by development mode"):

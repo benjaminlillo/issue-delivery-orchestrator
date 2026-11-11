@@ -14,6 +14,7 @@ class PlaywrightReviewPackagingTests(unittest.TestCase):
         self.assertIn("provider: playwright-chrome", skill)
         self.assertIn("CONDUCTOR_IS_LOCAL=0", skill)
         self.assertIn("T3_RUNNER=1", skill)
+        self.assertIn("PASEO_RUNNER=1", skill)
         self.assertIn("locator.boundingBox()", skill)
         self.assertIn("No declarar `headlessAssistance`", skill)
         self.assertIn("instalar paquetes ni modificar archivos trackeados", skill)

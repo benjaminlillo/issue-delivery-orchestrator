@@ -1,6 +1,6 @@
 ---
 name: issue-delivery-orchestrator
-description: "Orquestar una issue de Linear en modo Codex, Superset, Vanilla, Conductor Cloud o runner de T3 Code: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores. Funciona igual en sesiones de Codex y de Claude Code; para lanzarlo en una sesión nueva, usar el agente que tenga credenciales y, si Conductor rechaza uno por falta de credenciales, crear la sesión con el otro."
+description: "Orquestar una issue de Linear en modo Codex, Superset, Vanilla, Conductor Cloud o runner de T3 Code o Paseo: ejecutar el delivery completo hasta una PR verificada o, cuando se solicite explícitamente, detenerse antes de Computer Use con un Local Runtime saludable preservado para revisión y PR manual. Usar también para ajustes posteriores. Funciona igual en sesiones de Codex y de Claude Code; para lanzarlo en una sesión nueva, usar el agente que tenga credenciales y, si Conductor rechaza uno por falta de credenciales, crear la sesión con el otro."
 ---
 
 # Issue Delivery Orchestrator
@@ -43,11 +43,14 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    - `t3-runner`: iniciar el thread de T3 Code en el entorno del runner con **Worktree** sobre
      `development` salvo override explícito. El runner exporta `T3_RUNNER=1`; el loop adopta el
      worktree del thread y no crea otro. Leer [t3-runner.md](references/t3-runner.md).
+   - `paseo-runner`: iniciar la sesión en un workspace que Paseo creó en el runner, sobre
+     `development` salvo override explícito. El runner exporta `PASEO_RUNNER=1`; el loop adopta ese
+     workspace y no crea otro. Leer [paseo-runner.md](references/paseo-runner.md).
 
 3. Antes de cambiar de directorio, ejecutar `git rev-parse --show-toplevel` en el workspace actual y
    conservar esa ruta absoluta. No iniciar modo `codex` desde Local, modo `superset` desde otro
    checkout, modo `vanilla` fuera del checkout que se desea adoptar, `conductor-cloud` fuera del
-   workspace declarado por Conductor ni `t3-runner` fuera del worktree del thread de T3 Code. No crear, solicitar ni
+   workspace declarado por Conductor ni `t3-runner` o `paseo-runner` fuera del worktree que creó su runner. No crear, solicitar ni
    delegar otro worktree mediante `create_thread`, subagentes, `git worktree add` o cualquier
    mecanismo equivalente. Si el worktree actual no es adoptable, bloquear en la misma sesión y
    pedir al usuario que abra manualmente otro con su setup local.
@@ -55,19 +58,19 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    implementación para revisar y preparar la PR manualmente, seleccionar `manual-runtime`.
    Si el usuario pide "modo autónomo", agregar `--autonomy autonomous` y seguir
    [autonomous-mode.md](references/autonomous-mode.md) en todo el run.
-   Ejecutar, agregando `--mode <codex|superset|vanilla|conductor-cloud|t3-runner>` sólo cuando el usuario
+   Ejecutar, agregando `--mode <codex|superset|vanilla|conductor-cloud|t3-runner|paseo-runner>` sólo cuando el usuario
    indique uno y
    `--handoff manual-runtime` sólo para esa solicitud explícita:
 
    ```bash
    python3 <plugin-root>/scripts/issue-delivery <issue> --worktree <ruta> \
-     [--mode <codex|superset|vanilla|conductor-cloud|t3-runner>] \
+     [--mode <codex|superset|vanilla|conductor-cloud|t3-runner|paseo-runner>] \
      [--handoff manual-runtime] [--autonomy autonomous] \
      --base <branch-base> --target <branch-target> [--new-run]
    ```
 
 5. Confirmar `modeSource` y `developmentMode` en la respuesta. La detección usa, en orden:
-   variables oficiales coincidentes de Conductor Cloud, `T3_RUNNER=1`, `SUPERSET_WORKSPACE_PATH`, raíces
+   variables oficiales coincidentes de Conductor Cloud, `T3_RUNNER=1` o `PASEO_RUNNER=1`, `SUPERSET_WORKSPACE_PATH`, raíces
    configuradas y componentes inequívocos de la ruta
    como `.codex` o `superset-worktrees`. Si no encuentra ninguna señal, elegir `vanilla` con
    `modeSource: vanilla-fallback`; si detecta señales contradictorias, pedir el modo al usuario. El
@@ -86,6 +89,8 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
    - `t3-runner` adopta el worktree del thread de T3 Code, permite partir desde su rama `t3/<id>`
      cuyo HEAD esté preservado en `origin/<base>` o desde la rama de la issue, conecta la rama de
      Linear y usa `issue-delivery-playwright-review` con el Chrome del runner.
+   - `paseo-runner` adopta el workspace de Paseo con las mismas reglas de rama y reviewer que
+     `t3-runner`.
 
 6. Publicar inmediatamente en el chat, para runs nuevos y reanudados, los valores exactos de
    `modeDecision` y `state.handoffMode` devueltos por el motor. Usar un mensaje autocontenido como:
@@ -100,7 +105,7 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
 
    No continuar al Grill ni presentar el modo sólo en logs o handoff final. Si `source` es
    `vanilla-fallback`, decir expresamente que se eligió Vanilla porque no hubo señales Codex,
-   Superset, Conductor Cloud ni runner de T3 Code. Si el motor bloquea la adopción inferida por un checkout dirty, anunciar igualmente
+   Superset, Conductor Cloud ni runner de T3 Code o Paseo. Si el motor bloquea la adopción inferida por un checkout dirty, anunciar igualmente
    la decisión incluida en el error antes de pedir que se preserven o limpien los cambios.
 7. Resolver y anunciar el routing antes de continuar. Si el prompt no indica explícitamente otra
    rama, usar `base=development` y `target=test`; pasar siempre ambos valores al CLI. No inferirlos
@@ -137,9 +142,9 @@ limpiar al reanudar un run existente.
 Excepción de seguridad: si `vanilla` fue elegido mediante `vanilla-fallback`, exigir un checkout
 sin cambios trackeados ni archivos no ignorados y bloquear antes de limpiar si está dirty. Permitir
 la limpieza normal sólo después de que el usuario preserve/limpie esos cambios o seleccione
-explícitamente `modo vanilla`. La misma regla aplica a `t3-runner` detectado mediante
-`t3-runner-environment`: limpiar sólo tras preservar/limpiar los cambios o con `modo t3-runner`
-explícito.
+explícitamente `modo vanilla`. La misma regla aplica a `t3-runner` y `paseo-runner` detectados
+mediante `t3-runner-environment` o `paseo-runner-environment`: limpiar sólo tras preservar/limpiar
+los cambios o con el modo explícito.
 
 Si una fase se bloquea, registrar y detener procesos propios:
 
@@ -167,7 +172,7 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
 5. Invocar siempre el reviewer fijado por el modo: `issue-delivery-cua-review` en `superset` o
    `vanilla`, `issue-delivery-browser-review` en `codex`, o
-   `issue-delivery-playwright-review` en `conductor-cloud` o `t3-runner`, aunque el ajuste sea pequeño o los
+   `issue-delivery-playwright-review` en `conductor-cloud`, `t3-runner` o `paseo-runner`, aunque el ajuste sea pequeño o los
    tests estén verdes.
 6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
@@ -434,7 +439,7 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    `cleanupCommand`, el resumen "Decisiones tomadas sin tu aprobación" de
    [decision-policy.md](references/decision-policy.md), el enlace reproducible o descargable de la
    demo (o su omisión/fallo) y, en
-   `conductor-cloud`, la línea informativa sobre el escritorio o, en `t3-runner`, un link fresco de
+   `conductor-cloud`, la línea informativa sobre el escritorio o, en `t3-runner` y `paseo-runner`, un link fresco de
    `preview-link --runtime <id> --app <app>` con las instrucciones de [t3-runner.md](references/t3-runner.md), sin preguntar.
    Decir expresamente: revisión Computer Use no ejecutada, evidencia de aprobación no creada y
    PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
@@ -471,6 +476,7 @@ Ejecutar esta sección sólo con `handoffMode=full`.
    - `t3-runner`: no ejecutar `launch-browser`; exigir `T3_RUNNER=1`, Playwright en el repositorio
      objetivo y Chrome en el runner, e invocar `issue-delivery-playwright-review` en headless. No
      abrir navegadores con interfaz ni lanzar Xvfb.
+   - `paseo-runner`: igual que `t3-runner`, exigiendo `PASEO_RUNNER=1`.
 
 4. Verificar las historias `UI` con el reviewer seleccionado y las demás mediante su superficie
    declarada. El reviewer verifica además cada criterio `UX-NNN` y `UXD-NNN` del spec y registra
@@ -496,7 +502,7 @@ En modos `codex`, `superset` y `vanilla`, leer
 primera opción para toda story. Si no puede ejecutar `file-upload` o mantener/demostrar un `hover`
 real, demostrar la brecha y activar Playwright headless sólo para esa story. Un resultado
 incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear cuando Playwright tampoco
-pueda cubrirla. En `conductor-cloud` y `t3-runner`, Playwright con Chrome cubre la story completa como reviewer
+pueda cubrirla. En `conductor-cloud`, `t3-runner` y `paseo-runner`, Playwright con Chrome cubre la story completa como reviewer
 principal y no genera `headlessAssistance`. No degradar cobertura ni cambiar automáticamente de
 reviewer o modo.
 
@@ -717,7 +723,7 @@ cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, l
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
 (o su omisión/fallo), el resumen "Decisiones tomadas sin tu aprobación" de
 [decision-policy.md](references/decision-policy.md) y, en `conductor-cloud`, la línea informativa
-sobre el escritorio o, en `t3-runner`, un link fresco de `preview-link --runtime <id> --app <app>` según
+sobre el escritorio o, en `t3-runner` y `paseo-runner`, un link fresco de `preview-link --runtime <id> --app <app>` según
 [t3-runner.md](references/t3-runner.md), sin
 preguntar. Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 

@@ -53,6 +53,7 @@ from .runtime import (
 from .state import (
     AUTONOMY_MODES,
     DEVELOPMENT_MODES,
+    GATE_RUNNERS,
     HANDOFF_MODES,
     PHASES,
     REVIEW_METHODS,
@@ -190,7 +191,7 @@ def parser() -> argparse.ArgumentParser:
     )
 
     prototype = actions.add_parser(
-        "prototype-open", help="Share the Grill UI prototype at the Conductor Cloud preview URL or the T3 runner gate"
+        "prototype-open", help="Share the Grill UI prototype at the Conductor Cloud preview URL or a runner gate"
     )
     prototype.add_argument("--path", type=Path, required=True)
     prototype.add_argument(
@@ -439,9 +440,9 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             _resolve_in_worktree(args.replay, Path(state["worktree"])),
         )
     if args.action == "prototype-open":
-        if run_mode(state) not in {"conductor-cloud", "t3-runner"}:
+        if run_mode(state) not in {"conductor-cloud", *GATE_RUNNERS}:
             raise RunBlocked(
-                "The prototype preview runs on Conductor Cloud or a T3 Code runner; in other "
+                "The prototype preview runs on Conductor Cloud or a T3 Code or Paseo runner; in other "
                 "modes give the user the prototype file path to open locally"
             )
         return open_prototype(
@@ -617,7 +618,7 @@ def bootstrap(
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
             "codex uses codex-browser; superset and vanilla use cua-driver; "
-            "conductor-cloud and t3-runner use playwright-chrome"
+            "conductor-cloud, t3-runner and paseo-runner use playwright-chrome"
         )
     if not requested_worktree:
         mode_hint = (
@@ -660,12 +661,13 @@ def bootstrap(
             base,
             issue.identifier,
         )
-    elif mode == "t3-runner":
-        worktree = workspace.adopt_t3_runner(
+    elif mode in GATE_RUNNERS:
+        worktree = workspace.adopt_gate_runner(
             requested_worktree,
             issue.branch_name,
             base,
             issue.identifier,
+            mode=mode,
             allow_discard=mode_source == "explicit",
         )
     else:
@@ -896,17 +898,25 @@ def _new_run_mode(
     if explicit:
         if explicit == "conductor-cloud":
             _is_conductor_cloud(worktree.expanduser().resolve())
-        if explicit == "t3-runner" and not _is_t3_runner():
+        if explicit in GATE_RUNNERS and not _is_gate_runner(explicit):
+            runner = GATE_RUNNERS[explicit]
             raise RunBlocked(
-                "t3-runner mode requires T3_RUNNER=1, which the T3 Code runner image exports"
+                f"{explicit} mode requires {runner['signal']}=1, which the {runner['name']} "
+                "runner image exports"
             )
         return explicit, "explicit"
 
     candidate = worktree.expanduser().resolve()
     if _is_conductor_cloud(candidate):
         return "conductor-cloud", "conductor-cloud-environment"
-    if _is_t3_runner():
-        return "t3-runner", "t3-runner-environment"
+    detected_runners = [mode for mode in GATE_RUNNERS if _is_gate_runner(mode)]
+    if len(detected_runners) > 1:
+        raise RunBlocked(
+            f"Both {' and '.join(GATE_RUNNERS[mode]['signal'] for mode in detected_runners)} "
+            "are set. Pass --mode explicitly."
+        )
+    if detected_runners:
+        return detected_runners[0], f"{detected_runners[0]}-environment"
 
     superset_workspace = os.environ.get("SUPERSET_WORKSPACE_PATH", "").strip()
     if superset_workspace and candidate == Path(superset_workspace).expanduser().resolve():
@@ -933,8 +943,8 @@ def _new_run_mode(
     return "vanilla", "vanilla-fallback"
 
 
-def _is_t3_runner() -> bool:
-    return os.environ.get("T3_RUNNER", "").strip() == "1"
+def _is_gate_runner(mode: str) -> bool:
+    return os.environ.get(GATE_RUNNERS[mode]["signal"], "").strip() == "1"
 
 
 def _is_conductor_cloud(worktree: Path) -> bool:
@@ -1060,7 +1070,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "workspaceMode": (
             "adopted"
             if str(state.get("createdFrom", "")).startswith(
-                ("adopted:", "codex:", "vanilla:", "conductor-cloud:", "t3-runner:")
+                ("adopted:", "codex:", "vanilla:", "conductor-cloud:", *(f"{mode}:" for mode in GATE_RUNNERS))
             )
             else "private"
         ),
