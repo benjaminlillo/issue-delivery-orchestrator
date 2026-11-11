@@ -69,6 +69,51 @@ class PrototypeTests(unittest.TestCase):
         served = urllib.request.urlopen(f"http://127.0.0.1:{port}/flows/nueva%20ot.html").read()
         self.assertEqual(served, b"<html>OT</html>")
 
+    def test_t3_runner_registers_the_prototype_with_the_gate(self):
+        self.state["mode"]["name"] = "t3-runner"
+        root = self.worktree.parent
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        registry = root / "previews"
+        calls = root / "link-calls.txt"
+        link = bin_dir / "preview-link"
+        link.write_text(
+            f'#!/bin/sh\necho "$@" >> {calls}\n'
+            'echo "https://runner.example/__gate/login?t=signed"\n'
+        )
+        link.chmod(0o755)
+        nested = prototype_root(self.state) / "flows" / "nueva ot.html"
+        nested.parent.mkdir()
+        nested.write_text("<html>OT</html>")
+        environment = {
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "T3_PREVIEW_REGISTRY": str(registry),
+            "T3_PREVIEW_PORTS": "27000-27999",
+        }
+        with patch.dict(os.environ, environment):
+            first = open_prototype(self.state, nested)
+            second = open_prototype(self.state, self.page)
+            with self.assertRaisesRegex(RunBlocked, "no desktop"):
+                open_prototype(self.state, self.page, desktop=True)
+
+        self.assertEqual(first["url"], "https://runner.example/__gate/login?t=signed")
+        self.assertEqual(first["serverPid"], second["serverPid"])
+        port = first["serverPort"]
+        self.assertTrue(27000 <= port <= 27999)
+        entry = json.loads((registry / "ts-1-prototype.json").read_text())
+        self.assertEqual(entry["id"], "ts-1-prototype")
+        self.assertEqual(entry["port"], port)
+        self.assertEqual(entry["path"], "/index.html")
+        self.assertEqual(calls.read_text().split("\n")[0], "--preview ts-1-prototype")
+        served = urllib.request.urlopen(f"http://127.0.0.1:{port}/flows/nueva%20ot.html").read()
+        self.assertEqual(served, b"<html>OT</html>")
+
+    def test_t3_runner_blocks_without_the_gate_registry(self):
+        self.state["mode"]["name"] = "t3-runner"
+        with patch.dict(os.environ, {"T3_PREVIEW_REGISTRY": "", "T3_PREVIEW_PORTS": ""}):
+            with self.assertRaisesRegex(RunBlocked, "T3_PREVIEW_REGISTRY"):
+                open_prototype(self.state, self.page)
+
     def test_opens_the_prototype_on_the_desktop_only_when_it_is_open(self):
         with self.assertRaisesRegex(RunBlocked, "desktop is not open"):
             open_prototype(self.state, self.page, desktop=True)

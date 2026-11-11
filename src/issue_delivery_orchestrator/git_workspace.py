@@ -7,6 +7,13 @@ from .config import settings
 from .errors import RunBlocked
 from .util import run
 
+# Modes that can be inferred with an unprotected checkout, mapped to the source and reviewer
+# reported when the inferred run refuses to discard local changes.
+_INFERRED_MODE_DECISIONS = {
+    "vanilla": ("vanilla-fallback", "cua-driver"),
+    "t3-runner": ("t3-runner-environment", "playwright-chrome"),
+}
+
 
 @dataclass(frozen=True)
 class Worktree:
@@ -95,6 +102,27 @@ class GitWorkspace:
             issue,
             mode="conductor-cloud",
             allowed_start_branches={base},
+            allow_nonmatching_branch=True,
+        )
+
+    def adopt_t3_runner(
+        self,
+        path: Path,
+        expected_branch: str,
+        base: str,
+        issue: str,
+        *,
+        allow_discard: bool = False,
+    ) -> Worktree:
+        # T3 Code names its worktrees t3/<id>, so the starting branch never matches Linear.
+        return self._adopt_switchable(
+            path,
+            expected_branch,
+            base,
+            issue,
+            mode="t3-runner",
+            allowed_start_branches={base},
+            allow_discard=allow_discard,
             allow_nonmatching_branch=True,
         )
 
@@ -258,9 +286,10 @@ class GitWorkspace:
     ) -> tuple[str, ...]:
         status = GitWorkspace._snapshot(path)[1]
         if status and not allow_discard:
+            source, reviewer = _INFERRED_MODE_DECISIONS.get(mode, (mode, "cua-driver"))
             raise RunBlocked(
-                f"Mode decision: {mode} (source: vanilla-fallback, reviewer: "
-                f"cua-driver, worktree: {path}). Inferred {mode} mode found "
+                f"Mode decision: {mode} (source: {source}, reviewer: "
+                f"{reviewer}, worktree: {path}). Inferred {mode} mode found "
                 "local changes: "
                 f"{', '.join(status)}. Preserve or clean them, or explicitly "
                 f"select --mode {mode} to authorize the normal new-run cleanup."

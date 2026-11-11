@@ -32,7 +32,7 @@ PHASES = (
 )
 
 REVIEW_METHODS = ("cua-driver", "codex-browser", "playwright-chrome")
-DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud")
+DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud", "t3-runner")
 HANDOFF_MODES = ("full", "manual-runtime")
 # Autonomous runs never wait for the user: the agent decides, approves and records each decision.
 AUTONOMY_MODES = ("interactive", "autonomous")
@@ -41,6 +41,7 @@ MODE_REVIEWERS = {
     "superset": "cua-driver",
     "vanilla": "cua-driver",
     "conductor-cloud": "playwright-chrome",
+    "t3-runner": "playwright-chrome",
 }
 RESUMABLE_STATUSES = {
     "active",
@@ -365,7 +366,7 @@ def select_review_method(state: dict[str, Any], method: str) -> dict[str, Any]:
     if state.get("mode"):
         raise RunBlocked(
             "Reviewer is fixed by development mode; choose codex, superset, vanilla, "
-            "or conductor-cloud when creating a run"
+            "conductor-cloud, or t3-runner when creating a run"
         )
     if method not in REVIEW_METHODS:
         raise OrchestrationError(f"Unsupported reviewer method: {method}")

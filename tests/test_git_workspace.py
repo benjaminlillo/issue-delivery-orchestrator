@@ -216,6 +216,62 @@ class GitWorkspaceTests(unittest.TestCase):
             self.assertEqual(result.created_from, "conductor-cloud:origin/development")
             self.assertEqual((checkout / ".env").read_text(), "preserve\n")
 
+    def test_t3_runner_switches_t3_worktree_to_linear_branch(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            remote = root / "remote.git"
+            seed = root / "seed"
+            checkout = root / "t3-1234abcd"
+            git(root, "init", "--bare", str(remote))
+            git(root, "init", "-b", "development", str(seed))
+            git(seed, "config", "user.email", "test@example.com")
+            git(seed, "config", "user.name", "Test")
+            (seed / ".gitignore").write_text(".env\n.local-runtime/\n")
+            (seed / "file.txt").write_text("base\n")
+            git(seed, "add", ".gitignore", "file.txt")
+            git(seed, "commit", "-m", "base")
+            git(seed, "remote", "add", "origin", str(remote))
+            git(seed, "push", "-u", "origin", "development")
+            git(root, "clone", str(remote), str(checkout))
+            git(checkout, "switch", "development")
+            git(checkout, "switch", "-c", "t3/1234abcd")
+            (checkout / ".env").write_text("preserve\n")
+
+            workspace = GitWorkspace(checkout)
+            workspace.fetch("development")
+            result = workspace.adopt_t3_runner(
+                checkout,
+                "benjamin/ts-19-t3-runner",
+                "development",
+                "TS-19",
+            )
+
+            self.assertEqual(result.path, checkout.resolve())
+            self.assertEqual(result.branch, "benjamin/ts-19-t3-runner")
+            self.assertEqual(result.created_from, "t3-runner:origin/development")
+            self.assertEqual((checkout / ".env").read_text(), "preserve\n")
+
+    def test_inferred_t3_runner_rejects_dirty_state_without_discarding(self):
+        workspace = GitWorkspace(Path("/tmp/repository"))
+        dirty = (" M apps/api/.env.development",)
+
+        with (
+            patch.object(GitWorkspace, "_snapshot", return_value=("abc", dirty)),
+            patch.object(GitWorkspace, "_discard_initial_changes") as discard,
+            self.assertRaisesRegex(
+                RunBlocked,
+                "source: t3-runner-environment, reviewer: playwright-chrome.*"
+                "explicitly select --mode t3-runner",
+            ),
+        ):
+            workspace._prepare_initial_state(
+                Path("/tmp/worktree"),
+                mode="t3-runner",
+                allow_discard=False,
+            )
+
+        discard.assert_not_called()
+
     def test_inferred_vanilla_rejects_dirty_state_without_discarding(self):
         workspace = GitWorkspace(Path("/tmp/repository"))
         dirty = (" M tracked.txt", "?? scratch.txt")

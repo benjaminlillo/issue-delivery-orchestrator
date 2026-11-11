@@ -15,7 +15,7 @@ Computer Use, replacing it with a fresh isolated Local Runtime, restarting the r
 leaving their healthy URLs available for user testing.
 
 The plugin is self-contained: its orchestration engine and workflow skills live in this repository.
-It supports four fixed workspace modes:
+It supports five fixed workspace modes:
 
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser, with headless
   Playwright assistance limited to demonstrated `file-upload` or `hover` capability gaps.
@@ -24,9 +24,12 @@ It supports four fixed workspace modes:
   workspace host, and review UI through Cua Driver.
 - `conductor-cloud`: adopt the workspace created by Conductor Cloud and review UI headlessly through
   the target repository's existing Playwright installation and the workspace's system Chrome.
+- `t3-runner`: adopt the thread worktree that T3 Code created on a remote T3 Code runner and review
+  UI headlessly through the target repository's Playwright and the runner's system Chrome. The
+  runner has no desktop; users reach the runtime through the runner's authenticated preview gate.
 
 The orchestrator never creates a worktree. Start the session in a worktree prepared by Codex,
-Superset, Conductor Cloud, or the user's normal Git tooling. Unless the prompt explicitly requests
+Superset, Conductor Cloud, T3 Code, or the user's normal Git tooling. Unless the prompt explicitly requests
 another source, prepare it from `development`. Vanilla users must run the repository's local setup
 before starting the loop. A new run cleans tracked changes and untracked, non-ignored files before
 adoption while preserving ignored `.env`, dependency, and runtime files. Existing runs are never
@@ -72,6 +75,8 @@ supported primary-reviewer capability gap; the plugin does not install or add it
 - Cua Driver and its operating-system permissions for Superset or Vanilla UI review.
 - For Conductor Cloud full delivery, Google Chrome in the workspace and Playwright already present
   in the target repository. The plugin does not install either into product code.
+- For T3 Code runner full delivery, the same Chrome and Playwright requirements, plus a runner image
+  that exports `T3_RUNNER=1` and provides the `preview-link` command for the preview gate.
 - macOS `sips`, ImageMagick, or ffmpeg when a reviewer returns JPEG bytes under a `.png` filename.
 - A personal Linear API key exposed as `LINEAR_API_KEY`. Linear publication fails closed if the
   variable is unavailable or the key's user or workspace does not match the expected ones.
@@ -155,7 +160,8 @@ When a change has UI stories, Grill builds a cheap HTML mock in the run director
 real components and compiles the app's own Tailwind styles. On Conductor Cloud, `prototype-open`
 serves it at the workspace's preview URL, which the user opens in their own browser, and they
 iterate on it without a runtime or app start. `--desktop` shows it on the workspace desktop
-instead. Once approved, `prototype-approve` publishes its screenshots to the Linear issue under
+instead. On a T3 Code runner, `prototype-open` registers it with the runner's preview gate and
+returns a one-time link that opens it directly, phone included. Once approved, `prototype-approve` publishes its screenshots to the Linear issue under
 "Prototipo aprobado"; they become the `Prototype` source of the design criteria, a visual reference
 for Implement and the baseline for the final UI review. Say "sin prototipo" to skip it; autonomous
 runs skip it. See [prototype](skills/issue-delivery-orchestrator/references/prototype.md).
@@ -226,8 +232,8 @@ ISSUE_DELIVERY_REPOSITORY=/absolute/path/to/repository
 ```
 
 New runs first detect Conductor Cloud from its official `CONDUCTOR_IS_LOCAL=0`,
-`CONDUCTOR_API_URL`, and matching `CONDUCTOR_WORKSPACE_PATH`/`CONDUCTOR_ROOT_PATH` variables. They
-otherwise detect mode from `SUPERSET_WORKSPACE_PATH`, configured worktree roots, or unambiguous
+`CONDUCTOR_API_URL`, and matching `CONDUCTOR_WORKSPACE_PATH`/`CONDUCTOR_ROOT_PATH` variables, then
+a T3 Code runner from `T3_RUNNER=1`. They otherwise detect mode from `SUPERSET_WORKSPACE_PATH`, configured worktree roots, or unambiguous
 path components such as `.codex` and `superset-worktrees`. Configure custom roots when
 your tools use paths without those markers. Separate multiple roots with the operating system path
 separator (`:` on macOS/Linux and `;` on Windows):
@@ -237,10 +243,11 @@ ISSUE_DELIVERY_CODEX_WORKTREE_ROOTS=/absolute/path/to/codex/worktrees
 ISSUE_DELIVERY_SUPERSET_WORKTREE_ROOTS=/absolute/path/to/superset/worktrees
 ```
 
-An explicit mode always overrides detection. If no Codex, Superset, or Conductor Cloud signal matches, the loop
+An explicit mode always overrides detection. If no Codex, Superset, Conductor Cloud, or T3 Code runner signal matches, the loop
 selects Vanilla with `modeSource: vanilla-fallback`. A fallback Vanilla run requires a clean
 checkout and blocks before discarding local changes; selecting `modo vanilla` explicitly retains
-the normal new-run cleanup contract. Contradictory workspace signals still require an explicit
+the normal new-run cleanup contract. An inferred `t3-runner` run follows the same clean-checkout
+rule; selecting `modo t3-runner` explicitly authorizes the cleanup. Contradictory workspace signals still require an explicit
 choice.
 
 The `.env` is user-owned and must not be committed. Restrict it to the current user:
@@ -360,7 +367,7 @@ same commit and Local Runtime. The evidence gate rejects unsupported kinds, miss
 attempts, altered artifacts, or stale receipts. Version 0.3 `uploadAssistance` and version 0.4
 Codex Browser receipts remain readable for preserved runs.
 
-In Conductor Cloud mode, Playwright with system Chrome is the primary reviewer for complete
+In Conductor Cloud and T3 Code runner modes, Playwright with system Chrome is the primary reviewer for complete
 stories, including uploads and hover. It interacts with the real UI, saves traces and final PNGs
 under the ignored run directory, and requires visual inspection of those PNGs before PASS. Browser
 Preview and Agentation remain optional human feedback surfaces: they are not counted as automatic
@@ -426,6 +433,10 @@ al punto donde se ve el cambio o empieza el flujo nuevo. El run no depende del e
 de forma autónoma. Después, abre el escritorio del workspace desde la app de Conductor y pide que
 se prepare la app allí: el agente abre Chrome y reproduce el recorrido en segundos sobre el runtime
 ya precargado, para probar sin reenviar puertos. Ver [la app en el escritorio](skills/issue-delivery-orchestrator/references/desktop-browser.md).
+
+En el runner de T3 Code no hay escritorio. El handoff termina con un link de `preview-link` que
+abre la app del runtime a través del gate del runner (también desde el celular). Los prototipos del
+Grill se comparten igual: `prototype-open` los registra en el gate y devuelve un link directo. Ver [el modo t3-runner](skills/issue-delivery-orchestrator/references/t3-runner.md).
 
 Para cambiar futuras invocaciones del mismo run:
 

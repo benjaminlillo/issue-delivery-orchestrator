@@ -190,7 +190,7 @@ def parser() -> argparse.ArgumentParser:
     )
 
     prototype = actions.add_parser(
-        "prototype-open", help="Share the Grill UI prototype at the Conductor Cloud preview URL"
+        "prototype-open", help="Share the Grill UI prototype at the Conductor Cloud preview URL or the T3 runner gate"
     )
     prototype.add_argument("--path", type=Path, required=True)
     prototype.add_argument(
@@ -439,10 +439,10 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             _resolve_in_worktree(args.replay, Path(state["worktree"])),
         )
     if args.action == "prototype-open":
-        if run_mode(state) != "conductor-cloud":
+        if run_mode(state) not in {"conductor-cloud", "t3-runner"}:
             raise RunBlocked(
-                "The prototype preview runs on Conductor Cloud; in other modes give the user "
-                "the prototype file path to open locally"
+                "The prototype preview runs on Conductor Cloud or a T3 Code runner; in other "
+                "modes give the user the prototype file path to open locally"
             )
         return open_prototype(
             state, _resolve_in_worktree(args.path, Path(state["worktree"])), desktop=args.desktop
@@ -617,7 +617,7 @@ def bootstrap(
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
             "codex uses codex-browser; superset and vanilla use cua-driver; "
-            "conductor-cloud uses playwright-chrome"
+            "conductor-cloud and t3-runner use playwright-chrome"
         )
     if not requested_worktree:
         mode_hint = (
@@ -659,6 +659,14 @@ def bootstrap(
             issue.branch_name,
             base,
             issue.identifier,
+        )
+    elif mode == "t3-runner":
+        worktree = workspace.adopt_t3_runner(
+            requested_worktree,
+            issue.branch_name,
+            base,
+            issue.identifier,
+            allow_discard=mode_source == "explicit",
         )
     else:
         worktree = workspace.adopt(
@@ -888,11 +896,17 @@ def _new_run_mode(
     if explicit:
         if explicit == "conductor-cloud":
             _is_conductor_cloud(worktree.expanduser().resolve())
+        if explicit == "t3-runner" and not _is_t3_runner():
+            raise RunBlocked(
+                "t3-runner mode requires T3_RUNNER=1, which the T3 Code runner image exports"
+            )
         return explicit, "explicit"
 
     candidate = worktree.expanduser().resolve()
     if _is_conductor_cloud(candidate):
         return "conductor-cloud", "conductor-cloud-environment"
+    if _is_t3_runner():
+        return "t3-runner", "t3-runner-environment"
 
     superset_workspace = os.environ.get("SUPERSET_WORKSPACE_PATH", "").strip()
     if superset_workspace and candidate == Path(superset_workspace).expanduser().resolve():
@@ -917,6 +931,10 @@ def _new_run_mode(
         return marker_matches.pop(), "path-marker"
 
     return "vanilla", "vanilla-fallback"
+
+
+def _is_t3_runner() -> bool:
+    return os.environ.get("T3_RUNNER", "").strip() == "1"
 
 
 def _is_conductor_cloud(worktree: Path) -> bool:
@@ -1042,7 +1060,7 @@ def _public_state(state: dict[str, Any]) -> dict[str, Any]:
         "workspaceMode": (
             "adopted"
             if str(state.get("createdFrom", "")).startswith(
-                ("adopted:", "codex:", "vanilla:", "conductor-cloud:")
+                ("adopted:", "codex:", "vanilla:", "conductor-cloud:", "t3-runner:")
             )
             else "private"
         ),
