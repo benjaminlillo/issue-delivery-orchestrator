@@ -50,9 +50,10 @@ del producto. No levantar el Local Runtime, la app ni el backend.
 - Si Conductor no comparte el preview, reintentar una vez y luego usar `--desktop`, que abre el
   prototipo en Chrome en el escritorio de Conductor. Ese modo exige el escritorio abierto: si el
   motor responde que no lo está, pedir al usuario que lo abra desde la app y esperar su aviso.
-- En `t3-runner`, el usuario no puede abrir archivos del runner en su navegador: renderizar el
-  prototipo con Playwright headless y mostrar las capturas en el chat con su ruta absoluta, según
-  [t3-runner.md](t3-runner.md). Es la única excepción a la regla de no capturar mientras se itera.
+- En `t3-runner`, ejecutar el mismo `prototype-open`: el motor sirve la carpeta, la registra en el
+  gate del runner y devuelve en `url` un link de un solo uso que abre el prototipo (también desde el
+  celular). Entregar ese link y, si vence, repetir `prototype-open` para emitir otro. Ver
+  [t3-runner.md](t3-runner.md).
 - En los otros modos, entregar la ruta del archivo para que el usuario lo abra en su navegador.
 - No tomar capturas ni videos mientras se itera. Tras cada comentario, ajustar el mock y
   recompilar el CSS si cambiaron clases. El servidor entrega siempre la versión actual: basta con

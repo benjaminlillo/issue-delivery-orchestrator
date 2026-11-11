@@ -435,7 +435,7 @@ pushear la branch, no crear una PR y no entrar a convergencia remota.
    [decision-policy.md](references/decision-policy.md), el enlace reproducible o descargable de la
    demo (o su omisión/fallo) y, en
    `conductor-cloud`, la línea informativa sobre el escritorio o, en `t3-runner`, un link fresco de
-   `preview-link` con las instrucciones de [t3-runner.md](references/t3-runner.md), sin preguntar.
+   `preview-link --runtime <id> --app <app>` con las instrucciones de [t3-runner.md](references/t3-runner.md), sin preguntar.
    Decir expresamente: revisión Computer Use no ejecutada, evidencia de aprobación no creada y
    PR no creada. Dejar activos sólo los procesos del runtime fresco; no ejecutar
    `stop-processes`, `block` ni cleanup después de este handoff.
@@ -717,7 +717,7 @@ cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, l
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
 (o su omisión/fallo), el resumen "Decisiones tomadas sin tu aprobación" de
 [decision-policy.md](references/decision-policy.md) y, en `conductor-cloud`, la línea informativa
-sobre el escritorio o, en `t3-runner`, un link fresco de `preview-link` según
+sobre el escritorio o, en `t3-runner`, un link fresco de `preview-link --runtime <id> --app <app>` según
 [t3-runner.md](references/t3-runner.md), sin
 preguntar. Dejar sus procesos activos. Conservar worktree, rama, runtimes y estado.
 

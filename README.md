@@ -160,7 +160,8 @@ When a change has UI stories, Grill builds a cheap HTML mock in the run director
 real components and compiles the app's own Tailwind styles. On Conductor Cloud, `prototype-open`
 serves it at the workspace's preview URL, which the user opens in their own browser, and they
 iterate on it without a runtime or app start. `--desktop` shows it on the workspace desktop
-instead. Once approved, `prototype-approve` publishes its screenshots to the Linear issue under
+instead. On a T3 Code runner, `prototype-open` registers it with the runner's preview gate and
+returns a one-time link that opens it directly, phone included. Once approved, `prototype-approve` publishes its screenshots to the Linear issue under
 "Prototipo aprobado"; they become the `Prototype` source of the design criteria, a visual reference
 for Implement and the baseline for the final UI review. Say "sin prototipo" to skip it; autonomous
 runs skip it. See [prototype](skills/issue-delivery-orchestrator/references/prototype.md).
@@ -433,9 +434,9 @@ de forma autónoma. Después, abre el escritorio del workspace desde la app de C
 se prepare la app allí: el agente abre Chrome y reproduce el recorrido en segundos sobre el runtime
 ya precargado, para probar sin reenviar puertos. Ver [la app en el escritorio](skills/issue-delivery-orchestrator/references/desktop-browser.md).
 
-En el runner de T3 Code no hay escritorio. El handoff termina con un link de `preview-link`: el
-usuario lo abre (también desde el celular), elige el runtime y la app en el gate del runner y prueba
-por el dominio público. Ver [el modo t3-runner](skills/issue-delivery-orchestrator/references/t3-runner.md).
+En el runner de T3 Code no hay escritorio. El handoff termina con un link de `preview-link` que
+abre la app del runtime a través del gate del runner (también desde el celular). Los prototipos del
+Grill se comparten igual: `prototype-open` los registra en el gate y devuelve un link directo. Ver [el modo t3-runner](skills/issue-delivery-orchestrator/references/t3-runner.md).
 
 Para cambiar futuras invocaciones del mismo run:
 

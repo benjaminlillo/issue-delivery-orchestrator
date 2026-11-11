@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import json
 import os
+import random
+import re
+import socket
 import subprocess
 import sys
 import time
@@ -15,7 +18,7 @@ from . import desktop_browser
 from .errors import RunBlocked
 from .linear import LinearClient, upsert_markdown_section
 from .runtime import _alive, register_owned_process
-from .state import now, run_root, save_state
+from .state import now, run_mode, run_root, save_state
 from .util import atomic_write_json, read_json
 
 LINEAR_SECTION = "Prototipo aprobado"
@@ -30,7 +33,14 @@ def open_prototype(state: dict[str, Any], page: Path, *, desktop: bool = False) 
     page = page.resolve()
     if not page.is_relative_to(root) or not page.is_file():
         raise RunBlocked(f"The prototype page must be a file inside {root}")
-    shown = _open_on_desktop(state, root, page) if desktop else _share_preview(state, root, page)
+    if run_mode(state) == "t3-runner":
+        if desktop:
+            raise RunBlocked("The T3 Code runner has no desktop; share the prototype through the gate")
+        shown = _share_gate_preview(state, root, page)
+    elif desktop:
+        shown = _open_on_desktop(state, root, page)
+    else:
+        shown = _share_preview(state, root, page)
     state["prototype"] = {
         **(state.get("prototype") or {}),
         **shown,
@@ -42,12 +52,15 @@ def open_prototype(state: dict[str, Any], page: Path, *, desktop: bool = False) 
     return state["prototype"]
 
 
-def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
-    """Serve the prototype directory and share it at the workspace's Conductor preview URL."""
+def _ensure_server(
+    state: dict[str, Any], root: Path, ports: tuple[int, int] | None = None
+) -> tuple[int, int]:
+    """Serve the prototype directory on 127.0.0.1, reusing the run's live server."""
     previous = state.get("prototype") or {}
     pid, port = previous.get("serverPid"), previous.get("serverPort")
-    if not (pid and port and _alive(int(pid)) and _serves(int(port))):
-        port = desktop_browser._free_port()
+    in_range = ports is None or (port and ports[0] <= int(port) <= ports[1])
+    if not (pid and port and in_range and _alive(int(pid)) and _serves(int(port))):
+        port = _free_port_in(*ports) if ports else desktop_browser._free_port()
         command = [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1",
                    "--directory", str(root)]
         with (root / "prototype-server.log").open("a") as log:
@@ -60,6 +73,12 @@ def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, A
             time.sleep(0.2)
         register_owned_process(state, server.pid, kind="prototype-server", command=" ".join(command))
         pid = server.pid
+    return int(pid), int(port)
+
+
+def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
+    """Serve the prototype directory and share it at the workspace's Conductor preview URL."""
+    pid, port = _ensure_server(state, root)
     result = subprocess.run(["conductor", "preview", "set", "--port", str(port), "--json"],
                             capture_output=True, text=True)
     try:
@@ -71,6 +90,58 @@ def _share_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, A
         ) from error
     url = urljoin(base if base.endswith("/") else f"{base}/", quote(str(page.relative_to(root))))
     return {"serverPid": pid, "serverPort": port, "url": url}
+
+
+def _share_gate_preview(state: dict[str, Any], root: Path, page: Path) -> dict[str, Any]:
+    """Serve the prototype and register it with the T3 Code runner's preview gate."""
+    registry = os.environ.get("T3_PREVIEW_REGISTRY", "").strip()
+    ports = _port_range(os.environ.get("T3_PREVIEW_PORTS", ""))
+    if not registry or not ports:
+        raise RunBlocked(
+            "The runner does not expose T3_PREVIEW_REGISTRY and T3_PREVIEW_PORTS; update the "
+            "runner image to share prototypes through its gate"
+        )
+    pid, port = _ensure_server(state, root, ports)
+    preview_id = re.sub(r"[^a-z0-9._-]+", "-", f"{state['issue']['identifier']}-prototype".lower())
+    preview_id = preview_id.strip("-.")[:64]
+    entry = {
+        "id": preview_id,
+        "port": port,
+        "label": f"{state['issue']['identifier']} · prototipo",
+        "path": "/" + quote(str(page.relative_to(root))),
+        "worktree": str(Path(state["worktree"]).resolve()),
+        "runId": state["runId"],
+    }
+    directory = Path(registry)
+    directory.mkdir(parents=True, exist_ok=True)
+    atomic_write_json(directory / f"{preview_id}.json", entry)
+    result = subprocess.run(["preview-link", "--preview", preview_id], capture_output=True, text=True)
+    url = result.stdout.strip()
+    if result.returncode != 0 or not url.startswith(("http://", "https://")):
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RunBlocked(f"The runner gate did not issue a prototype link ({detail})")
+    return {"serverPid": pid, "serverPort": port, "previewId": preview_id, "url": url}
+
+
+def _port_range(raw: str) -> tuple[int, int] | None:
+    match = re.fullmatch(r"\s*(\d+)\s*-\s*(\d+)\s*", raw or "")
+    if not match:
+        return None
+    low, high = int(match.group(1)), int(match.group(2))
+    return (low, high) if 0 < low <= high < 65536 else None
+
+
+def _free_port_in(low: int, high: int) -> int:
+    candidates = list(range(low, high + 1))
+    random.shuffle(candidates)
+    for port in candidates:
+        with socket.socket() as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
+    raise RunBlocked(f"No free port for the prototype server in {low}-{high}")
 
 
 def _serves(port: int) -> bool:
