@@ -38,6 +38,7 @@ state { id name type }
 assignee { id name displayName email }
 creator { id name displayName email }
 project { id name }
+projectMilestone { id name }
 parent { identifier }
 cycle { id number name startsAt endsAt }
 labels { nodes { id name } }
@@ -56,6 +57,8 @@ lead { id name displayName email }
 teams { nodes { id key name } }
 """
 
+MILESTONE_FIELDS = "id name description status progress sortOrder targetDate"
+
 PROJECT_ISSUE_FIELDS = """
 identifier
 title
@@ -65,6 +68,7 @@ updatedAt
 estimate
 priority
 state { name type }
+projectMilestone { name }
 assignee { email }
 labels(first: 20) { nodes { name } }
 relations(first: 20) { nodes { type relatedIssue { identifier } } }
@@ -411,6 +415,92 @@ def _project_update_content(args: argparse.Namespace, credential: Credential) ->
     return _project(credential, project["id"])
 
 
+def _project_milestones(credential: Credential, project_id: str) -> list[dict[str, Any]]:
+    query = f"""
+    query CodexLinearProjectMilestones($id: String!, $after: String) {{
+      project(id: $id) {{
+        projectMilestones(first: 50, after: $after) {{
+          nodes {{ {MILESTONE_FIELDS} }}
+          pageInfo {{ hasNextPage endCursor }}
+        }}
+      }}
+    }}
+    """
+    milestones = _paginate(credential, query, {"id": project_id}, ("project", "projectMilestones"))
+    return sorted(milestones, key=lambda milestone: milestone.get("sortOrder") or 0)
+
+
+def _milestone(credential: Credential, project: dict[str, Any], name: str) -> dict[str, Any]:
+    matches = [
+        milestone
+        for milestone in _project_milestones(credential, project["id"])
+        if str(milestone.get("name") or "").casefold() == name.strip().casefold()
+    ]
+    if len(matches) != 1:
+        raise LinearCliError(
+            f"Expected one milestone named {name!r} in project {project['name']}, found {len(matches)}"
+        )
+    return matches[0]
+
+
+def _project_milestone_list(args: argparse.Namespace, credential: Credential) -> dict[str, Any]:
+    _verify_identity(credential)
+    project = _project(credential, args.project)
+    return {
+        "project": {key: project[key] for key in ("id", "slugId", "name", "url")},
+        "milestones": _project_milestones(credential, project["id"]),
+    }
+
+
+def _project_milestone_create(args: argparse.Namespace, credential: Credential) -> dict[str, Any]:
+    _verify_identity(credential)
+    project = _project(credential, args.project)
+    name = args.name.strip()
+    existing = [
+        milestone
+        for milestone in _project_milestones(credential, project["id"])
+        if str(milestone.get("name") or "").casefold() == name.casefold()
+    ]
+    if existing:
+        raise LinearCliError(f"Project {project['name']} already has a milestone named {name!r}")
+    milestone_input: dict[str, Any] = {"projectId": project["id"], "name": name}
+    if args.description_file:
+        milestone_input["description"] = _read_text(args.description_file)
+    query = f"""
+    mutation CodexLinearMilestoneCreate($input: ProjectMilestoneCreateInput!) {{
+      projectMilestoneCreate(input: $input) {{ success projectMilestone {{ {MILESTONE_FIELDS} }} }}
+    }}
+    """
+    payload = _graphql(credential, query, {"input": milestone_input}).get("projectMilestoneCreate", {})
+    if not payload.get("success") or not isinstance(payload.get("projectMilestone"), dict):
+        raise LinearCliError("Linear projectMilestoneCreate did not succeed")
+    return payload["projectMilestone"]
+
+
+def _project_milestone_update(args: argparse.Namespace, credential: Credential) -> dict[str, Any]:
+    _verify_identity(credential)
+    project = _project(credential, args.project)
+    milestone = _milestone(credential, project, args.milestone)
+    milestone_input: dict[str, Any] = {}
+    if args.name:
+        milestone_input["name"] = args.name.strip()
+    if args.description_file:
+        milestone_input["description"] = _read_text(args.description_file)
+    if not milestone_input:
+        raise LinearCliError("Nothing to update: pass --name or --description-file")
+    query = f"""
+    mutation CodexLinearMilestoneUpdate($id: String!, $input: ProjectMilestoneUpdateInput!) {{
+      projectMilestoneUpdate(id: $id, input: $input) {{ success projectMilestone {{ {MILESTONE_FIELDS} }} }}
+    }}
+    """
+    payload = _graphql(
+        credential, query, {"id": milestone["id"], "input": milestone_input}
+    ).get("projectMilestoneUpdate", {})
+    if not payload.get("success") or not isinstance(payload.get("projectMilestone"), dict):
+        raise LinearCliError("Linear projectMilestoneUpdate did not succeed")
+    return payload["projectMilestone"]
+
+
 def _label_id(credential: Credential, name: str, team_id: str) -> str:
     query = """
     query CodexLinearLabels($name: String!) {
@@ -450,13 +540,20 @@ def _issue_update(args: argparse.Namespace, credential: Credential) -> dict[str,
         issue_input["addedLabelIds"] = [_label_id(credential, name, team_id) for name in args.add_label]
     if args.remove_label:
         issue_input["removedLabelIds"] = [_label_id(credential, name, team_id) for name in args.remove_label]
-    if args.project:
-        issue_input["projectId"] = _project(credential, args.project)["id"]
+    project = _project(credential, args.project) if args.project else None
+    if project:
+        issue_input["projectId"] = project["id"]
+    if args.milestone:
+        project = project or issue.get("project")
+        if not project:
+            raise LinearCliError(f"{issue['identifier']} has no project; pass --project with --milestone")
+        issue_input["projectMilestoneId"] = _milestone(credential, project, args.milestone)["id"]
     if args.parent:
         issue_input["parentId"] = _issue(credential, args.parent)["id"]
     if not issue_input and not args.blocked_by:
         raise LinearCliError(
-            "Nothing to update: pass --state, --add-label, --remove-label, --project, --parent or --blocked-by"
+            "Nothing to update: pass --state, --add-label, --remove-label, --project, --milestone, "
+            "--parent or --blocked-by"
         )
     if issue_input:
         query = """
@@ -485,6 +582,9 @@ def _issue_update(args: argparse.Namespace, credential: Credential) -> dict[str,
         raise LinearCliError(f"{updated['identifier']} is missing an added label")
     if any(name.casefold() in labels for name in args.remove_label):
         raise LinearCliError(f"{updated['identifier']} still has a removed label")
+    milestone = (updated.get("projectMilestone") or {}).get("name")
+    if args.milestone and str(milestone or "").casefold() != args.milestone.strip().casefold():
+        raise LinearCliError(f"{updated['identifier']} is not in milestone {args.milestone!r}")
     return updated
 
 
@@ -610,6 +710,7 @@ def _parser() -> argparse.ArgumentParser:
     issue_fields.add_argument("--add-label", action="append", default=[])
     issue_fields.add_argument("--remove-label", action="append", default=[])
     issue_fields.add_argument("--project")
+    issue_fields.add_argument("--milestone")
     issue_fields.add_argument("--parent")
     issue_fields.add_argument("--blocked-by", action="append", default=[])
     issue_approval = issue_commands.add_parser("spec-approval")
@@ -625,6 +726,17 @@ def _parser() -> argparse.ArgumentParser:
     project_content = project_commands.add_parser("update-content")
     project_content.add_argument("project")
     project_content.add_argument("--content-file", required=True)
+    project_milestones = project_commands.add_parser("milestones")
+    project_milestones.add_argument("project")
+    milestone_create = project_commands.add_parser("milestone-create")
+    milestone_create.add_argument("project")
+    milestone_create.add_argument("--name", required=True)
+    milestone_create.add_argument("--description-file")
+    milestone_update = project_commands.add_parser("milestone-update")
+    milestone_update.add_argument("project")
+    milestone_update.add_argument("milestone")
+    milestone_update.add_argument("--name")
+    milestone_update.add_argument("--description-file")
 
     comment = commands.add_parser("comment")
     comment_commands = comment.add_subparsers(dest="comment_command", required=True)
@@ -675,6 +787,12 @@ def _run(args: argparse.Namespace) -> Any:
         if args.project_command == "issues":
             _verify_identity(credential)
             return _project_issues(credential, args.project)
+        if args.project_command == "milestones":
+            return _project_milestone_list(args, credential)
+        if args.project_command == "milestone-create":
+            return _project_milestone_create(args, credential)
+        if args.project_command == "milestone-update":
+            return _project_milestone_update(args, credential)
         return _project_update_content(args, credential)
     if args.command == "comment":
         if args.comment_command == "list":
