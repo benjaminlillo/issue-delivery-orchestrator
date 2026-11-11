@@ -244,7 +244,8 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 
 - Todo run nuevo exige un worktree adoptable. Un `--mode` explícito tiene prioridad. Sin él, el CLI
   detecta primero Conductor Cloud mediante `CONDUCTOR_IS_LOCAL=0`, `CONDUCTOR_API_URL` y un
-  `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH` coincidente; luego detecta Codex o Superset
+  `CONDUCTOR_WORKSPACE_PATH` o `CONDUCTOR_ROOT_PATH` coincidente; luego el runner de T3 Code
+  mediante `T3_RUNNER=1`; luego detecta Codex o Superset
   mediante `SUPERSET_WORKSPACE_PATH`, raíces configuradas o componentes inequívocos de la ruta.
   Sin coincidencias selecciona Vanilla con
   `modeSource=vanilla-fallback`. Una detección contradictoria bloquea. El modo no cambia después de
@@ -269,19 +270,26 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   issue o una branch temporal cuyo HEAD esté íntegramente preservado por la branch de la issue o
   `origin/<base>`, conecta la branch de Linear y fija `reviewer.method=playwright-chrome`. Nunca crea
   un workspace o worktree adicional.
+- Modo `t3-runner`: T3 Code crea primero el worktree del thread en el runner (rama `t3/<id>`) y
+  ejecuta el setup del proyecto. El CLI lo adopta mediante `--worktree`, permite partir desde la
+  branch de la issue o desde una branch temporal cuyo HEAD esté preservado por la branch de la issue
+  u `origin/<base>`, conecta la branch de Linear y fija `reviewer.method=playwright-chrome`. Si el
+  modo fue inferido, bloquear antes de descartar cambios; exigir un checkout limpio o selección
+  explícita de `t3-runner`. El usuario accede al runtime mediante el gate del runner
+  (`preview-link`); ver [t3-runner.md](t3-runner.md).
 - El orquestador nunca crea worktrees ni delega el run a un thread que solicite otro. Prohibir
   `create_thread` con entorno worktree, `git worktree add` y mecanismos equivalentes. Si el actual
   no puede adoptarse, bloquear y pedir al usuario que abra manualmente otro para que la superficie
   ejecute su setup local.
 - La adopción valida mismo repositorio y `.local-runtime` ignorado. Superset exige branch exacta de
   Linear o prefijo truncado con el mismo ID. Codex sólo permite detached HEAD o esa misma branch.
-  Vanilla permite además partir desde la branch base declarada; Conductor Cloud admite una branch
-  temporal sólo bajo el gate de historia preservada descrito arriba. Antes de iniciar un run nuevo,
+  Vanilla permite además partir desde la branch base declarada; Conductor Cloud y el runner de T3
+  Code admiten una branch temporal sólo bajo el gate de historia preservada descrito arriba. Antes de iniciar un run nuevo,
   descartar cambios trackeados y archivos no trackeados no ignorados; preservar `.env`,
   dependencias, `.local-runtime` y cualquier otro archivo ignorado. Registrar el snapshot previo en
   `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta limpieza al reanudar.
 - Browser sólo opera dentro de un run modo Codex abierto en la app. Cua opera en modo Superset o
-  Vanilla. En Conductor Cloud, Playwright headless con el Chrome del workspace es el reviewer
+  Vanilla. En Conductor Cloud y en el runner de T3 Code, Playwright headless con el Chrome del workspace es el reviewer
   principal y debe revisar visualmente sus PNG; no declara asistencia ni depende de Browser
   Preview. En los otros modos, Playwright headless puede asistir exclusivamente una story con brecha demostrada de
   `file-upload` o `hover`, sobre el mismo SHA/runtime y con recibo bajo el run; el provider continúa
@@ -298,8 +306,8 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
 - Un run existente nunca cambia de worktree por una actualización del orquestador.
 - Después de iniciar o reanudar, anunciar inmediatamente en el chat `modeDecision.mode`,
   `modeDecision.source`, `modeDecision.reviewer` y `modeDecision.worktree`. No continuar al Grill
-  sin ese anuncio. Para `vanilla-fallback`, explicar que no se detectaron señales Codex, Superset o
-  Conductor Cloud.
+  sin ese anuncio. Para `vanilla-fallback`, explicar que no se detectaron señales Codex, Superset,
+  Conductor Cloud ni runner de T3 Code.
 - `--new-run` crea otro sólo si la branch no está asociada a un worktree.
 - `runtime-init --fresh` sólo reemplaza el binding activo; el cierre normal debe usar
   `runtime-reset` para detener procesos, limpiar recursos de los runtimes anteriores y dejar recibo

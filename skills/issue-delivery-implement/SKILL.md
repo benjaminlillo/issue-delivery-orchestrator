@@ -79,7 +79,7 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
    servicios afectados al orquestador.
 4. En `full`, invocar `issue-delivery-cua-review` en modo `superset` o `vanilla`,
    `issue-delivery-browser-review` en modo `codex`, o `issue-delivery-playwright-review` en modo
-   `conductor-cloud`, después del último cambio. Para runs legacy, usar el `reviewerMethod`
+   `conductor-cloud` o `t3-runner`, después del último cambio. Para runs legacy, usar el `reviewerMethod`
    existente. No concluir ni hacer handoff mientras no exista un PASS de ese reviewer para el
    mismo SHA. En `manual-runtime`, no invocar un reviewer: detener los
    procesos previos, reemplazar el Local Runtime, levantar de nuevo las apps, verificar endpoints y
