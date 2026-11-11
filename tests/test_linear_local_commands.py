@@ -121,7 +121,7 @@ class LinearLocalCommandTests(unittest.TestCase):
 
         args = argparse.Namespace(
             issue="PRO-1", state="in progress", add_label=["needs-decision"],
-            remove_label=[], project=None, parent=None, blocked_by=[],
+            remove_label=[], project=None, milestone=None, parent=None, blocked_by=[],
         )
         with patch.object(self.cli, "_graphql", side_effect=graphql):
             result = self.cli._issue_update(args, self.credential)
@@ -136,6 +136,49 @@ class LinearLocalCommandTests(unittest.TestCase):
         with patch.object(self.cli, "_graphql", side_effect=graphql):
             with self.assertRaisesRegex(self.cli.LinearCliError, "did not move"):
                 self.cli._issue_update(args, self.credential)
+
+    def test_milestones_resolve_by_name_in_the_issue_project(self) -> None:
+        issue = {
+            "id": "issue-id",
+            "identifier": "PRO-1",
+            "team": {"id": "team-id", "key": "PRO", "name": "Productos"},
+            "project": {"id": "project-id", "name": "Inventario"},
+            "projectMilestone": None,
+            "labels": {"nodes": []},
+        }
+        milestones = [
+            {"id": "m2", "name": "Etapa 2 · Consumo", "sortOrder": 2},
+            {"id": "m1", "name": "Etapa 1 · Bodega base", "sortOrder": 1},
+        ]
+        mutations = []
+
+        def graphql(_credential, query, variables):
+            if "CodexLinearViewer" in query:
+                return {"viewer": {"id": "u", "email": "dev@example.com"}, "organization": {"urlKey": "acme"}}
+            if "CodexLinearIssue(" in query:
+                return {"issue": {**issue, "projectMilestone": {"name": "Etapa 1 · Bodega base"}} if mutations else issue}
+            if "CodexLinearProjectMilestones" in query:
+                return {"project": {"projectMilestones": {"nodes": milestones, "pageInfo": {}}}}
+            if "CodexLinearProjectByName" in query:
+                return {"projects": {"nodes": [{"id": "project-id", "slugId": "abc", "name": "Inventario", "url": "u"}]}}
+            mutations.append(variables)
+            return {"issueUpdate": {"success": True}}
+
+        args = argparse.Namespace(
+            issue="PRO-1", state=None, add_label=[], remove_label=[], project=None,
+            milestone="etapa 1 · bodega base", parent=None, blocked_by=[],
+        )
+        with patch.object(self.cli, "_graphql", side_effect=graphql):
+            self.cli._issue_update(args, self.credential)
+            listed = self.cli._project_milestone_list(argparse.Namespace(project="Inventario"), self.credential)
+            with self.assertRaisesRegex(self.cli.LinearCliError, "already has a milestone"):
+                self.cli._project_milestone_create(
+                    argparse.Namespace(project="Inventario", name="Etapa 2 · Consumo", description_file=None),
+                    self.credential,
+                )
+
+        self.assertEqual({"projectMilestoneId": "m1"}, mutations[0]["input"])
+        self.assertEqual(["m1", "m2"], [milestone["id"] for milestone in listed["milestones"]])
 
 
 if __name__ == "__main__":
