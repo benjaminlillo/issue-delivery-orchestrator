@@ -78,11 +78,11 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
 
    - `codex` adopta el worktree del chat, acepta su `detached HEAD`, lo conecta a la rama de Linear
      y usa `issue-delivery-browser-review`.
-   - `superset` adopta el worktree ya conectado a la rama de Linear y usa `issue-delivery-cua-review`. También
-     acepta `SUPERSET_WORKSPACE_PATH`.
+   - `superset` adopta el worktree ya conectado a la rama de Linear y usa
+     `issue-delivery-playwright-review` en headless. También acepta `SUPERSET_WORKSPACE_PATH`.
    - `vanilla` adopta el checkout/worktree indicado, permite partir desde `origin/<base>`,
      `detached HEAD` seguro o la rama de la issue, conecta la rama de Linear y usa
-     `issue-delivery-cua-review`.
+     `issue-delivery-playwright-review` en headless.
    - `conductor-cloud` adopta el workspace declarado por Conductor, permite partir desde una rama
      temporal cuyo HEAD esté preservado en `origin/<base>` o desde la rama de la issue, conecta la rama de Linear y usa
      `issue-delivery-playwright-review` con el Chrome ya instalado en el workspace.
@@ -126,10 +126,11 @@ se invocan como `$<skill>`; en Claude Code, con la herramienta Skill como
 10. No guardar tokens, cookies ni secretos en el worktree. El CLI valida las identidades Linear y
    GitHub configuradas antes de mutar servicios.
 
-Los runs anteriores sin `mode` persistido conservan su worktree y reviewer históricos; exponer
-`developmentMode=codex` sólo para `codex-browser` y `developmentMode=superset` para `cua-driver`,
-sin migrar estado, ramas ni procesos. No inferir `vanilla` para estados legacy. Las sesiones que ya
-están ejecutando el loop continúan sobre ese contrato.
+Los runs anteriores sin `mode` persistido conservan su worktree; exponer `developmentMode=codex`
+sólo para `codex-browser` y `developmentMode=superset` para el resto, sin migrar ramas ni procesos.
+No inferir `vanilla` para estados legacy. Cua Driver ya no existe como reviewer: los runs que lo
+guardaron continúan con `playwright-chrome` y deben repetir con Playwright toda revisión UI cuya
+evidencia declare `cua-driver`.
 
 Toda adopción exige el mismo repositorio y `.local-runtime` ignorado. Superset exige la rama exacta
 de Linear o un prefijo truncado con el mismo ID. Codex admite el `detached HEAD` creado por la app.
@@ -160,7 +161,7 @@ python3 <plugin-root>/scripts/issue-delivery <issue> resume
 
 ## Invariante de reparación y handoff
 
-Aplicar esta regla en cualquier fase y también después de `completed_preserved`. Aplicarla a toda modificación correctiva posterior al inicio de Implement, sin importar si nace de un reporte del usuario, finding de Cua, review humano o automatizado, Action fallida, conflicto o descubrimiento del agente.
+Aplicar esta regla en cualquier fase y también después de `completed_preserved`. Aplicarla a toda modificación correctiva posterior al inicio de Implement, sin importar si nace de un reporte del usuario, finding del reviewer UI, review humano o automatizado, Action fallida, conflicto o descubrimiento del agente.
 
 Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o cambiar una implementación existente, o que reporte que algo no funciona, se ve mal o no cumple lo esperado. No tratarla como una edición aislada.
 
@@ -170,10 +171,9 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
    (finding, evidencia y SHA del intento anterior), que ejecuta la validación enfocada y deja la
    branch en su estado final.
 4. Levantar o refrescar el Local Runtime y las apps desde ese estado final.
-5. Invocar siempre el reviewer fijado por el modo: `issue-delivery-cua-review` en `superset` o
-   `vanilla`, `issue-delivery-browser-review` en `codex`, o
-   `issue-delivery-playwright-review` en `conductor-cloud`, `t3-runner` o `paseo-runner`, aunque el ajuste sea pequeño o los
-   tests estén verdes.
+5. Invocar siempre el reviewer fijado por el modo: `issue-delivery-browser-review` en `codex` o
+   `issue-delivery-playwright-review` en todos los demás, aunque el ajuste sea pequeño o los tests
+   estén verdes.
 6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
@@ -394,7 +394,7 @@ con `runtime-reset` y `runtime-handoff`, sin Computer Use ni PR.
 ### Handoff manual con runtime
 
 Si `handoffMode=manual-runtime`, detener aquí el flujo automático de delivery y preparar el entorno
-para el usuario; no invocar Browser, Cua ni Playwright para revisar, no crear screenshots/evidencia, no crear ni
+para el usuario; no invocar Browser ni Playwright para revisar, no crear screenshots/evidencia, no crear ni
 pushear la branch, no crear una PR y no entrar a convergencia remota.
 
 1. Ejecutar `runtime-reset`. El comando exige un worktree limpio y comprometido, detiene todos los
@@ -463,17 +463,16 @@ Ejecutar esta sección sólo con `handoffMode=full`.
 2. Levantar sólo las apps necesarias según "Arranque de apps en los runtimes" y usar el runtime activo.
 3. Ramificar exclusivamente por `developmentMode`:
 
-   - `superset`: abrir el navegador dedicado mediante
-     `python3 <plugin-root>/scripts/issue-delivery <issue> launch-browser --url <url-local>` e invocar `issue-delivery-cua-review`.
-   - `vanilla`: abrir el navegador dedicado mediante el mismo comando e invocar
-     `issue-delivery-cua-review` desde el checkout adoptado.
-   - `codex`: no ejecutar `launch-browser`; exigir la app de Codex y Browser disponible,
+   - `superset` y `vanilla`: invocar `issue-delivery-playwright-review` en headless desde el
+     checkout adoptado, con Playwright del repositorio objetivo y el Chrome de la máquina. No abrir
+     navegadores con interfaz: la revisión corre en la máquina del usuario.
+   - `codex`: exigir la app de Codex y Browser disponible,
      e invocar `issue-delivery-browser-review`. Permitir Playwright headless sólo para una story
      con brecha demostrada de `file-upload` o `hover`, sin cambiar reviewer ni modo.
-   - `conductor-cloud`: no ejecutar `launch-browser`; exigir las variables oficiales de Conductor,
+   - `conductor-cloud`: exigir las variables oficiales de Conductor,
      Playwright en el repositorio objetivo y Chrome en el workspace, e invocar
      `issue-delivery-playwright-review`. Playwright es el reviewer principal, no asistencia.
-   - `t3-runner`: no ejecutar `launch-browser`; exigir `T3_RUNNER=1`, Playwright en el repositorio
+   - `t3-runner`: exigir `T3_RUNNER=1`, Playwright en el repositorio
      objetivo y Chrome en el runner, e invocar `issue-delivery-playwright-review` en headless. No
      abrir navegadores con interfaz ni lanzar Xvfb.
    - `paseo-runner`: igual que `t3-runner`, exigiendo `PASEO_RUNNER=1`.
@@ -497,13 +496,12 @@ Ejecutar esta sección sólo con `handoffMode=full`.
    inspeccionar la copia anotada y corregir bounds o captions antes del checkpoint. El motor
    preserva el original.
 
-En modos `codex`, `superset` y `vanilla`, leer
-[headless-assistance.md](references/headless-assistance.md). Mantener el reviewer del modo como
-primera opción para toda story. Si no puede ejecutar `file-upload` o mantener/demostrar un `hover`
-real, demostrar la brecha y activar Playwright headless sólo para esa story. Un resultado
-incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear cuando Playwright tampoco
-pueda cubrirla. En `conductor-cloud`, `t3-runner` y `paseo-runner`, Playwright con Chrome cubre la story completa como reviewer
-principal y no genera `headlessAssistance`. No degradar cobertura ni cambiar automáticamente de
+En modo `codex`, leer [headless-assistance.md](references/headless-assistance.md). Mantener
+Browser como primera opción para toda story. Si no puede ejecutar `file-upload` o
+mantener/demostrar un `hover` real, demostrar la brecha y activar Playwright headless sólo para esa
+story. Un resultado incorrecto de la app es `FAIL`, no una brecha de capacidad. Bloquear cuando
+Playwright tampoco pueda cubrirla. En los demás modos, Playwright con Chrome cubre la story completa
+como reviewer principal y no genera `headlessAssistance`. No degradar cobertura ni cambiar automáticamente de
 reviewer o modo.
 
 Completar la fase con:

@@ -45,7 +45,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(load_state(path)["currentPhase"], "grill")
         self.assertEqual(find_runs(self.worktrees_root, "TS-1")[0]["runId"], "run-1")
         self.assertEqual(run_mode(self.state), "superset")
-        self.assertEqual(review_method(self.state), "cua-driver")
+        self.assertEqual(review_method(self.state), "playwright-chrome")
         self.assertEqual(handoff_mode(self.state), "full")
         self.assertEqual(target_branch(self.state), "test")
         self.assertEqual(self.state["discardedInitialStatus"], [])
@@ -113,12 +113,12 @@ class StateTests(unittest.TestCase):
         with self.assertRaisesRegex(RunBlocked, "before the first manual-revision"):
             select_review_method(self.state, "codex-browser")
 
-    def test_legacy_state_without_reviewer_defaults_to_cua(self):
+    def test_legacy_state_without_reviewer_defaults_to_playwright(self):
         self.state.pop("mode")
         self.state.pop("reviewer")
 
         self.assertEqual(run_mode(self.state), "superset")
-        self.assertEqual(review_method(self.state), "cua-driver")
+        self.assertEqual(review_method(self.state), "playwright-chrome")
 
     def test_codex_mode_selects_browser_reviewer(self):
         state = create_state(
@@ -136,7 +136,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(run_mode(state), "codex")
         self.assertEqual(review_method(state), "codex-browser")
 
-    def test_vanilla_mode_selects_cua_reviewer(self):
+    def test_vanilla_mode_selects_playwright_even_when_cua_was_stored(self):
         state = create_state(
             worktree=self.worktree,
             run_id="run-vanilla",
@@ -150,7 +150,9 @@ class StateTests(unittest.TestCase):
         )
 
         self.assertEqual(run_mode(state), "vanilla")
-        self.assertEqual(review_method(state), "cua-driver")
+        self.assertEqual(review_method(state), "playwright-chrome")
+        state["reviewer"] = {"method": "cua-driver"}
+        self.assertEqual(review_method(state), "playwright-chrome")
 
     def test_explicit_pr_target_is_persisted(self):
         state = create_state(

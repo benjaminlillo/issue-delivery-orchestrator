@@ -26,7 +26,7 @@ def pr_body(
     marker: str,
     assets: list[dict[str, Any]],
     *,
-    provider: str = "cua-driver",
+    provider: str = "playwright-chrome",
     headless_assistance: list[dict[str, Any]] | None = None,
     upload_assistance: list[dict[str, Any]] | None = None,
     videos: list[dict[str, Any]] = (),
@@ -55,7 +55,7 @@ def pr_body(
     methods = {
         "codex-browser": "Browser integrado de Codex",
         "cua-driver": "Cua Driver",
-        "playwright-chrome": "Playwright con Chrome en Conductor Cloud",
+        "playwright-chrome": "Playwright headless con Chrome",
     }
     method = methods.get(provider, provider)
     assistance = list(headless_assistance or [])

@@ -10,7 +10,7 @@ from .util import run
 # Modes that can be inferred with an unprotected checkout, mapped to the source and reviewer
 # reported when the inferred run refuses to discard local changes.
 _INFERRED_MODE_DECISIONS = {
-    "vanilla": ("vanilla-fallback", "cua-driver"),
+    "vanilla": ("vanilla-fallback", "playwright-chrome"),
     "t3-runner": ("t3-runner-environment", "playwright-chrome"),
     "paseo-runner": ("paseo-runner-environment", "playwright-chrome"),
 }
@@ -289,7 +289,7 @@ class GitWorkspace:
     ) -> tuple[str, ...]:
         status = GitWorkspace._snapshot(path)[1]
         if status and not allow_discard:
-            source, reviewer = _INFERRED_MODE_DECISIONS.get(mode, (mode, "cua-driver"))
+            source, reviewer = _INFERRED_MODE_DECISIONS.get(mode, (mode, "playwright-chrome"))
             raise RunBlocked(
                 f"Mode decision: {mode} (source: {source}, reviewer: "
                 f"{reviewer}, worktree: {path}). Inferred {mode} mode found "

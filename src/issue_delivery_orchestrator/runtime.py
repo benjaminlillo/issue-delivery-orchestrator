@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import signal
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -59,47 +58,6 @@ def register_owned_process(
         }
     )
     save_state(state)
-
-
-def launch_browser(state: dict[str, Any], url: str) -> dict[str, Any]:
-    worktree = Path(state["worktree"])
-    root = run_root(worktree, state["runId"])
-    profile = root / "browser-profile"
-    profile.mkdir(parents=True, exist_ok=True)
-    binary = _browser_binary()
-    log_path = root / "logs" / "browser.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    command = [
-        str(binary),
-        f"--user-data-dir={profile}",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--new-window",
-        url,
-    ]
-    with log_path.open("a") as log:
-        process = subprocess.Popen(
-            command,
-            cwd=worktree,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-    time.sleep(0.5)
-    if process.poll() is not None:
-        raise OrchestrationError(f"Dedicated browser exited early; inspect {log_path}")
-    register_owned_process(
-        state,
-        process.pid,
-        kind="dedicated-browser",
-        command=" ".join(command),
-    )
-    return {
-        "pid": process.pid,
-        "profile": str(profile),
-        "log": str(log_path),
-        "url": url,
-    }
 
 
 def stop_owned_processes(state: dict[str, Any], timeout_seconds: float = 10.0) -> list[int]:
@@ -226,18 +184,3 @@ def _terminate(pid: int, sig: signal.Signals) -> bool:
         return False
     except PermissionError as error:
         raise OrchestrationError(f"Cannot stop owned PID {pid}: {error}") from error
-
-
-def _browser_binary() -> Path:
-    override = settings().browser_binary
-    candidates = [
-        Path(override) if override else None,
-        Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-        Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-    ]
-    for candidate in candidates:
-        if candidate and candidate.is_file():
-            return candidate
-    raise OrchestrationError(
-        "No Chrome/Chromium binary found. Set ISSUE_DELIVERY_BROWSER explicitly."
-    )

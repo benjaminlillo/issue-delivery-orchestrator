@@ -12,14 +12,12 @@ todos los agentes; esa es la única señal de detección.
 - Como la detección es automática, el motor exige un checkout sin cambios antes de limpiar. Si
   bloquea por cambios locales, anunciar la decisión, pedir que se preserven o limpien, o que el
   usuario elija explícitamente `modo t3-runner` para autorizar la limpieza normal.
-- `modo vanilla` explícito sigue disponible en el runner, pero su reviewer Cua Driver necesita un
-  escritorio que el runner no tiene; no sugerirlo para revisión visual.
 
 ## Reviewer
 
 `issue-delivery-playwright-review` con Playwright headless del repositorio objetivo y el Chrome del
 sistema (`google-chrome`). Es el reviewer principal y no genera `headlessAssistance`. No exportar
-`DISPLAY`, no lanzar Xvfb ni navegadores con interfaz, y no usar `launch-browser`,
+`DISPLAY`, no lanzar Xvfb ni navegadores con interfaz, y no usar
 `desktop-prepare` ni `desktop-open`: el runner no tiene escritorio. Las apps se prueban por sus
 URLs `http://127.0.0.1:<puerto>` del manifiesto del Local Runtime.
 

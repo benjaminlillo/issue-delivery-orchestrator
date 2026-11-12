@@ -77,9 +77,8 @@ Cuando el input sea un ajuste, corrección o reporte de algo que no funciona, cu
    entregar el SHA candidato, escenario y superficies afectadas al reviewer fijado por el modo. En
    `manual-runtime`, marcarla como `FINAL_RUNTIME_RESET_REQUIRED` y entregar el SHA y los
    servicios afectados al orquestador.
-4. En `full`, invocar `issue-delivery-cua-review` en modo `superset` o `vanilla`,
-   `issue-delivery-browser-review` en modo `codex`, o `issue-delivery-playwright-review` en modo
-   `conductor-cloud`, `t3-runner` o `paseo-runner`, después del último cambio. Para runs legacy, usar el `reviewerMethod`
+4. En `full`, invocar `issue-delivery-browser-review` en modo `codex` o
+   `issue-delivery-playwright-review` en los demás modos, después del último cambio. Para runs legacy, usar el `reviewerMethod`
    existente. No concluir ni hacer handoff mientras no exista un PASS de ese reviewer para el
    mismo SHA. En `manual-runtime`, no invocar un reviewer: detener los
    procesos previos, reemplazar el Local Runtime, levantar de nuevo las apps, verificar endpoints y

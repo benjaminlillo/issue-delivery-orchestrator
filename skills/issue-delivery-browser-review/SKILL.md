@@ -6,7 +6,7 @@ description: "Verificar historias UI y reparaciones mediante el Browser integrad
 # Codex Browser Revision
 
 Actuar como verificador de UI, no como implementador. Probar el comportamiento observable contra
-el spec aprobado y producir el mismo contrato de evidencia que Cua Revision, declarando
+el spec aprobado y producir el mismo contrato de evidencia que Playwright Review, declarando
 `provider: codex-browser`.
 
 Dirigir logs y salidas extensas a archivos del run y leer sólo resúmenes y fallas; el Browser
@@ -19,7 +19,7 @@ corre en la conversación principal y todo lo que entra al contexto se relee en 
 2. Confirmar mediante el estado del run que `developmentMode` sea `codex` y `reviewerMethod` sea
    `codex-browser`. Para estados legacy sin modo, aceptar sólo `codex-browser`.
 3. Exigir que la sesión ejecute en la app de Codex y tenga disponible
-   `$browser:control-in-app-browser`. Bloquear sin cambiar automáticamente a Cua.
+   `$browser:control-in-app-browser`. Bloquear sin cambiar automáticamente de reviewer.
 4. Usar Browser como revisor principal, con un binding persistente propio. No usar la extensión de
    Chrome ni una sesión personal.
 5. Confirmar que el Local Runtime sea alcanzable desde Browser y que el sitio tenga permiso.

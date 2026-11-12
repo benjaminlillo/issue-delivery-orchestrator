@@ -406,7 +406,7 @@ class CliModeTests(unittest.TestCase):
                 "base": "development",
                 "target": "test",
                 "mode": {"name": "vanilla"},
-                "reviewer": {"method": "cua-driver"},
+                "reviewer": {"method": "playwright-chrome"},
             },
             "vanilla-fallback",
         )
@@ -416,7 +416,7 @@ class CliModeTests(unittest.TestCase):
             {
                 "mode": "vanilla",
                 "source": "vanilla-fallback",
-                "reviewer": "cua-driver",
+                "reviewer": "playwright-chrome",
                 "base": "development",
                 "target": "test",
                 "worktree": str(Path("/tmp/worktree").resolve()),

@@ -46,7 +46,6 @@ from .review_budget import (
 from .runtime import (
     cleanup_runtimes,
     initialize_runtime,
-    launch_browser,
     register_owned_process,
     stop_owned_processes,
 )
@@ -174,9 +173,6 @@ def parser() -> argparse.ArgumentParser:
     process.add_argument("--pid", type=int, required=True)
     process.add_argument("--kind", required=True)
     process.add_argument("--command", default="")
-
-    browser = actions.add_parser("launch-browser")
-    browser.add_argument("--url", required=True)
 
     desktop = actions.add_parser(
         "desktop-prepare",
@@ -316,7 +312,6 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.action == "status":
         return _public_state(state)
     if handoff_mode(state) == "manual-runtime" and args.action in {
-        "launch-browser",
         "prepare-evidence",
         "publish-evidence",
         "repair-evidence-links",
@@ -421,13 +416,6 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             command=args.command,
         )
         return _public_state(state)
-    if args.action == "launch-browser":
-        if review_method(state) != "cua-driver":
-            raise RunBlocked(
-                "Dedicated Cua Chrome is available only for cua-driver runs; use the "
-                "reviewer fixed by the run mode"
-            )
-        return launch_browser(state, args.url)
     if args.action in {"desktop-prepare", "desktop-open"}:
         if run_mode(state) != "conductor-cloud":
             raise RunBlocked("The desktop browser is available only for conductor-cloud runs")
@@ -617,8 +605,7 @@ def bootstrap(
     if args.reviewer:
         raise RunBlocked(
             "New runs select their UI reviewer through --mode; "
-            "codex uses codex-browser; superset and vanilla use cua-driver; "
-            "conductor-cloud, t3-runner and paseo-runner use playwright-chrome"
+            "codex uses codex-browser; every other mode uses playwright-chrome"
         )
     if not requested_worktree:
         mode_hint = (
@@ -1155,8 +1142,7 @@ def _next_action(state: dict[str, Any]) -> str:
         and run_mode(state) == "vanilla"
     ):
         return (
-            "Launch the run-owned dedicated browser and verify the UI with "
-            "Cua Driver from this checkout."
+            "Verify the UI with headless Playwright and the machine's Chrome from this checkout."
         )
     return f"Execute phase {state.get('currentPhase')} from the worktree."
 

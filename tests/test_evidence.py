@@ -53,7 +53,7 @@ class EvidenceVerificationTests(unittest.TestCase):
         self,
         commit: str | None = None,
         *,
-        provider: str | None = None,
+        provider: str | None = "playwright-chrome",
     ):
         verification = {
             "status": "PASS",
@@ -73,7 +73,7 @@ class EvidenceVerificationTests(unittest.TestCase):
     def test_accepts_pass_for_current_head_and_registered_runtime(self):
         receipt = _verification(self.manifest(), self.state, self.worktree)
         self.assertEqual(receipt["verifiedCommit"], self.head)
-        self.assertNotIn("provider", receipt)
+        self.assertEqual(receipt["provider"], "playwright-chrome")
 
     def test_keeps_ux_acceptance_results_in_the_verification_receipt(self):
         manifest = self.manifest()
@@ -114,7 +114,7 @@ class EvidenceVerificationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(OrchestrationError, "provider mismatch"):
             _verification(
-                self.manifest(provider="cua-driver"),
+                self.manifest(provider="playwright-chrome"),
                 self.state,
                 self.worktree,
             )
@@ -165,7 +165,7 @@ class EvidenceVerificationTests(unittest.TestCase):
 
         self.assertIn("Browser integrado de Codex", body)
 
-    def test_pr_body_names_conductor_cloud_provider(self):
+    def test_pr_body_names_playwright_provider(self):
         body = _pr_body(
             "<!-- marker -->",
             [
@@ -179,7 +179,7 @@ class EvidenceVerificationTests(unittest.TestCase):
             provider="playwright-chrome",
         )
 
-        self.assertIn("Playwright con Chrome en Conductor Cloud", body)
+        self.assertIn("Playwright headless con Chrome", body)
 
     def test_pr_body_discloses_headless_upload_assistance(self):
         body = _pr_body(
@@ -490,94 +490,16 @@ class EvidenceVerificationTests(unittest.TestCase):
         self.assertEqual(assistance["scope"], "operation-only")
         self.assertNotIn("legacy", assistance)
 
-    def test_accepts_vanilla_cua_hover_fallback_with_v3_receipt(self):
-        state = {
-            "worktree": str(self.worktree),
-            "runId": "run-1",
-            "mode": {"name": "vanilla"},
-            "reviewer": {"method": "cua-driver"},
-            "runtimes": [{"runtimeId": "rt-1"}],
-        }
-        root = run_root(self.worktree, "run-1")
-        story_root = root / "validation" / "headless-assistance" / "US-3"
-        story_root.mkdir(parents=True)
-        screenshot = story_root / "hover.png"
-        screenshot.write_bytes(
-            encode_png(PngImage(10, 10, bytearray((255, 255, 255, 255) * 100)))
-        )
-        receipt = story_root / "receipt.json"
-        receipt.write_text(
-            json.dumps(
-                {
-                    "receiptVersion": 3,
-                    "status": "PASS",
-                    "driver": "playwright-headless",
-                    "storyId": "US-3",
-                    "kind": "hover",
-                    "scope": "full-story",
-                    "verifiedCommit": self.head,
-                    "runtimeId": "rt-1",
-                    "verifiedAt": "2026-07-30T12:01:00Z",
-                    "primaryAttempt": {
-                        "status": "CAPABILITY_GAP",
-                        "provider": "cua-driver",
-                        "kind": "hover",
-                        "attemptedAt": "2026-07-30T12:00:00Z",
-                        "observation": (
-                            "Cua reached the control but could not keep the "
-                            "required hover state active."
-                        ),
-                    },
-                    "artifacts": [
-                        {
-                            "path": str(screenshot.relative_to(root)),
-                            "role": "evidence",
-                            "mimeType": "image/png",
-                            "size": screenshot.stat().st_size,
-                            "sha256": hashlib.sha256(
-                                screenshot.read_bytes()
-                            ).hexdigest(),
-                        }
-                    ],
-                    "observations": [
-                        "Playwright displayed the expected hover state.",
-                        "Moving away preserved the selected state.",
-                    ],
-                }
-            )
-        )
-        manifest_path = self.worktree / "manifest.json"
-        manifest = self.manifest(provider="cua-driver")
-        manifest["verification"]["scenarioIds"] = ["US-3"]
-        manifest.update(
-            {
-                "evidenceVersion": 2,
-                "headlessAssistance": [
-                    {
-                        "storyId": "US-3",
-                        "kind": "hover",
-                        "receiptPath": str(receipt.relative_to(self.worktree)),
-                    }
-                ],
-                "screenshots": [
-                    {
-                        "storyId": "US-3",
-                        "path": str(screenshot.relative_to(self.worktree)),
-                        "annotationReason": "The control state demonstrates hover.",
-                    }
-                ],
-            }
-        )
-        manifest_path.write_text(json.dumps(manifest))
+    def test_runs_that_stored_cua_must_repeat_the_review_with_playwright(self):
+        self.state["mode"] = {"name": "vanilla"}
+        self.state["reviewer"] = {"method": "cua-driver"}
 
-        prepared = prepare_evidence(state, manifest_path)
-
-        assistance = prepared["headlessAssistance"][0]
-        self.assertEqual(assistance["receiptVersion"], 3)
-        self.assertEqual(
-            assistance["primaryAttempt"]["provider"],
-            "cua-driver",
-        )
+        with self.assertRaisesRegex(OrchestrationError, "Repeat the UI review with playwright-chrome"):
+            _verification(self.manifest(provider="cua-driver"), self.state, self.worktree)
+        with self.assertRaisesRegex(OrchestrationError, "Repeat the UI review"):
+            _verification(self.manifest(provider=None), self.state, self.worktree)
+        receipt = _verification(self.manifest(), self.state, self.worktree)
+        self.assertEqual(receipt["provider"], "playwright-chrome")
 
     def test_rejects_hover_fallback_without_browser_attempt(self):
         state = {
