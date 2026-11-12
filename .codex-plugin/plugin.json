@@ -1,6 +1,6 @@
 {
   "name": "issue-delivery-orchestrator",
-  "version": "0.40.0",
+  "version": "0.41.0",
   "description": "Deliver Linear issues through a verified PR or hand off a fresh healthy runtime for manual review.",
   "author": {
     "name": "Benjamin Lillo"
@@ -27,7 +27,7 @@
       "Codex, Superset, Vanilla, Conductor Cloud, and T3 Code runner worktree modes",
       "Focused implementation validation",
       "Fresh final runtime handoff",
-      "Browser, Cua, and Playwright-Chrome UI review",
+      "Browser and headless Playwright-Chrome UI review",
       "UI evidence publication",
       "GitHub review convergence"
     ],

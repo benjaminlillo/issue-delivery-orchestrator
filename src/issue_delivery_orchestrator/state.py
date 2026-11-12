@@ -31,15 +31,17 @@ PHASES = (
     "review-convergence",
 )
 
-REVIEW_METHODS = ("cua-driver", "codex-browser", "playwright-chrome")
+REVIEW_METHODS = ("codex-browser", "playwright-chrome")
+# Cua Driver was removed. Runs that stored it continue with the reviewer fixed by their mode.
+REMOVED_REVIEW_METHOD = "cua-driver"
 DEVELOPMENT_MODES = ("codex", "superset", "vanilla", "conductor-cloud", "t3-runner", "paseo-runner")
 HANDOFF_MODES = ("full", "manual-runtime")
 # Autonomous runs never wait for the user: the agent decides, approves and records each decision.
 AUTONOMY_MODES = ("interactive", "autonomous")
 MODE_REVIEWERS = {
     "codex": "codex-browser",
-    "superset": "cua-driver",
-    "vanilla": "cua-driver",
+    "superset": "playwright-chrome",
+    "vanilla": "playwright-chrome",
     "conductor-cloud": "playwright-chrome",
     "t3-runner": "playwright-chrome",
     "paseo-runner": "playwright-chrome",
@@ -344,6 +346,8 @@ def target_branch(state: dict[str, Any]) -> str:
 
 def review_method(state: dict[str, Any]) -> str:
     stored_method = str((state.get("reviewer") or {}).get("method") or "")
+    if stored_method == REMOVED_REVIEW_METHOD:
+        stored_method = ""
     if state.get("mode"):
         mode = run_mode(state)
         expected_method = MODE_REVIEWERS[mode]
@@ -352,7 +356,7 @@ def review_method(state: dict[str, Any]) -> str:
                 f"Run mode {mode} requires reviewer {expected_method}, got {stored_method}"
             )
         return expected_method
-    method = stored_method or "cua-driver"
+    method = stored_method or "playwright-chrome"
     if method not in REVIEW_METHODS:
         raise OrchestrationError(f"Run has unsupported reviewer method: {method}")
     return method
@@ -364,8 +368,8 @@ def run_mode(state: dict[str, Any]) -> str:
         if stored_mode not in DEVELOPMENT_MODES:
             raise OrchestrationError(f"Run has unsupported development mode: {stored_mode}")
         return stored_mode
-    legacy_method = str((state.get("reviewer") or {}).get("method") or "cua-driver")
-    if legacy_method not in REVIEW_METHODS:
+    legacy_method = str((state.get("reviewer") or {}).get("method") or REMOVED_REVIEW_METHOD)
+    if legacy_method not in (*REVIEW_METHODS, REMOVED_REVIEW_METHOD):
         raise OrchestrationError(f"Run has unsupported reviewer method: {legacy_method}")
     return "codex" if legacy_method == "codex-browser" else "superset"
 

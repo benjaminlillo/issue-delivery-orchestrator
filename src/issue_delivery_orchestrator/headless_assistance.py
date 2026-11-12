@@ -10,7 +10,7 @@ from .util import ensure_within, read_json
 
 
 SUPPORTED_KINDS = {"file-upload", "hover"}
-SUPPORTED_REVIEWERS = {"codex-browser", "cua-driver"}
+SUPPORTED_REVIEWERS = {"codex-browser"}
 
 
 def validate_headless_assistance(

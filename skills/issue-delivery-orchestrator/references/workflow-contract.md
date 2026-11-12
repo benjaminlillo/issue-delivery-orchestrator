@@ -112,7 +112,7 @@ Toda petición de ajuste/corrección y todo reporte de comportamiento roto abre 
 
 El recibo de verificación debe registrar:
 
-- Provider `cua-driver`, `codex-browser` o `playwright-chrome`, según el modo persistido.
+- Provider `codex-browser` o `playwright-chrome`, según el modo persistido.
 - Texto o ID del reporte.
 - Escenario `REPAIR-<n>` o historias afectadas.
 - SHA exacto verificado.
@@ -203,7 +203,7 @@ El manifiesto de screenshots debe ser JSON:
   "evidenceVersion": 2,
   "verification": {
     "status": "PASS",
-    "provider": "cua-driver",
+    "provider": "playwright-chrome",
     "verifiedCommit": "<sha>",
     "runtimeId": "<runtime-id>",
     "verifiedAt": "<ISO-8601>",
@@ -260,11 +260,11 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   `reviewer.method=codex-browser`. Fijar el chat y no archivarlo ni hacer Handoff a Local antes del
   merge y cleanup; el estado ignorado del run permanece en ese worktree.
 - Modo `superset`: Superset crea primero el worktree en la rama de Linear; el CLI lo adopta mediante
-  `--worktree` o `SUPERSET_WORKSPACE_PATH` y fija `reviewer.method=cua-driver`.
+  `--worktree` o `SUPERSET_WORKSPACE_PATH` y fija `reviewer.method=playwright-chrome`.
 - Modo `vanilla`: el usuario o su herramienta crea/prepara el checkout o worktree y ejecuta su
   setup local antes del loop. El CLI lo adopta mediante `--worktree`, permite partir desde la rama
   base, un detached HEAD seguro o la rama de la issue, conecta la rama de Linear y fija
-  `reviewer.method=cua-driver`. Si el modo fue inferido, bloquear antes de descartar cambios
+  `reviewer.method=playwright-chrome`. Si el modo fue inferido, bloquear antes de descartar cambios
   trackeados o archivos no ignorados; exigir un checkout limpio o selección explícita de Vanilla.
 - Modo `conductor-cloud`: Conductor crea primero el workspace cloud y ejecuta su setup. El CLI adopta
   exactamente el path declarado por sus variables oficiales, permite partir desde la branch de la
@@ -292,12 +292,12 @@ Las evidencias de GitHub permanecen restringidas por los permisos del repositori
   descartar cambios trackeados y archivos no trackeados no ignorados; preservar `.env`,
   dependencias, `.local-runtime` y cualquier otro archivo ignorado. Registrar el snapshot previo en
   `discardedInitialStatus` y exigir un status limpio después. No ejecutar esta limpieza al reanudar.
-- Browser sólo opera dentro de un run modo Codex abierto en la app. Cua opera en modo Superset o
-  Vanilla. En Conductor Cloud y en los runners de T3 Code y Paseo, Playwright headless con el Chrome del workspace es el reviewer
-  principal y debe revisar visualmente sus PNG; no declara asistencia ni depende de Browser
-  Preview. En los otros modos, Playwright headless puede asistir exclusivamente una story con brecha demostrada de
+- Browser sólo opera dentro de un run modo Codex abierto en la app. En todos los demás modos,
+  Playwright headless con el Chrome de la máquina es el reviewer principal y debe revisar
+  visualmente sus PNG; no abre ventanas, no declara asistencia ni depende de Browser Preview. En
+  modo Codex, Playwright headless puede asistir exclusivamente una story con brecha demostrada de
   `file-upload` o `hover`, sobre el mismo SHA/runtime y con recibo bajo el run; el provider continúa
-  siendo el reviewer principal. No cambiar provider o modo silenciosamente. Leer
+  siendo Browser. No cambiar provider o modo silenciosamente. Leer
   [headless-assistance.md](headless-assistance.md) y mantener compatibilidad con
   `uploadAssistance` v1 y recibos v2 de Codex Browser.
 - `adoptedHead` y `adoptedStatus` fijan el baseline limpio posterior a la adopción;

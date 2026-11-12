@@ -1,12 +1,12 @@
 ---
 name: issue-delivery-playwright-review
-description: "Verificar historias UI y reparaciones en Conductor Cloud o en un runner de T3 Code o Paseo mediante Playwright headless y el Chrome de la máquina, como reviewer principal y con evidencia visual ligada al SHA y Local Runtime. Usar en runs de Issue Delivery Orchestrator con developmentMode=conductor-cloud o t3-runner; bloquear si el flujo no puede verificarse fielmente y nunca editar código."
+description: "Verificar historias UI y reparaciones mediante Playwright headless y el Chrome de la máquina, como reviewer principal y con evidencia visual ligada al SHA y Local Runtime. Usar en runs de Issue Delivery Orchestrator en modo Superset, Vanilla, Conductor Cloud o runner de T3 Code o Paseo; bloquear si el flujo no puede verificarse fielmente y nunca editar código."
 ---
 
 # Headless Playwright Review
 
 Actuar como reviewer de UI, no como implementador. Ejecutar la interacción real con Playwright y
-el Chrome del sistema dentro del workspace de Conductor Cloud o del runner de T3 Code o Paseo, inspeccionar visualmente el resultado y producir el
+el Chrome del sistema dentro del worktree del run, sin abrir ventanas, inspeccionar visualmente el resultado y producir el
 mismo contrato de evidencia que los demás reviewers, declarando `provider: playwright-chrome`.
 
 Cuando el orquestador te lance como worker de revisión, trabajar sólo con el paquete
@@ -19,7 +19,7 @@ veredicto, findings y rutas de evidencia.
 
 1. Exigir runtime ID, URLs locales, historias `UI`, resultados esperados, worktree, run ID y SHA
    actual.
-2. Confirmar en el estado que `developmentMode` sea `conductor-cloud`, `t3-runner` o `paseo-runner` y que
+2. Confirmar en el estado que `developmentMode` sea `superset`, `vanilla`, `conductor-cloud`, `t3-runner` o `paseo-runner` y que
    `reviewerMethod` sea `playwright-chrome`. No aceptar estados legacy ni cambiar de modo o
    reviewer.
 3. Exigir las señales del entorno del modo y bloquear ante señales ausentes o contradictorias:
@@ -28,11 +28,15 @@ veredicto, findings y rutas de evidencia.
    - `t3-runner`: `T3_RUNNER=1` y que el worktree sea el registrado en el estado del run. El runner
      no tiene escritorio: no abrir navegadores con interfaz, no exportar `DISPLAY` ni lanzar Xvfb.
    - `paseo-runner`: lo mismo que `t3-runner`, con `PASEO_RUNNER=1`.
+   - `superset` y `vanilla`: que el worktree sea el registrado en el estado del run. Corren en la
+     máquina del usuario: lanzar siempre headless para no abrir ventanas ni quitarle el foco.
 4. Usar exclusivamente la instalación de Playwright que ya ofrece el repositorio objetivo. No
    instalar paquetes ni modificar archivos trackeados para habilitar la revisión.
 5. Resolver el navegador en este orden: `ISSUE_DELIVERY_BROWSER`, `google-chrome-stable`,
-   `google-chrome`, `chromium`, `chromium-browser`. Exigir un binario ejecutable y lanzar ese Chrome
-   mediante `executablePath`; no descargar otro navegador.
+   `google-chrome`, `chromium`, `chromium-browser` y, en macOS,
+   `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` y
+   `/Applications/Chromium.app/Contents/MacOS/Chromium`. Exigir un binario ejecutable y lanzar ese
+   Chrome mediante `executablePath`; no descargar otro navegador.
 6. Confirmar que el Local Runtime sea alcanzable, corresponda al SHA entregado y tenga datos y
    usuario de pruebas conocidos.
 7. Exigir capacidad para abrir e inspeccionar visualmente los PNG locales producidos. Un test verde,
@@ -50,8 +54,9 @@ Crear scripts efímeros, fixtures, traces, logs y screenshots sólo bajo:
 ```
 
 No crear specs E2E dentro de los proyectos del producto. Ejecutar los scripts desde el worktree con
-el package manager y resolución de módulos existentes del repositorio. Usar headless para evitar
-ventanas interactivas y conservar trace o logs suficientes para diagnosticar un fallo.
+el package manager y resolución de módulos existentes del repositorio. Lanzar siempre con
+`headless: true`; nunca usar `--headed`, `slowMo` ni el inspector de Playwright. Conservar trace o
+logs suficientes para diagnosticar un fallo.
 
 Por cada story:
 
@@ -59,8 +64,10 @@ Por cada story:
 2. Abrir la URL del Local Runtime y ejecutar acciones equivalentes a las del usuario con locators
    estables: navegar, hacer clic, escribir, seleccionar, subir archivos y usar `locator.hover()`.
 3. No invocar APIs de negocio, escribir directamente en DB/storage, mutar DOM ni despachar eventos
-   con JavaScript. JavaScript de sólo lectura se permite para diagnóstico o para confirmar un estado
-   como `element.matches(':hover')`.
+   con JavaScript. JavaScript de sólo lectura se permite para diagnóstico o para confirmar un estado.
+   Confirmar un hover con `getComputedStyle` del target y la captura, no con
+   `element.matches(':hover')`: en headless puede devolver `false` aunque el estilo hover esté
+   aplicado.
 4. Confirmar el resultado mediante una observación posterior a la acción. Probar errores, permisos,
    estados vacíos y persistencia cuando formen parte de la aceptación.
 5. Capturar como PNG únicamente los estados finales relevantes. Obtener bounds para callouts desde
@@ -120,7 +127,7 @@ Leer
 [evidence-annotations.md](../issue-delivery-orchestrator/references/evidence-annotations.md).
 Conservar sólo PNG del estado final aceptado y ejecutar `prepare-evidence`; inspeccionar también la
 copia anotada antes de devolver PASS. No declarar `headlessAssistance`: Playwright es el reviewer
-principal de este modo, no una asistencia.
+principal en estos modos, no una asistencia.
 
 ```json
 {

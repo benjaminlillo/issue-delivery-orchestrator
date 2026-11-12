@@ -42,8 +42,7 @@ class StageModelsTests(unittest.TestCase):
             self.assertEqual((plan["executor"], plan["contextPackage"]), ("native-subagent", package))
             self.assertEqual((plan["model"], plan["spawnOptions"]), (None, {"fork_turns": "none"}))
         for method, executor in (
-            ("playwright-chrome", "native-subagent"), ("cua-driver", "native-subagent"),
-            ("codex-browser", "principal-session"),
+            ("playwright-chrome", "native-subagent"), ("codex-browser", "principal-session"),
         ):
             with self.subTest(method=method), patch(
                 "issue_delivery_orchestrator.stage_models.review_method", return_value=method

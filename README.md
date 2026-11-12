@@ -19,9 +19,10 @@ It supports six fixed workspace modes:
 
 - `codex`: work in a Codex app worktree and review UI through the in-app Browser, with headless
   Playwright assistance limited to demonstrated `file-upload` or `hover` capability gaps.
-- `superset`: adopt a Superset worktree and review UI through Cua Driver in a dedicated browser.
+- `superset`: adopt a Superset worktree and review UI headlessly through the target repository's
+  Playwright and the machine's Chrome, without opening windows.
 - `vanilla`: adopt any user-prepared checkout or worktree from Codex CLI, without depending on a
-  workspace host, and review UI through Cua Driver.
+  workspace host, and review UI the same way as `superset`.
 - `conductor-cloud`: adopt the workspace created by Conductor Cloud and review UI headlessly through
   the target repository's existing Playwright installation and the workspace's system Chrome.
 - `t3-runner`: adopt the thread worktree that T3 Code created on a remote T3 Code runner and review
@@ -53,16 +54,16 @@ when to mark a PR ready for review; all existing review and validation requireme
 - `$issue-delivery-ticket-publisher`
 - `$issue-delivery-implement`
 - `$issue-delivery-blocker-triage`
-- `$issue-delivery-cua-review`
 - `$issue-delivery-browser-review`
 - `$issue-delivery-playwright-review`
 - `$linear-local`
 
-The Browser skill, Figma connector, GitHub CLI, Cua Driver, Playwright, and the target repository's
+The Browser skill, Figma connector, GitHub CLI, Playwright, and the target repository's
 runtime commands remain environment capabilities. Linear publication uses only the bundled
 `$linear-local` skill and `codex-linear` CLI. The orchestrator checks capabilities only when the
-selected flow needs them. Playwright is required in the target repository only when a story hits a
-supported primary-reviewer capability gap; the plugin does not install or add it to product code.
+selected flow needs them. Playwright must already exist in the target repository for UI review
+outside Codex mode, and for Codex Browser capability gaps; the plugin does not install or add it to
+product code.
 
 ## Install
 
@@ -74,7 +75,8 @@ supported primary-reviewer capability gap; the plugin does not install or add it
 - Git and GitHub CLI (`gh`) authenticated with access to this private repository.
 - Python 3.9 or newer.
 - Node.js with Corepack/pnpm for the bundled test command and the default TurboShop runtime profile.
-- Cua Driver and its operating-system permissions for Superset or Vanilla UI review.
+- For Superset or Vanilla full delivery, Google Chrome on the machine and Playwright already present
+  in the target repository.
 - For Conductor Cloud full delivery, Google Chrome in the workspace and Playwright already present
   in the target repository. The plugin does not install either into product code.
 - For T3 Code runner full delivery, the same Chrome and Playwright requirements, plus a runner image
@@ -364,14 +366,12 @@ repository's existing Playwright installation in headless mode. Upload assistanc
 file input; hover assistance uses the real pointer path, verifies `:hover`, captures the accepted
 state, moves away, and checks adjacent persistent state.
 
-In Superset and Vanilla modes, Cua Driver remains the primary reviewer. The same bounded Playwright
-assistance is available only after Cua demonstrates an equivalent capability gap. Scripts,
-fixtures, screenshots, and receipts stay inside the ignored run directory and remain tied to the
-same commit and Local Runtime. The evidence gate rejects unsupported kinds, missing primary
+Scripts, fixtures, screenshots, and receipts stay inside the ignored run directory and remain tied
+to the same commit and Local Runtime. The evidence gate rejects unsupported kinds, missing primary
 attempts, altered artifacts, or stale receipts. Version 0.3 `uploadAssistance` and version 0.4
 Codex Browser receipts remain readable for preserved runs.
 
-In Conductor Cloud, T3 Code runner, and Paseo runner modes, Playwright with system Chrome is the primary reviewer for complete
+In every mode except Codex, Playwright with system Chrome is the primary reviewer for complete
 stories, including uploads and hover. It interacts with the real UI, saves traces and final PNGs
 under the ignored run directory, and requires visual inspection of those PNGs before PASS. Browser
 Preview and Agentation remain optional human feedback surfaces: they are not counted as automatic

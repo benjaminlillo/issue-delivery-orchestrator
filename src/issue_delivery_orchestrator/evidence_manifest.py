@@ -13,7 +13,7 @@ from .annotations import (
 )
 from .errors import OrchestrationError
 from .headless_assistance import validate_headless_assistance
-from .state import review_method
+from .state import REMOVED_REVIEW_METHOD, REVIEW_METHODS, review_method
 from .util import atomic_write_json, ensure_within, read_json, run
 
 
@@ -193,22 +193,19 @@ def _verification(
         raise OrchestrationError("Evidence publication requires UI verification status PASS")
     selected_provider = review_method(state)
     declared_provider = str(verification.get("provider") or "").strip()
-    if declared_provider and declared_provider not in {
-        "cua-driver",
-        "codex-browser",
-        "playwright-chrome",
-    }:
+    if not declared_provider or declared_provider == REMOVED_REVIEW_METHOD:
+        raise OrchestrationError(
+            f"Repeat the UI review with {selected_provider} and declare provider "
+            f"'{selected_provider}'"
+        )
+    if declared_provider not in REVIEW_METHODS:
         raise OrchestrationError(
             f"Evidence verification has unsupported provider {declared_provider}"
         )
-    if declared_provider and declared_provider != selected_provider:
+    if declared_provider != selected_provider:
         raise OrchestrationError(
             f"Evidence provider mismatch: run uses {selected_provider}, "
             f"manifest uses {declared_provider}"
-        )
-    if not declared_provider and selected_provider != "cua-driver":
-        raise OrchestrationError(
-            f"{selected_provider} evidence must declare provider '{selected_provider}'"
         )
     verified_commit = str(verification.get("verifiedCommit") or "").strip()
     head = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()

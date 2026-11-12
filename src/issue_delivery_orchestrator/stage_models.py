@@ -17,7 +17,7 @@ ISOLATED_STAGES = {
     "manual-revision": "black-box-ui",
 }
 # In-app reviewers (Codex Browser) may be unavailable to workers; keep them in the principal.
-WORKER_REVIEWERS = {"playwright-chrome", "cua-driver"}
+WORKER_REVIEWERS = {"playwright-chrome"}
 
 
 def _context_package(state: dict[str, Any], stage: str) -> str | None:

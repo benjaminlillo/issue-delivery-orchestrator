@@ -4,21 +4,18 @@ Usar Playwright headless sólo después de demostrar que el reviewer principal n
 operación necesaria. Los kinds permitidos son `file-upload` y `hover`. La asistencia no cambia
 modo, provider, worktree ni runtime.
 
-Este contrato aplica sólo a modos `codex`, `superset` y `vanilla`. En `conductor-cloud`, `t3-runner` y `paseo-runner`, Playwright
-con Chrome es el reviewer principal y debe usar `issue-delivery-playwright-review`; no crear
-`headlessAssistance` ni exigir un intento previo con otro provider.
+Este contrato aplica sólo al modo `codex`. En los demás modos, Playwright con Chrome es el reviewer
+principal y debe usar `issue-delivery-playwright-review`; no crear `headlessAssistance` ni exigir
+un intento previo con otro provider.
 
 ## Gate de activación
 
 1. Intentar la acción primero con el reviewer fijado por el modo.
 2. Confirmar que el bloqueo corresponde al reviewer y no al producto:
    - `file-upload`: el reviewer no expone o no logra operar el selector real requerido.
-   - `hover` con `codex-browser`: mover el puntero real al centro, confirmar mediante hit testing
+   - `hover`: mover el puntero real al centro, confirmar mediante hit testing
      que el target está bajo esas coordenadas y leer `element.matches(':hover')` sobre el target o
      ancestro dueño del estilo.
-   - `hover` con `cua-driver`: mover el puntero real mediante AX o coordenadas de ventana y observar
-     nuevamente screenshot/árbol. Registrar brecha sólo si el puntero alcanza el target pero el
-     driver no puede mantener o demostrar el estado requerido.
    - Si la acción sí ocurre pero el resultado visual es incorrecto, devolver `FAIL`; no usar
      fallback.
 3. Registrar hora y observación concreta de la brecha. No usar JavaScript para despachar eventos,
@@ -99,7 +96,7 @@ final de esa story en el manifiesto.
   "verifiedAt": "<ISO-8601>",
   "primaryAttempt": {
     "status": "CAPABILITY_GAP",
-    "provider": "cua-driver",
+    "provider": "codex-browser",
     "kind": "hover",
     "attemptedAt": "<ISO-8601>",
     "observation": "El hit test encontró el target, pero :hover siguió en false tras mover el puntero."

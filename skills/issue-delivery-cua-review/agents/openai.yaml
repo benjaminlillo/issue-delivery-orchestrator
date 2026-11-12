@@ -1,4 +1,0 @@
-interface:
-  display_name: "Issue Delivery Cua Review"
-  short_description: "Verify Cua Driver UI flows and repairs"
-  default_prompt: "Use $issue-delivery-cua-review to verify these stories with Cua Driver and save final evidence."
