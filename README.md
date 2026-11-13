@@ -191,18 +191,15 @@ is decided by the agent that evaluates it. The engine rejects `block --decision`
 two extra repair blocks on its own. Each decision is recorded in the run's `decisions.md`. See
 [autonomous mode](skills/issue-delivery-orchestrator/references/autonomous-mode.md).
 
-## Runs dispatched by a PM
+## Spec and prototype approved before the run
 
-A PM agent can open a Conductor Cloud workspace per issue and drive the run on the user's behalf.
-Its first message says `Despachado por el PM del proyecto <project>`. The PM answers in the user's
-place, but actions reserved to the user (more repair blocks, marking the PR ready, `cleanup --force`)
-need the user's decision quoted in the PM's message.
-
-When the PM already agreed the spec and tickets with the user, it posts an approval comment carrying
-the hash that `codex-linear issue spec-approval` computes over both canonical blocks. If the hash
-still matches, the run validates the spec and skips the Grill interview. Every message that ends a
-turn closes with an `IDO-STATUS` line the PM can parse. See
-[PM-dispatched runs](skills/issue-delivery-orchestrator/references/pm-dispatched.md).
+The user can approve the spec, the tickets and the UI prototype before starting a run, for example
+with a PM agent. The approval is a comment on the issue carrying the hash that
+`codex-linear issue spec-approval` computes over both canonical blocks, plus a `Prototipo:` line.
+If the hash still matches, any run validates the spec, adopts the approved prototype screenshots from
+the issue with `prototype-adopt`, and starts Implement without asking. A PM works on the prototype
+outside a run with `prototype-open --draft` and `prototype-approve --draft`. See
+[pre-approved spec](skills/issue-delivery-orchestrator/references/pre-approved-spec.md).
 
 ## Repository rules
 

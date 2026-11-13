@@ -26,7 +26,7 @@ from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
 from .local_review import validate_local_review
 from .pr_ready import mark_pr_ready
-from .prototype import approve_prototype, open_prototype
+from .prototype import adopt_prototype, approve_prototype, draft_state, open_prototype
 from .runtime_handoff import prepare_runtime_handoff
 from .runtime_restore import restore_runtime
 from .runtime_reset import reset_final_runtime
@@ -193,6 +193,9 @@ def parser() -> argparse.ArgumentParser:
     prototype.add_argument(
         "--desktop", action="store_true", help="Open it on the Conductor desktop instead of the preview URL"
     )
+    prototype.add_argument(
+        "--draft", action="store_true", help="Work outside a run, before the issue is dispatched"
+    )
 
     approval = actions.add_parser(
         "prototype-approve", help="Publish the approved prototype screenshots, or record why there is none"
@@ -200,6 +203,14 @@ def parser() -> argparse.ArgumentParser:
     choice = approval.add_mutually_exclusive_group(required=True)
     choice.add_argument("--manifest", type=Path)
     choice.add_argument("--skip-reason")
+    approval.add_argument(
+        "--draft", action="store_true", help="Publish outside a run, before the issue is dispatched"
+    )
+
+    actions.add_parser(
+        "prototype-adopt",
+        help="Download the prototype approved before the run from the issue and record it as approved",
+    )
 
     actions.add_parser("stop-processes")
 
@@ -297,12 +308,15 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             registered_worktrees,
         )
 
-    state = _select_state(
-        args.issue,
-        worktrees,
-        args.run_id,
-        registered_worktrees,
-    )
+    if getattr(args, "draft", False):
+        state = draft_state(repository, normalize_issue_identifier(args.issue))
+    else:
+        state = _select_state(
+            args.issue,
+            worktrees,
+            args.run_id,
+            registered_worktrees,
+        )
     if args.action == "stage-models":
         if selections:
             update_stage_models(state, selections)
@@ -445,6 +459,9 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             linear=linear,
             manifest=_resolve_in_worktree(args.manifest, Path(state["worktree"])),
         )
+    if args.action == "prototype-adopt":
+        linear, _ = _verified_linear()
+        return adopt_prototype(state, linear=linear)
     if args.action == "stop-processes":
         return {"stoppedPids": stop_owned_processes(state), "state": _public_state(state)}
     if args.action == "ensure-pr":

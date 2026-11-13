@@ -72,6 +72,14 @@ Cuando el usuario apruebe:
 3. En `User Experience Acceptance`, usar `Prototype: <título de la captura>` como fuente de cada
    fila `UXD` que el prototipo define.
 
+## Antes del run
+
+Un PM puede construir y aprobar el prototipo con el usuario antes de despachar la issue. Lo construye
+igual, en `.local-runtime/issue-delivery-orchestrator/pm-draft-<ISSUE>/prototype/` de su propio
+workspace, y usa `prototype-open --draft` y `prototype-approve --draft`, que funcionan sin un run. El
+run lo adopta después con `prototype-adopt`, como indica
+[pre-approved-spec.md](pre-approved-spec.md).
+
 ## Después del grill
 
 - Implement recibe en su paquete la carpeta del prototipo y las capturas aprobadas como

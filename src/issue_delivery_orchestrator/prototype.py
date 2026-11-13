@@ -16,16 +16,50 @@ from urllib.parse import quote, urljoin
 
 from . import desktop_browser
 from .errors import RunBlocked
-from .linear import LinearClient, upsert_markdown_section
+from .linear import LinearClient, markdown_section, upsert_markdown_section
 from .runtime import _alive, register_owned_process
 from .state import GATE_RUNNERS, now, run_mode, run_root, save_state
 from .util import atomic_write_json, read_json
 
 LINEAR_SECTION = "Prototipo aprobado"
+DRAFT_PREFIX = "pm-draft-"
+APPROVED_IMAGE = re.compile(
+    r"\*\*(?P<title>[^*\n]+)\*\*\s*\n\s*!\[[^\]]*\]\((?P<url>https://uploads\.linear\.app/[^)\s]+)\)"
+)
 
 
 def prototype_root(state: dict[str, Any]) -> Path:
     return run_root(Path(state["worktree"]), state["runId"]) / "prototype"
+
+
+def draft_state(worktree: Path, issue_identifier: str) -> dict[str, Any]:
+    """Load or create the prototype area a PM uses for an issue before any run exists."""
+    run_id = f"{DRAFT_PREFIX}{issue_identifier}"
+    root = run_root(worktree.resolve(), run_id)
+    state = read_json(root / "state.json", None)
+    if isinstance(state, dict) and state.get("draft"):
+        return state
+    state = {
+        "draft": True,
+        "runId": run_id,
+        "worktree": str(worktree.resolve()),
+        "issue": {"identifier": issue_identifier},
+        "mode": {"name": _draft_mode()},
+        "currentPhase": "grill",
+        "status": "draft",
+        "ownedProcesses": [],
+        "prototype": None,
+    }
+    (root / "prototype").mkdir(parents=True, exist_ok=True)
+    save_state(state)
+    return state
+
+
+def _draft_mode() -> str:
+    for name, runner in GATE_RUNNERS.items():
+        if os.environ.get(runner["signal"]) == "1":
+            return name
+    return "conductor-cloud" if os.environ.get("CONDUCTOR_IS_LOCAL") == "0" else "vanilla"
 
 
 def open_prototype(state: dict[str, Any], page: Path, *, desktop: bool = False) -> dict[str, Any]:
@@ -234,7 +268,8 @@ def approve_prototype(
         ]
     )
     linear.update_description(issue.id, upsert_markdown_section(issue.description, LINEAR_SECTION, body))
-    linear.post_comment(issue.id, f"Prototipo de UI aprobado para la ejecución `{state['runId']}`.")
+    origin = "antes de iniciar el run" if state.get("draft") else f"para la ejecución `{state['runId']}`"
+    linear.post_comment(issue.id, f"Prototipo de UI aprobado {origin}.")
     state["prototype"] = {
         "status": "APPROVED",
         "approvedAt": now(),
@@ -242,5 +277,41 @@ def approve_prototype(
         "screenshots": items,
     }
     atomic_write_json(root / "approved" / "receipt.json", state["prototype"])
+    save_state(state)
+    return state["prototype"]
+
+
+def adopt_prototype(state: dict[str, Any], *, linear: LinearClient) -> dict[str, Any]:
+    """Bring into the run the prototype the user approved before it, from the issue in Linear."""
+    if state.get("currentPhase") != "grill":
+        raise RunBlocked("Adopt the approved prototype during Grill, before Implement starts")
+    issue = linear.issue(state["issue"]["identifier"])
+    found = [
+        (" ".join(match.group("title").split()), match.group("url"))
+        for match in APPROVED_IMAGE.finditer(markdown_section(issue.description, LINEAR_SECTION))
+    ]
+    if not found:
+        raise RunBlocked(f"The issue has no screenshots under '## {LINEAR_SECTION}' to adopt")
+    worktree = Path(state["worktree"]).resolve()
+    root = prototype_root(state).resolve()
+    approved = root / "approved"
+    approved.mkdir(parents=True, exist_ok=True)
+    items = []
+    for index, (title, url) in enumerate(found, start=1):
+        content = linear.download_file(url)
+        if not content.startswith(b"\x89PNG"):
+            raise RunBlocked(f"The approved prototype screenshot '{title}' is not a PNG")
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:48] or "captura"
+        path = approved / f"{index:02d}-{slug}.png"
+        path.write_bytes(content)
+        items.append({"title": title, "path": str(path.relative_to(worktree)), "url": url})
+    state["prototype"] = {
+        "status": "APPROVED",
+        "source": "linear",
+        "approvedAt": now(),
+        "directory": str(root.relative_to(worktree)),
+        "screenshots": items,
+    }
+    atomic_write_json(approved / "receipt.json", state["prototype"])
     save_state(state)
     return state["prototype"]
