@@ -10,7 +10,7 @@
 | `merge-target` | Último `origin/<target>` persistido en el run | Merge resuelto y validado |
 | `local-review` | HEAD integrado, spec y reglas del repositorio | Recibo `PASS` de `review-pr` para el SHA exacto |
 | `manual-revision` | Runtime y stories | Evidencia por story y findings cerrados, o espera manual sin completar la fase |
-| `pr-creation` | Commits y evidencias | PR creada como draft hacia `<target>` |
+| `pr-creation` | Commits y evidencias | PR lista para review hacia `<target>`, sin label ni revisor |
 | `review-convergence` | PR, bots y Actions | PR lista para reviewer humano |
 
 Completar una fase con:
@@ -21,10 +21,9 @@ python3 <plugin-root>/scripts/issue-delivery <issue> checkpoint --phase <fase> -
 
 Todo artifact debe estar dentro del worktree. El motor rechaza paths externos.
 
-Crear las PR nuevas con `--draft` y conservar ese estado durante la convergencia y el handoff.
-No convertirlas automáticamente a ready. Una PR existente reutilizada conserva su estado actual.
-Este cambio no altera bots, esperas, validaciones ni gates: si una integración requerida omite
-PRs draft, reportar el impedimento en lugar de cambiar el estado o afirmar que pasó.
+Crear las PR nuevas listas para review, sin draft. Si se reutiliza una PR draft, `ensure-pr` la pasa
+a ready. La label de revisión y el revisor llegan sólo con `request-review`, cuando el usuario lo
+pida.
 
 ## Objetivos de entrega
 
@@ -80,7 +79,7 @@ activos sólo los procesos del runtime final fresco para la prueba del usuario.
 - Reparación por ticket: 3 ciclos.
 - Revisión UI-reparación: 5 ciclos.
 - Review remoto: las esperas no tienen un máximo acumulado ni consumen presupuesto. TurboShop usa
-  600 segundos de quietud, 1200 segundos de espera máxima por observación y polling cada 15
+  900 segundos de quietud, 1800 segundos de espera máxima por observación y polling cada 15
   segundos. Las reparaciones remotas se autorizan en bloques de 5 `headSha` nuevos con al menos un
   `FIX`.
 - Routing por defecto: toda branch nueva nace desde `development` y toda PR apunta a `test`.

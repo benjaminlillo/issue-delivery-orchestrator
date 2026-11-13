@@ -42,9 +42,9 @@ New runs use `development` as their base branch and `test` as their pull-request
 base or target must be explicitly requested and is then persisted for the whole run; GitHub's
 default branch is never used implicitly.
 
-New pull requests are created as drafts and remain drafts through automated review convergence
-and handoff. Existing pull requests retain their draft/ready state when reused. The user decides
-when to mark a PR ready for review; all existing review and validation requirements still apply.
+New pull requests are created ready for review, never as drafts, without a review label or
+reviewer. A reused draft PR is marked ready by `ensure-pr`. The reviewer is requested only when the
+user asks, through `request-review`.
 
 ## Included skills
 
@@ -203,7 +203,7 @@ outside a run with `prototype-open --draft` and `prototype-approve --draft`. See
 
 ## Blast radius
 
-When a full run leaves the draft PR, `blast-radius` scores it as `alto`, `medio` or `bajo` and posts
+At the end of a full run, after `lessons-learned`, `blast-radius` scores it as `alto`, `medio` or `bajo` and posts
 the result as the PR's last comment, replacing the previous one from the same run. The engine
 detects migrations, shared libraries used by several apps, size, touched apps, tests and SKIPs; the
 agent judges the profile's `judgedTriggers` (money, permissions and published mobile contracts in
@@ -217,11 +217,11 @@ Every stage applies the target repository's rule layers as its root `AGENTS.md` 
 TurboShop that is `AGENTS.md`, `CODING_STANDARDS.md`, the matching `docs/rules/` files and the
 `AGENTS.md` of each touched app. Cards in `docs/lessons/` are never treated as rules. Local Review
 runs the repository's `review-pr` skill against `REVIEW.md`, and repairs are re-reviewed before
-each push. Commits follow `docs/rules/git.md`. During a run the agent only records lesson signals;
-when the user asks to mark the draft PR ready, it resolves conflicts with the target through the
-repair flow, runs `lessons-learned`, and then `pr-ready` marks the PR ready and adds the profile's
-`review.readyLabel` (`ASSIGN_REVIEWER` in TurboShop), then waits up to five minutes for the
-workflow triggered by that label to request a reviewer.
+each push. Commits follow `docs/rules/git.md`. During a run the agent only records lesson signals
+and runs `lessons-learned` right after the final handoff, without waiting for the user. When the
+user asks for a review, it resolves conflicts with the target through the repair flow, and
+`request-review` adds the profile's `review.readyLabel` (`ASSIGN_REVIEWER` in TurboShop), then waits
+up to five minutes for the workflow triggered by that label to request a reviewer.
 Commits that only add `docs/lessons/` cards do not invalidate the handoff. See
 [repository rules](skills/issue-delivery-orchestrator/references/repo-rules.md).
 
