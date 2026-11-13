@@ -19,8 +19,8 @@ en el paquete de cada worker y subagente.
   resolver: credenciales o herramientas ausentes, un servicio que no levanta o una acción que exige
   a una persona.
 - Siguen vigentes los gates del motor, las reglas del repositorio ([repo-rules.md](repo-rules.md)),
-  la revisión UI, `review-pr`, la evidencia, el handoff final y la PR en draft. Pasarla a ready
-  sigue siendo una acción del usuario después del run.
+  la revisión UI, `review-pr`, la evidencia, el handoff final, las lecciones y el blast radius.
+  Pedir review sigue siendo una acción del usuario después del run.
 
 ## Cómo decidir
 

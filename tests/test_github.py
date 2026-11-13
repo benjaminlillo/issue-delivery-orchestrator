@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -16,14 +17,14 @@ class GitHubEvidenceTests(unittest.TestCase):
 
         self.assertEqual(client.pr_target, "test")
 
-    def test_create_passes_draft_and_persisted_target_to_github(self):
+    def test_create_opens_a_ready_pr_against_the_persisted_target(self):
         client = GitHubClient(Path("/tmp"), pr_target="test")
         created = PullRequest(
             number=1,
             url="https://github.com/example/repo/pull/1",
             state="OPEN",
             merged_at=None,
-            is_draft=True,
+            is_draft=False,
             head="feature",
             base="test",
         )
@@ -40,10 +41,10 @@ class GitHubEvidenceTests(unittest.TestCase):
             client.create("feature", "Title", Path("/tmp/body.md"))
 
         command = runner.call_args.args[0]
-        self.assertIn("--draft", command)
+        self.assertNotIn("--draft", command)
         self.assertEqual(command[command.index("--base") + 1], "test")
 
-    def test_ensure_pr_preserves_existing_draft_and_ready_states(self):
+    def test_ensure_pr_reuses_an_open_pr_and_marks_an_old_draft_ready(self):
         for is_draft in (True, False):
             with self.subTest(is_draft=is_draft), tempfile.TemporaryDirectory() as raw:
                 worktree = Path(raw).resolve()
@@ -67,9 +68,11 @@ class GitHubEvidenceTests(unittest.TestCase):
                     patch("issue_delivery_orchestrator.cli._public_state", return_value={}),
                 ):
                     client.return_value.find.return_value = [existing]
+                    client.return_value.view.return_value = replace(existing, is_draft=False)
                     result = ensure_pull_request(state, body, None)
 
-                self.assertEqual(result["pr"]["is_draft"], is_draft)
+                self.assertFalse(result["pr"]["is_draft"])
+                self.assertEqual(client.return_value.mark_ready.called, is_draft)
                 client.return_value.create.assert_not_called()
                 self.assertEqual(
                     [call.args[0] for call in runner.call_args_list],

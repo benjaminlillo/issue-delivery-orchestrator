@@ -45,16 +45,17 @@ Durante el run no se escriben tarjetas ni commits de lecciones. Agregar una lín
 Cada línea indica qué pasó, qué se hizo distinto y la evidencia (`archivo:línea`, SHA, comentario o
 lo que dijo el usuario). No duplicar señales ni guardar secretos.
 
-## Lecciones al pasar la PR a ready
+## Lecciones al terminar el run
 
-El run deja la PR en draft. Cuando el usuario pida pasarla a ready, o dé por terminada la tarea en
-`manual-runtime`:
+Ejecutar las lecciones sin esperar al usuario, justo después de `runtime-handoff` de un run
+completo, o cuando el usuario dé por terminada la tarea en `manual-runtime`:
 
 1. Ejecutar la skill `lessons-learned` del repositorio en el worktree del run, entregándole
    `lessons/signals.md` junto con la conversación como fuente de señales.
 2. La skill commitea sólo tarjetas de `docs/lessons/` y hace push. El motor ignora esos commits al
-   comparar el código entregado, así que el handoff, `runtime-restore` y el escritorio siguen
-   válidos.
-3. Recién entonces ejecutar `pr-ready`, que pasa la PR a ready, agrega la label de revisión y
-   espera a que se asigne revisor. Los conflictos se resuelven antes del paso 1, como indica "Pasar la PR a ready" del orquestador. No
-   correr `lessons-learned` sobre una PR draft ni en medio del run.
+   comparar el código entregado, así que el handoff, `runtime-restore`, el escritorio, el blast
+   radius y `request-review` siguen válidos.
+3. Marcar en `lessons/signals.md` las señales ya procesadas. Si un handoff posterior trae señales
+   nuevas, repetir con esas solamente.
+
+No correr `lessons-learned` en medio del run, antes del handoff final.
