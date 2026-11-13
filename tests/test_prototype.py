@@ -9,8 +9,14 @@ from unittest.mock import Mock, patch
 
 from issue_delivery_orchestrator import desktop_browser
 from issue_delivery_orchestrator.errors import RunBlocked
-from issue_delivery_orchestrator.prototype import approve_prototype, open_prototype, prototype_root
-from issue_delivery_orchestrator.state import create_state
+from issue_delivery_orchestrator.prototype import (
+    adopt_prototype,
+    approve_prototype,
+    draft_state,
+    open_prototype,
+    prototype_root,
+)
+from issue_delivery_orchestrator.state import create_state, find_runs
 
 
 class PrototypeTests(unittest.TestCase):
@@ -190,3 +196,56 @@ class PrototypeTests(unittest.TestCase):
         ]}))
         with self.assertRaisesRegex(RunBlocked, "prototype/approved"):
             approve_prototype(self.state, linear=Mock(), manifest=manifest)
+
+    def test_a_draft_publishes_the_prototype_before_any_run_and_runs_ignore_it(self):
+        repository = self.worktree.parent / "pm-workspace"
+        repository.mkdir()
+        with patch.dict(os.environ, {"CONDUCTOR_IS_LOCAL": "0"}):
+            draft = draft_state(repository, "TS-1")
+        self.assertEqual(draft_state(repository, "TS-1")["runId"], "pm-draft-TS-1")
+        self.assertEqual(draft["mode"]["name"], "conductor-cloud")
+        self.assertEqual(find_runs(self.worktree.parent / "none", "TS-1", [repository]), [])
+
+        approved = prototype_root(draft) / "approved" / "lista.png"
+        approved.parent.mkdir(parents=True)
+        approved.write_bytes(b"\x89PNG")
+        manifest = approved.parent / "manifest.json"
+        manifest.write_text(json.dumps({"screenshots": [
+            {"title": "Lista vacía", "path": str(approved.relative_to(repository))},
+        ]}))
+        linear = Mock()
+        linear.issue.return_value = SimpleNamespace(id="issue-id", description="Texto")
+        linear.upload_file.return_value = "https://uploads.linear.app/lista.png"
+
+        self.assertEqual(approve_prototype(draft, linear=linear, manifest=manifest)["status"], "APPROVED")
+        self.assertIn("antes de iniciar el run", linear.post_comment.call_args.args[1])
+
+    def test_a_run_adopts_the_prototype_approved_before_it(self):
+        linear = Mock()
+        linear.issue.return_value = SimpleNamespace(
+            id="issue-id",
+            description=(
+                "## Problema\n\nTexto\n\n## Prototipo aprobado\n\nIntro.\n\n"
+                "**Lista vacía**\n\n![Lista vacía](https://uploads.linear.app/a/lista.png)\n\n"
+                "**Formulario**\n\n![Formulario](https://uploads.linear.app/a/form.png)\n\n"
+                "## UI enhancements\n\n**Otra**\n\n![Otra](https://uploads.linear.app/a/otra.png)\n"
+            ),
+        )
+        linear.download_file.return_value = b"\x89PNG data"
+
+        result = adopt_prototype(self.state, linear=linear)
+
+        self.assertEqual(result["source"], "linear")
+        self.assertEqual([item["title"] for item in result["screenshots"]], ["Lista vacía", "Formulario"])
+        first = self.worktree / result["screenshots"][0]["path"]
+        self.assertEqual(first.read_bytes(), b"\x89PNG data")
+        self.assertTrue(first.is_relative_to(prototype_root(self.state) / "approved"))
+        self.assertEqual(self.state["prototype"]["status"], "APPROVED")
+
+        linear.issue.return_value = SimpleNamespace(id="issue-id", description="## Problema\n\nTexto")
+        with self.assertRaisesRegex(RunBlocked, "no screenshots"):
+            adopt_prototype(self.state, linear=linear)
+        self.state["currentPhase"] = "implement"
+        with self.assertRaisesRegex(RunBlocked, "during Grill"):
+            adopt_prototype(self.state, linear=linear)
+

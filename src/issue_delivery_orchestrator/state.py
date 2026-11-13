@@ -219,6 +219,8 @@ def find_runs(
             state = load_state(path)
         except (OSError, OrchestrationError):
             continue
+        if state.get("draft"):
+            continue
         if state.get("issue", {}).get("identifier") == issue_identifier:
             candidates.append(state)
     return sorted(candidates, key=lambda item: item.get("startedAt", ""), reverse=True)

@@ -135,6 +135,15 @@ class LinearClient:
             raise OrchestrationError(f"Linear upload failed for {path.name}: {error}") from error
         return upload["assetUrl"]
 
+    def download_file(self, url: str) -> bytes:
+        """Download a Linear upload, which only answers authenticated requests."""
+        request = urllib.request.Request(url, headers={"Authorization": self.api_key})
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return response.read()
+        except urllib.error.URLError as error:
+            raise OrchestrationError(f"Linear download failed for {url}: {error}") from error
+
     def _graphql(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         body = json.dumps({"query": query, "variables": variables}).encode()
         request = urllib.request.Request(
@@ -164,6 +173,15 @@ def normalize_issue_identifier(value: str) -> str:
     if not match:
         raise OrchestrationError(f"Expected a Linear issue ID or URL, got: {value}")
     return match.group(1).upper()
+
+
+def markdown_section(document: str, heading: str) -> str:
+    heading_pattern = re.compile(rf"(?im)^## {re.escape(heading)}\s*$")
+    match = heading_pattern.search(document)
+    if not match:
+        return ""
+    following = re.search(r"(?m)^## .+$", document[match.end() :])
+    return document[match.end() : match.end() + following.start()] if following else document[match.end() :]
 
 
 def upsert_markdown_section(document: str, heading: str, body: str) -> str:

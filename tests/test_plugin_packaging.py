@@ -27,18 +27,19 @@ class PluginPackagingTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertNotRegex(path.read_text(), r"\$(issue-delivery-|linear-local)")
 
-    def test_pm_dispatch_contract_is_linked_and_names_its_signals(self):
+    def test_pre_approved_spec_contract_is_linked_and_names_its_signals(self):
         orchestrator = (ROOT / "skills" / "issue-delivery-orchestrator" / "SKILL.md").read_text()
         contract = (
-            ROOT / "skills" / "issue-delivery-orchestrator" / "references" / "pm-dispatched.md"
+            ROOT / "skills" / "issue-delivery-orchestrator" / "references" / "pre-approved-spec.md"
         ).read_text()
 
-        self.assertIn("references/pm-dispatched.md", orchestrator)
+        self.assertIn("references/pre-approved-spec.md", orchestrator)
         for signal in (
-            "Despachado por el PM del proyecto",
             "codex-linear issue spec-approval <issue> --prefix <prefix>",
-            "IDO-STATUS issue=<ID> phase=<currentPhase> status=<status>",
-            "Prototipo: no",
+            "Prototipo: aprobado",
+            "Prototipo: no (<motivo>)",
+            "prototype-adopt",
+            "## Prototipo aprobado",
         ):
             self.assertIn(signal, contract)
 
