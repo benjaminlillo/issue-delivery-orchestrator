@@ -79,7 +79,7 @@ activos sólo los procesos del runtime final fresco para la prueba del usuario.
 - Reparación por ticket: 3 ciclos.
 - Revisión UI-reparación: 5 ciclos.
 - Review remoto: las esperas no tienen un máximo acumulado ni consumen presupuesto. TurboShop usa
-  600 segundos de quietud, 1200 segundos de espera máxima por observación y polling cada 15
+  900 segundos de quietud, 1800 segundos de espera máxima por observación y polling cada 15
   segundos. Las reparaciones remotas se autorizan en bloques de 5 `headSha` nuevos con al menos un
   `FIX`.
 - Routing por defecto: toda branch nueva nace desde `development` y toda PR apunta a `test`.

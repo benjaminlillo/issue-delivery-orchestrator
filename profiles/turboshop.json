@@ -54,8 +54,8 @@
     ],
     "repairBatchSize": 5,
     "readyLabel": "ASSIGN_REVIEWER",
-    "quietSeconds": 600,
-    "maximumWaitSeconds": 1200,
+    "quietSeconds": 900,
+    "maximumWaitSeconds": 1800,
     "pollSeconds": 15
   },
   "linear": {
