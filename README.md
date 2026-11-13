@@ -201,6 +201,16 @@ the issue with `prototype-adopt`, and starts Implement without asking. A PM work
 outside a run with `prototype-open --draft` and `prototype-approve --draft`. See
 [pre-approved spec](skills/issue-delivery-orchestrator/references/pre-approved-spec.md).
 
+## Blast radius
+
+When a full run leaves the draft PR, `blast-radius` scores it as `alto`, `medio` or `bajo` and posts
+the result as the PR's last comment, replacing the previous one from the same run. The engine
+detects migrations, shared libraries used by several apps, size, touched apps, tests and SKIPs; the
+agent judges the profile's `judgedTriggers` (money, permissions and published mobile contracts in
+TurboShop) with `file:line` evidence. Any trigger means `alto` and a recommendation to ask for an
+external review; `bajo` recommends merging directly. Rules live in the profile's `blastRadius`. See
+[blast radius](skills/issue-delivery-orchestrator/references/blast-radius.md).
+
 ## Repository rules
 
 Every stage applies the target repository's rule layers as its root `AGENTS.md` defines them. In

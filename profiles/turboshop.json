@@ -61,5 +61,40 @@
   "linear": {
     "markerPrefix": "turboshop",
     "uiSection": "UI enhancements"
+  },
+  "blastRadius": {
+    "unitRoots": [
+      "apps",
+      "libs"
+    ],
+    "ignoredPaths": [
+      "pnpm-lock.yaml",
+      "docs/lessons/*"
+    ],
+    "testPaths": [
+      "*.test.*",
+      "*.spec.*",
+      "*/__tests__/*",
+      "*/tests/*",
+      "*/test/*",
+      "apps/*-e2e/*"
+    ],
+    "migrationPaths": [
+      "apps/*/src/database/migrations/*",
+      "apps/*/prisma/migrations/*",
+      "apps/turbo-macroscope-migrations/*"
+    ],
+    "sharedLibraries": [
+      "libs/shared-*"
+    ],
+    "importPrefix": "@turboshop/",
+    "minConsumers": 2,
+    "lowRiskMaxChangedLines": 400,
+    "lowRiskMaxUnits": 1,
+    "judgedTriggers": {
+      "money": "Dinero o contabilidad ERP",
+      "permissions": "Auth, permisos o aislamiento por tenant",
+      "mobileContract": "Contrato con apps móviles publicadas"
+    }
   }
 }
