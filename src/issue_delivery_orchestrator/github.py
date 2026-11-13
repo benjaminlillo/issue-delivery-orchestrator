@@ -145,20 +145,8 @@ class GitHubClient:
         return self.view(url)
 
     def upsert_comment(self, pr_number: int, marker: str, body: str) -> str:
-        result = run(
-            [
-                "gh",
-                "api",
-                "repos/:owner/:repo/issues/{}/comments".format(pr_number),
-                "--paginate",
-                "--slurp",
-            ],
-            cwd=self.cwd,
-        )
-        pages = json.loads(result.stdout or "[]")
-        comments = [comment for page in pages for comment in page]
         existing = next(
-            (comment for comment in comments if marker in str(comment.get("body") or "")),
+            (comment for comment in self._issue_comments(pr_number) if marker in str(comment.get("body") or "")),
             None,
         )
         if existing:
@@ -180,6 +168,38 @@ class GitHubClient:
             cwd=self.cwd,
         )
         return result.stdout.strip()
+
+    def repost_comment(self, pr_number: int, marker: str, body: str) -> str:
+        """Post body as the newest PR comment and delete earlier comments carrying marker."""
+        previous = [
+            comment["id"]
+            for comment in self._issue_comments(pr_number)
+            if marker in str(comment.get("body") or "")
+        ]
+        reference = run(
+            ["gh", "pr", "comment", str(pr_number), "--body", body],
+            cwd=self.cwd,
+        ).stdout.strip()
+        for comment_id in previous:
+            run(
+                ["gh", "api", f"repos/:owner/:repo/issues/comments/{comment_id}", "-X", "DELETE"],
+                cwd=self.cwd,
+            )
+        return reference
+
+    def _issue_comments(self, pr_number: int) -> list[dict[str, Any]]:
+        result = run(
+            [
+                "gh",
+                "api",
+                "repos/:owner/:repo/issues/{}/comments".format(pr_number),
+                "--paginate",
+                "--slurp",
+            ],
+            cwd=self.cwd,
+        )
+        pages = json.loads(result.stdout or "[]")
+        return [comment for page in pages for comment in page]
 
     def issue_comment(self, comment_id: int) -> dict[str, Any]:
         return self._api_json(f"repos/:owner/:repo/issues/comments/{comment_id}")

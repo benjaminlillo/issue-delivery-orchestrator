@@ -173,6 +173,8 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
+9. Tras el nuevo handoff de un run completo, volver a calcular el blast radius según
+   [blast-radius.md](references/blast-radius.md).
 
 En `full`, prohibir el handoff —incluido afirmar que está arreglado o pedir al usuario que lo
 verifique— hasta disponer de un PASS del reviewer del modo posterior al último cambio, con
@@ -713,7 +715,8 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
 El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
 del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
-cambiaron. Terminar mostrando los links del runtime fresco para prueba manual, las páginas
+cambiaron. Luego calcular y publicar el blast radius de la PR según
+[blast-radius.md](references/blast-radius.md). Terminar mostrando el blast radius, los links del runtime fresco para prueba manual, las páginas
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
 (o su omisión/fallo), el resumen "Decisiones tomadas sin tu aprobación" de
 [decision-policy.md](references/decision-policy.md) y, en `conductor-cloud`, la línea informativa

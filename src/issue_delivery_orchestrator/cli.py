@@ -10,6 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from .blast_radius import assess_blast_radius
 from .config import (
     DEFAULT_BASE_BRANCH,
     DEFAULT_CONFIG_HOME,
@@ -261,6 +262,11 @@ def parser() -> argparse.ArgumentParser:
 
     actions.add_parser("review-gate")
 
+    blast = actions.add_parser(
+        "blast-radius", help="Score the handed-off PR's blast radius and post it as its last comment"
+    )
+    blast.add_argument("--input", type=Path, required=True)
+
     actions.add_parser(
         "pr-ready", help="Mark the handed-off draft PR ready for review, label it and wait for its reviewer"
     )
@@ -338,6 +344,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         "record-skip",
         "publish-skip-summary",
         "review-gate",
+        "blast-radius",
         "pr-ready",
     }:
         raise RunBlocked(
@@ -542,6 +549,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return publish_skip_summary(state)
     if args.action == "review-gate":
         return assert_review_converged(state)
+    if args.action == "blast-radius":
+        return assess_blast_radius(state, args.input)
     if args.action == "pr-ready":
         return mark_pr_ready(state)
     if args.action == "cleanup":

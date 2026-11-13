@@ -54,4 +54,5 @@ esa política. En el grill todavía no hay spec aprobado: empezar por el segundo
 
 Incluir el resumen "Decisiones tomadas sin tu aprobación" de
 [decision-policy.md](decision-policy.md). En un run autónomo abarca todas las decisiones del run,
-también las del grill. Sin preguntas al final.
+también las del grill. Incluir también el blast radius según [blast-radius.md](blast-radius.md).
+Sin preguntas al final.
