@@ -17,7 +17,11 @@ y es el último. No corre en `manual-runtime`.
 Lo mide sobre el diff entre `origin/<target>` y el código del handoff:
 
 - Migraciones, según `migrationPaths`.
-- Librerías de `sharedLibraries` que usan `minConsumers` apps o más.
+- Código de librerías `sharedLibraries` que usan `minProducts` productos o más. En archivos de
+  código sigue las declaraciones que toca el diff, y las de la librería que las referencian, hasta
+  los nombres exportados. Después busca qué apps usan esos nombres, sin contar tests. Las apps se
+  agrupan en productos con `productGroups`; una app sin grupo es su propio producto. Si cambia un
+  archivo que no es código, como un CSS, cuenta todas las apps que importan la librería.
 - Tamaño, apps y librerías tocadas, archivos de tests y SKIPs publicados.
 
 ## Qué juzga el agente
