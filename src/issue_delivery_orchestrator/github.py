@@ -129,7 +129,6 @@ class GitHubClient:
                 "gh",
                 "pr",
                 "create",
-                "--draft",
                 "--head",
                 head,
                 "--base",

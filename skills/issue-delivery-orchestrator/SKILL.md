@@ -173,8 +173,8 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
-9. Tras el nuevo handoff de un run completo, volver a calcular el blast radius según
-   [blast-radius.md](references/blast-radius.md).
+9. Tras el nuevo handoff de un run completo, ejecutar `lessons-learned` sólo con las señales
+   nuevas y volver a calcular el blast radius según [blast-radius.md](references/blast-radius.md).
 
 En `full`, prohibir el handoff —incluido afirmar que está arreglado o pedir al usuario que lo
 verifique— hasta disponer de un PASS del reviewer del modo posterior al último cambio, con
@@ -546,12 +546,9 @@ python3 <plugin-root>/scripts/issue-delivery <issue> repair-evidence-links
 
 Este comando debe rehostear exactamente las PNG ya aceptadas y actualizar el comentario idempotente; no autoriza a sustituirlas por capturas distintas.
 
-Crear la PR como draft, siempre hacia `state.target`, sin asignar reviewers. Mantenerla draft
-durante la convergencia y al entregar el resultado; no ejecutar `gh pr ready` automáticamente.
-Al reutilizar una PR existente, conservar su estado draft/ready. El usuario decide cuándo cambiarlo.
-Mantener los mismos bots, esperas, validaciones, evidencias y gates de convergencia. Si un check o
-review necesario no se ejecuta por ser draft, informar el impedimento sin convertirla a ready ni
-declarar esa verificación completada.
+Crear la PR lista para review, nunca como draft, siempre hacia `state.target` y sin asignar
+reviewers ni agregar la label de revisión. Si se reutiliza una PR draft de un run anterior, el
+motor la pasa a ready. No ejecutar `gh pr ready` ni `gh pr create` directo.
 Reutilizar una PR abierta compatible. Una PR cerrada sin merge requiere decisión; una ya mergeada
 exige issue/branch de seguimiento.
 
@@ -715,8 +712,14 @@ El checkpoint detiene los procesos del runtime usado durante la revisión y deja
 El recibo `validation/final-runtime-handoff.json` registra que Computer Use ya se completó antes
 del reset, el SHA, runtime, URLs, puertos, procesos, logs y PR. Sólo entonces el run pasa a
 `completed_preserved`. No repetir Computer Use únicamente por rotar el runtime: el código y SHA no
-cambiaron. Luego calcular y publicar el blast radius de la PR según
-[blast-radius.md](references/blast-radius.md). Terminar mostrando el blast radius, los links del runtime fresco para prueba manual, las páginas
+cambiaron. Luego, sin esperar al usuario:
+
+1. Ejecutar `lessons-learned` según "Lecciones al terminar el run" en
+   [repo-rules.md](references/repo-rules.md).
+2. Calcular y publicar el blast radius de la PR según
+   [blast-radius.md](references/blast-radius.md).
+
+Terminar mostrando el blast radius, las lecciones creadas (o que no hubo), los links del runtime fresco para prueba manual, las páginas
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo
 (o su omisión/fallo), el resumen "Decisiones tomadas sin tu aprobación" de
 [decision-policy.md](references/decision-policy.md) y, en `conductor-cloud`, la línea informativa
@@ -747,34 +750,31 @@ Si el código cambió o el usuario pide un ajuste, aplicar la invariante de repa
 Sólo en `conductor-cloud` y cuando el usuario lo pida después del handoff, abrir la app en el
 escritorio de Conductor con `desktop-open` según [desktop-browser.md](references/desktop-browser.md).
 
-## Pasar la PR a ready
+## Pedir review
 
-Sólo cuando el usuario lo pida (por ejemplo "ready for review" o "pásala a ready"), en este orden.
-Nunca usar `gh pr ready` directo: sin `pr-ready` la PR queda sin label ni revisor.
+Sólo cuando el usuario lo pida (por ejemplo "pide review" o "asígnale revisor"), en este orden.
+Nunca agregar la label ni asignar revisores a mano.
 
 1. Revisar si la PR tiene conflictos con `target` (`gh pr view --json mergeable`; si dice
    `UNKNOWN`, esperar y repetir). Si los tiene, hacer merge de `origin/<target>` en la branch y
    resolverlos con las reglas de "4. Integrar la branch objetivo", preservando spec y
    comportamiento de ambas ramas. Como cambia el código, aplicar íntegramente la invariante de
    reparación y handoff: validación, `review-pr` desde el SHA anterior, reviewer UI del modo,
-   evidencia y un handoff final nuevo. Luego hacer push.
-2. Ejecutar `lessons-learned` según "Lecciones al pasar la PR a ready" en
-   [repo-rules.md](references/repo-rules.md).
-3. Ejecutar:
+   evidencia, un handoff final nuevo, lecciones y blast radius. Luego hacer push.
+2. Ejecutar:
 
    ```bash
-   python3 <plugin-root>/scripts/issue-delivery <issue> pr-ready
+   python3 <plugin-root>/scripts/issue-delivery <issue> request-review
    ```
 
    El motor exige que el código sea el del último handoff (sólo admite commits de
    `docs/lessons/` encima), que la PR no tenga conflictos y que su head sea el HEAD local. Después
-   la pasa a ready, agrega la label `review.readyLabel` del perfil (`ASSIGN_REVIEWER` en
-   TurboShop) y verifica ambas cosas en GitHub. Con label, espera hasta 5 minutos a que la action
-   que dispara la label pida revisión a alguien.
-4. Informar al usuario el revisor asignado (`reviewers` en la salida). Si el comando se bloquea
+   agrega la label `review.readyLabel` del perfil (`ASSIGN_REVIEWER` en TurboShop), la verifica en
+   GitHub y espera hasta 5 minutos a que la action que dispara la label pida revisión a alguien.
+3. Informar al usuario el revisor asignado (`reviewers` en la salida). Si el comando se bloquea
    porque no se asignó revisor, revisar el run de la action (`gh run list --event pull_request`
-   y `gh run view <id> --log-failed`) e informar la causa. Volver a ejecutar `pr-ready` sólo si la
-   action sigue en cola o corriendo; no asignar un revisor a mano.
+   y `gh run view <id> --log-failed`) e informar la causa. Volver a ejecutar `request-review` sólo
+   si la action sigue en cola o corriendo.
 
 En `manual-runtime` no hay PR: ejecutar `lessons-learned` cuando el usuario dé por terminada la
 tarea.

@@ -16,26 +16,26 @@ REVIEWER_ATTEMPTS = 31
 REVIEWER_WAIT_SECONDS = 10
 
 
-def mark_pr_ready(
+def request_review(
     state: dict[str, Any],
     *,
     github: GitHubClient | None = None,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> dict[str, Any]:
-    """Move the handed-off draft PR to ready for review once it merges cleanly, label it and
-    wait until the label's workflow requests a reviewer."""
+    """Label the handed-off PR once it merges cleanly and wait until the label's workflow
+    requests a reviewer. Draft PRs from older runs are marked ready first."""
     if not state.get("pr"):
-        raise RunBlocked("There is no PR to mark ready for review")
+        raise RunBlocked("There is no PR to request a review for")
     if state.get("status") != "completed_preserved":
-        raise RunBlocked("Mark the PR ready only after the final runtime handoff of a full run")
+        raise RunBlocked("Request a review only after the final runtime handoff of a full run")
     worktree = Path(state["worktree"])
     handoff = state.get("finalRuntimeHandoff") or {}
     if code_head(worktree) != handoff.get("verifiedCommit"):
         raise RunBlocked(
-            "Code changed since the final handoff; finish the repair flow before marking ready"
+            "Code changed since the final handoff; finish the repair flow before requesting a review"
         )
     if run(["git", "status", "--porcelain"], cwd=worktree).stdout.strip():
-        raise RunBlocked("Commit or remove pending changes before marking the PR ready")
+        raise RunBlocked("Commit or remove pending changes before requesting a review")
     github = github or GitHubClient(worktree)
     github.verify_identity()
     reference = state["pr"]["url"]
@@ -48,13 +48,13 @@ def mark_pr_ready(
     if pr.get("mergeable") == "CONFLICTING":
         raise RunBlocked(
             f"The PR has conflicts with {target_branch(state)}; merge it, resolve them and apply "
-            "the repair and handoff invariant before marking ready"
+            "the repair and handoff invariant before requesting a review"
         )
     if pr.get("mergeable") != "MERGEABLE":
         raise RunBlocked("GitHub has not computed whether the PR merges cleanly; try again")
     local_head = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
     if pr.get("headRefOid") != local_head:
-        raise RunBlocked("Push the branch so the PR head matches the local HEAD before marking ready")
+        raise RunBlocked("Push the branch so the PR head matches the local HEAD before requesting a review")
 
     label = settings().ready_label
     if pr.get("isDraft"):
@@ -76,14 +76,14 @@ def mark_pr_ready(
                 f"{(REVIEWER_ATTEMPTS - 1) * REVIEWER_WAIT_SECONDS} seconds; check the GitHub "
                 "Actions run triggered by the label"
             )
-    state["readyForReview"] = {
+    state["reviewRequest"] = {
         "markedAt": now(),
         "headSha": local_head,
         "label": label or None,
         "reviewers": _reviewers(pr),
     }
     save_state(state)
-    return {"pr": pr.get("url"), **state["readyForReview"]}
+    return {"pr": pr.get("url"), **state["reviewRequest"]}
 
 
 def _has_label(pr: dict[str, Any], label: str) -> bool:

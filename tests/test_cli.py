@@ -30,7 +30,7 @@ class CliModeTests(unittest.TestCase):
             ("main", "production"),
         )
 
-    def test_turboshop_review_waits_for_ten_quiet_minutes(self):
+    def test_turboshop_review_waits_for_fifteen_quiet_minutes(self):
         profile = (
             Path(__file__).resolve().parents[1]
             / "profiles"
@@ -46,8 +46,8 @@ class CliModeTests(unittest.TestCase):
         ):
             args = parser().parse_args(["TS-1", "wait-review"])
 
-        self.assertEqual(args.quiet_seconds, 600)
-        self.assertEqual(args.max_seconds, 1200)
+        self.assertEqual(args.quiet_seconds, 900)
+        self.assertEqual(args.max_seconds, 1800)
         self.assertEqual(args.poll_seconds, 15)
 
     def test_parses_explicit_codex_mode_and_worktree(self):

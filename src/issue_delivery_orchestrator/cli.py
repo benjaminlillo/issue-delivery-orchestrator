@@ -26,11 +26,11 @@ from .git_workspace import GitWorkspace
 from .github import GitHubClient
 from .linear import LinearClient, normalize_issue_identifier
 from .local_review import validate_local_review
-from .pr_ready import mark_pr_ready
 from .prototype import adopt_prototype, approve_prototype, draft_state, open_prototype
 from .runtime_handoff import prepare_runtime_handoff
 from .runtime_restore import restore_runtime
 from .runtime_reset import reset_final_runtime
+from .request_review import request_review
 from .review import (
     acknowledge_processed_blocker,
     assert_review_converged,
@@ -268,7 +268,7 @@ def parser() -> argparse.ArgumentParser:
     blast.add_argument("--input", type=Path, required=True)
 
     actions.add_parser(
-        "pr-ready", help="Mark the handed-off draft PR ready for review, label it and wait for its reviewer"
+        "request-review", help="Label the handed-off PR and wait until its workflow assigns a reviewer"
     )
 
     cleanup = actions.add_parser("cleanup")
@@ -345,7 +345,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         "publish-skip-summary",
         "review-gate",
         "blast-radius",
-        "pr-ready",
+        "request-review",
     }:
         raise RunBlocked(
             "This action belongs to full delivery and is disabled for manual-runtime; "
@@ -551,8 +551,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return assert_review_converged(state)
     if args.action == "blast-radius":
         return assess_blast_radius(state, args.input)
-    if args.action == "pr-ready":
-        return mark_pr_ready(state)
+    if args.action == "request-review":
+        return request_review(state)
     if args.action == "cleanup":
         return final_cleanup(state, force=args.force)
     raise OrchestrationError(f"Unknown action: {args.action}")
@@ -742,6 +742,9 @@ def ensure_pull_request(
     created = False
     if open_prs:
         pr = open_prs[0]
+        if pr.is_draft:
+            github.mark_ready(pr.url)
+            pr = github.view(pr.url)
     else:
         previous = github.find(branch, target, "all")
         closed = [item for item in previous if item.state != "OPEN"]
@@ -777,7 +780,7 @@ def ensure_pull_request(
     if created:
         linear.post_comment(
             state["issue"]["id"],
-            f"Pull request draft creada hacia `{target}`: {pr.url}",
+            f"Pull request creada hacia `{target}`: {pr.url}",
         )
     return {"created": created, "pr": asdict(pr), "state": _public_state(state)}
 

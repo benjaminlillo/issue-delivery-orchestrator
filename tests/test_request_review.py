@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from issue_delivery_orchestrator.errors import RunBlocked
-from issue_delivery_orchestrator.pr_ready import mark_pr_ready
+from issue_delivery_orchestrator.request_review import request_review
 from issue_delivery_orchestrator.state import create_state
 
 
@@ -13,7 +13,7 @@ def git(cwd, *args):
     return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
 
 
-class PrReadyTests(unittest.TestCase):
+class RequestReviewTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -45,7 +45,7 @@ class PrReadyTests(unittest.TestCase):
         self.workflow_delay = 2
         self.github.readiness.side_effect = self.readiness
         patcher = patch(
-            "issue_delivery_orchestrator.pr_ready.settings",
+            "issue_delivery_orchestrator.request_review.settings",
             return_value=Mock(ready_label="ASSIGN_REVIEWER"),
         )
         patcher.start()
@@ -59,22 +59,22 @@ class PrReadyTests(unittest.TestCase):
         return dict(self.pr)
 
     def ready(self):
-        return mark_pr_ready(self.state, github=self.github, sleeper=lambda _seconds: None)
+        return request_review(self.state, github=self.github, sleeper=lambda _seconds: None)
 
-    def test_marks_a_clean_pr_ready_and_adds_the_review_label(self):
+    def test_marks_an_old_draft_ready_labels_it_and_waits_for_the_reviewer(self):
         result = self.ready()
         self.github.verify_identity.assert_called_once()
         self.github.mark_ready.assert_called_once_with(self.state["pr"]["url"])
         self.github.add_label.assert_called_once_with(self.state["pr"]["url"], "ASSIGN_REVIEWER")
         self.assertEqual(result["label"], "ASSIGN_REVIEWER")
         self.assertEqual(result["reviewers"], ["reviewer"])
-        self.assertEqual(self.state["readyForReview"]["headSha"], self.head)
+        self.assertEqual(self.state["reviewRequest"]["headSha"], self.head)
 
     def test_blocks_when_the_label_workflow_assigns_no_reviewer(self):
         self.workflow_delay = 10**6
         with self.assertRaisesRegex(RunBlocked, "no reviewer was assigned"):
             self.ready()
-        self.assertNotIn("readyForReview", self.state)
+        self.assertNotIn("reviewRequest", self.state)
 
     def test_blocks_on_conflicts_and_waits_while_github_computes_mergeability(self):
         self.pr["mergeable"] = "CONFLICTING"

@@ -1,11 +1,12 @@
 # Blast radius de la PR
 
-Cuando el run deja la PR draft, el blast radius le dice al usuario si puede hacer merge directo o
+Cuando el run termina, el blast radius le dice al usuario si puede hacer merge directo o
 si conviene pedir review externa. Los criterios viven en `blastRadius` del perfil.
 
 ## Cuándo
 
-Justo después de `runtime-handoff` de un run completo, como último paso antes del mensaje final.
+Después de `runtime-handoff` y de `lessons-learned` en un run completo, como último paso antes del
+mensaje final.
 Repetirlo tras cada handoff con código nuevo, por ejemplo después de reparar review humano. Un
 `runtime-restore` no cambia el código y no lo requiere. El motor publica un
 comentario nuevo al final de la PR y borra el anterior del mismo run, así que siempre queda uno solo

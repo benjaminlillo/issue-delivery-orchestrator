@@ -174,7 +174,7 @@ class ReviewFilterTests(unittest.TestCase):
             "🔴 BLOCKERS:\n\n- Ninguno.",
             "Refactor suggestion",
         )
-        for login in ("coderabbitai[bot]", "Hellonston", "x100-production[bot]"):
+        for login in ("coderabbitai[bot]", "Hellonston", "x100-production[bot]", "turboreview[bot]"):
             for body in bodies:
                 with self.subTest(login=login, body=body):
                     self.assertTrue(_is_relevant_bot({"user": {"login": login}, "body": body}))
