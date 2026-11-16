@@ -46,11 +46,13 @@
     "botNames": [
       "coderabbit",
       "hellonston",
-      "x100-production"
+      "x100-production",
+      "turboreview"
     ],
     "blockerBots": [
       "hellonston",
-      "x100-production"
+      "x100-production",
+      "turboreview"
     ],
     "repairBatchSize": 5,
     "readyLabel": "ASSIGN_REVIEWER",
