@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,13 @@ from .errors import OrchestrationError, RunBlocked
 from .github import GitHubClient
 from .state import now, run_root, save_state, target_branch
 from .util import atomic_write_json, code_head, read_json, run
+
+SOURCE_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mts", ".cts")
+DECLARATION = re.compile(
+    r"^(export\s+)?(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?"
+    r"(?:const|let|var|function\*?|class|type|interface|enum)\s+([A-Za-z_$][\w$]*)"
+)
+HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", re.M)
 
 LEVELS = {
     "alto": "pedir review externa",
@@ -46,12 +54,13 @@ def assess_blast_radius(state: dict[str, Any], input_path: Path) -> dict[str, An
     migrations = [item["path"] for item in files if _matches(item["path"], rules["migrationPaths"])]
     if migrations:
         triggers.append({"id": "migration", "label": "Migración", "evidence": ", ".join(migrations)})
-    for library, consumers in _shared_libraries(worktree, code, rules).items():
-        if len(consumers) >= rules["minConsumers"]:
+    shared = _shared_impact(worktree, base, head, code, rules)
+    for library, impact in shared.items():
+        if len(impact["products"]) >= rules["minProducts"]:
             triggers.append({
                 "id": "sharedLibrary",
                 "label": f"Librería compartida `{library}`",
-                "evidence": f"{len(consumers)} apps la usan ({', '.join(consumers)})",
+                "evidence": _impact_text(impact),
             })
     for key, check in judged.items():
         if check["triggered"]:
@@ -84,6 +93,7 @@ def assess_blast_radius(state: dict[str, Any], input_path: Path) -> dict[str, An
             "testFiles": len(tests),
             "units": units,
             "skips": skips,
+            "sharedLibraries": shared,
         },
         "notes": [note for note in notes if note],
         "headSha": head,
@@ -150,21 +160,134 @@ def _unit(path: str, rules: dict[str, Any]) -> str | None:
     return "/".join(parts[:2]) if len(parts) > 2 and parts[0] in rules["unitRoots"] else None
 
 
-def _shared_libraries(worktree: Path, code: list[dict[str, Any]], rules: dict[str, Any]) -> dict[str, list[str]]:
-    libraries = sorted({
-        path.split("/")[1]
-        for path in (item["path"] for item in code)
-        if _matches(path, [f"{pattern}/*" for pattern in rules["sharedLibraries"]])
-    })
+def _shared_impact(
+    worktree: Path, base: str, head: str, code: list[dict[str, Any]], rules: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    """Find which products use the code changed in each shared library.
+
+    For source files it follows the declarations the diff touches, and every declaration in the
+    library that references them, up to the exported names apps import. Other files count the
+    whole library as used.
+    """
+    patterns = [f"{pattern}/*" for pattern in rules["sharedLibraries"]]
+    paths: dict[str, list[str]] = {}
+    for item in code:
+        if _matches(item["path"], patterns):
+            paths.setdefault("/".join(item["path"].split("/")[:2]), []).append(item["path"])
     result = {}
-    for library in libraries:
-        output = run(
-            ["git", "grep", "-l", "-F", f"{rules['importPrefix']}{library}", "--", "apps"],
-            cwd=worktree,
-            check=False,
-        ).stdout
-        result[library] = sorted({path.split("/")[1] for path in output.splitlines() if "/" in path})
+    for root, changed in sorted(paths.items()):
+        library = root.split("/")[1]
+        if all(path.endswith(SOURCE_SUFFIXES) for path in changed):
+            touched = set()
+            for path in changed:
+                touched |= _touched_names(worktree, base, head, path)
+            names = _exported_closure(worktree, root, touched, rules)
+            consumers = _apps_using(worktree, names, rules)
+        else:
+            names = []
+            consumers = _apps_using(worktree, [f"{rules['importPrefix']}{library}"], rules, fixed=True)
+        products: dict[str, list[str]] = {}
+        for app in consumers:
+            products.setdefault(_product(app, rules), []).append(app)
+        result[library] = {"symbols": names, "wholeLibrary": not names and bool(consumers), "products": products}
     return result
+
+
+def _touched_names(worktree: Path, base: str, head: str, path: str) -> set[str]:
+    diff = run(["git", "diff", "-U0", "--no-renames", base, head, "--", path], cwd=worktree).stdout
+    old: set[int] = set()
+    new: set[int] = set()
+    for match in HUNK.finditer(diff):
+        start, count = int(match[1]), int(match[2] if match[2] is not None else 1)
+        old.update(range(start, start + count))
+        start, count = int(match[3]), int(match[4] if match[4] is not None else 1)
+        new.update(range(start, start + count))
+    names = set()
+    for revision, lines in ((base, old), (head, new)):
+        text = run(["git", "show", f"{revision}:{path}"], cwd=worktree, check=False).stdout
+        for name, _exported, first, last in _declarations(text):
+            if any(first <= line <= last for line in lines):
+                names.add(name)
+    return names
+
+
+def _declarations(text: str) -> list[tuple[str, bool, int, int]]:
+    """Top-level declarations with their line ranges; a range ends where the next one starts."""
+    lines = text.splitlines()
+    starts = [
+        (number, match[2], bool(match[1]))
+        for number, line in enumerate(lines, start=1)
+        if (match := DECLARATION.match(line))
+    ]
+    return [
+        (name, exported, start, starts[index + 1][0] - 1 if index + 1 < len(starts) else len(lines))
+        for index, (start, name, exported) in enumerate(starts)
+    ]
+
+
+def _exported_closure(worktree: Path, root: str, touched: set[str], rules: dict[str, Any]) -> list[str]:
+    bodies: dict[str, list[str]] = {}
+    exported: set[str] = set()
+    for path in run(["git", "ls-files", "--", root], cwd=worktree).stdout.splitlines():
+        if not path.endswith(SOURCE_SUFFIXES) or _matches(path, rules["testPaths"]):
+            continue
+        text = (worktree / path).read_text(errors="replace")
+        lines = text.splitlines()
+        for name, is_exported, first, last in _declarations(text):
+            bodies.setdefault(name, []).append("\n".join(lines[first - 1:last]))
+            if is_exported:
+                exported.add(name)
+    affected = set(touched)
+    pending = set(touched)
+    while pending:
+        reference = re.compile(r"\b(?:%s)\b" % "|".join(map(re.escape, sorted(pending))))
+        pending = {
+            name
+            for name, texts in bodies.items()
+            if name not in affected and any(reference.search(text) for text in texts)
+        }
+        affected |= pending
+    return sorted(affected & exported)
+
+
+def _apps_using(worktree: Path, needles: list[str], rules: dict[str, Any], *, fixed: bool = False) -> list[str]:
+    apps = set()
+    for index in range(0, len(needles), 200):
+        chunk = needles[index:index + 200]
+        command = ["git", "grep", "-l"]
+        command += ["-F", *[part for needle in chunk for part in ("-e", needle)]] if fixed else [
+            "-w", "-E", "|".join(re.escape(needle) for needle in chunk)
+        ]
+        output = run([*command, "--", "apps"], cwd=worktree, check=False).stdout
+        apps |= {
+            path.split("/")[1]
+            for path in output.splitlines()
+            if path.count("/") > 1 and not _matches(path, rules["testPaths"])
+        }
+    return sorted(apps)
+
+
+def _product(app: str, rules: dict[str, Any]) -> str:
+    return next(
+        (product for product, apps in rules.get("productGroups", {}).items() if app in apps),
+        app,
+    )
+
+
+def _impact_text(impact: dict[str, Any]) -> str:
+    products = impact["products"]
+    if not products:
+        return "lo cambiado no lo usa ninguna app"
+    users = ", ".join(f"{product} ({', '.join(apps)})" for product, apps in sorted(products.items()))
+    names = impact["symbols"]
+    subject = (
+        "la librería completa"
+        if impact["wholeLibrary"]
+        else ", ".join(f"`{name}`" for name in names[:5]) + (f" y {len(names) - 5} más" if len(names) > 5 else "")
+    )
+    if len(products) == 1:
+        return f"{subject} lo usa solo {users}"
+    return f"{subject} lo usan {len(products)} productos, {users}"
 
 
 def _matches(path: str, patterns: list[str]) -> bool:
@@ -194,6 +317,11 @@ def _comment(state: dict[str, Any], assessment: dict[str, Any], rules: dict[str,
         f"- Código: +{signals['codeLinesAdded']}/-{signals['codeLinesDeleted']} líneas",
         f"- Apps y librerías: {', '.join(signals['units']) or 'ninguna'}",
         f"- SKIPs publicados: {signals['skips']}",
+        *(
+            f"- Librería compartida `{library}`, no sale de un producto: {_impact_text(impact)}"
+            for library, impact in signals["sharedLibraries"].items()
+            if len(impact["products"]) < rules["minProducts"]
+        ),
         *(
             f"- {label}, no aplica: {assessment['judgedChecks'][key]['evidence']}"
             for key, label in rules["judgedTriggers"].items()

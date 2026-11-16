@@ -21,6 +21,20 @@ def write(root, path, text="x\n"):
     target.write_text(text)
 
 
+SCHEMAS = """import { z } from 'zod';
+
+const rutSchema = z.string();
+
+export const settingsSchema = z.object({
+  name: z.string(),
+});
+
+export const customerSchema = z.object({
+  rut: rutSchema,
+});
+"""
+
+
 class BlastRadiusTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -32,9 +46,12 @@ class BlastRadiusTests(unittest.TestCase):
         git(self.worktree, "config", "user.email", "test@example.com")
         git(self.worktree, "config", "user.name", "Test")
         write(self.worktree, ".gitignore", ".local-runtime/\n")
-        write(self.worktree, "apps/shops-app/src/a.ts", 'import "@turboshop/shared-utils";\n')
-        write(self.worktree, "apps/shops-backend/src/b.ts", 'import "@turboshop/shared-utils";\n')
-        write(self.worktree, "libs/shared-utils/src/index.ts")
+        write(self.worktree, "libs/shared-validation/src/schemas.ts", SCHEMAS)
+        write(self.worktree, "apps/shops-app/src/a.ts", "use(settingsSchema);\n")
+        write(self.worktree, "apps/shops-backend/src/b.ts", "use(settingsSchema, customerSchema);\n")
+        write(self.worktree, "apps/warehouse-backend/src/c.ts", "use(customerSchema);\n")
+        write(self.worktree, "apps/warehouse-app/src/d.ts", 'import "@turboshop/shared-utils/styles.css";\n')
+        write(self.worktree, "libs/shared-utils/src/styles.css", ".a {}\n")
         git(self.worktree, "add", ".")
         git(self.worktree, "commit", "-qm", "initial")
         git(self.worktree, "update-ref", "refs/remotes/origin/test", "HEAD")
@@ -55,9 +72,11 @@ class BlastRadiusTests(unittest.TestCase):
             patcher.start()
             self.addCleanup(patcher.stop)
 
-    def commit(self, *paths):
+    def commit(self, *paths, schemas=None):
         for path in paths:
             write(self.worktree, path, f"{path}\n")
+        if schemas:
+            write(self.worktree, "libs/shared-validation/src/schemas.ts", SCHEMAS.replace(*schemas))
         git(self.worktree, "add", ".")
         git(self.worktree, "commit", "-qm", "change")
         self.state["finalRuntimeHandoff"] = {"verifiedCommit": git(self.worktree, "rev-parse", "HEAD")}
@@ -94,13 +113,34 @@ class BlastRadiusTests(unittest.TestCase):
     def test_hard_triggers_make_it_high(self):
         self.commit(
             "apps/shops-backend/src/database/migrations/1-x.ts",
-            "libs/shared-utils/src/index.ts",
             "apps/shops-backend/src/b.test.ts",
+            schemas=("z.string();\n\nexport const settings", "z.string().min(1);\n\nexport const settings"),
         )
         result = self.assess(money=True)
         self.assertEqual(result["level"], "alto")
         self.assertEqual([item["id"] for item in result["triggers"]], ["migration", "sharedLibrary", "money"])
-        self.assertIn("shops-app, shops-backend", result["triggers"][1]["evidence"])
+        self.assertEqual(
+            result["triggers"][1]["evidence"],
+            "`customerSchema` lo usan 2 productos, shops (shops-backend), warehouse (warehouse-backend)",
+        )
+
+    def test_shared_code_used_inside_one_product_does_not_trigger(self):
+        self.commit("libs/shared-validation/src/schemas.test.ts", schemas=("name: z.string()", "name: z.string().trim()"))
+        result = self.assess()
+        self.assertEqual(result["level"], "bajo")
+        self.assertIn(
+            "`settingsSchema` lo usa solo shops (shops-app, shops-backend)",
+            self.github.repost_comment.call_args.args[2],
+        )
+
+    def test_non_source_shared_files_count_every_importer_of_the_library(self):
+        write(self.worktree, "apps/shops-app/src/e.ts", 'import "@turboshop/shared-utils";\n')
+        self.commit("libs/shared-utils/src/styles.css", "apps/shops-app/src/e.test.ts")
+        result = self.assess()
+        self.assertEqual(
+            result["triggers"][0]["evidence"],
+            "la librería completa lo usan 2 productos, shops (shops-app), warehouse (warehouse-app)",
+        )
 
     def test_requires_every_judged_trigger_with_evidence(self):
         self.commit("apps/shops-app/src/a.ts")

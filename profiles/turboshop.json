@@ -90,7 +90,45 @@
       "libs/shared-*"
     ],
     "importPrefix": "@turboshop/",
-    "minConsumers": 2,
+    "minProducts": 2,
+    "productGroups": {
+      "erp": [
+        "backend",
+        "frontend-sales"
+      ],
+      "shops": [
+        "shops-app",
+        "shops-backend"
+      ],
+      "shipment": [
+        "shipment-app",
+        "shipment-backend",
+        "shipment-manager",
+        "shipment-mobile-bff"
+      ],
+      "warehouse": [
+        "warehouse-app",
+        "warehouse-backend",
+        "warehouse-mobile"
+      ],
+      "quotation": [
+        "quotation-app",
+        "quotation-backend",
+        "internal-quotation-stock-job"
+      ],
+      "procurement": [
+        "procurement-app",
+        "procurement-backend"
+      ],
+      "sales-force": [
+        "sales-force-app",
+        "sales-force-backend"
+      ],
+      "turbo-macroscope": [
+        "turbo-macroscope",
+        "turbo-macroscope-migrations"
+      ]
+    },
     "lowRiskMaxChangedLines": 400,
     "lowRiskMaxUnits": 1,
     "judgedTriggers": {

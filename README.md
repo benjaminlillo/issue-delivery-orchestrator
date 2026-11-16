@@ -205,7 +205,8 @@ outside a run with `prototype-open --draft` and `prototype-approve --draft`. See
 
 At the end of a full run, after `lessons-learned`, `blast-radius` scores it as `alto`, `medio` or `bajo` and posts
 the result as the PR's last comment, replacing the previous one from the same run. The engine
-detects migrations, shared libraries used by several apps, size, touched apps, tests and SKIPs; the
+detects migrations, changed shared-library code used by several products (following the touched
+declarations to the exported names apps import), size, touched apps, tests and SKIPs; the
 agent judges the profile's `judgedTriggers` (money, permissions and published mobile contracts in
 TurboShop) with `file:line` evidence. Any trigger means `alto` and a recommendation to ask for an
 external review; `bajo` recommends merging directly. Rules live in the profile's `blastRadius`. See
