@@ -5,8 +5,9 @@ si conviene pedir review externa. Los criterios viven en `blastRadius` del perfi
 
 ## Cuándo
 
-Después de `runtime-handoff` y de `lessons-learned` en un run completo, como último paso antes del
-mensaje final.
+Después de `runtime-handoff`, de `lessons-learned` y de la ronda de review sobre el push de las
+lecciones en un run completo, como último paso antes del mensaje final. El motor exige que la última
+ronda de `wait-review` haya corrido sobre el HEAD actual y que `review-gate` pase en vivo.
 Repetirlo tras cada handoff con código nuevo, por ejemplo después de reparar review humano. Un
 `runtime-restore` no cambia el código y no lo requiere. El motor publica un
 comentario nuevo al final de la PR y borra el anterior del mismo run, así que siempre queda uno solo
