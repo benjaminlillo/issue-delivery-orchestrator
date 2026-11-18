@@ -64,9 +64,11 @@ class BlastRadiusTests(unittest.TestCase):
         self.state.update(status="completed_preserved", pr={"url": "https://github.com/o/r/pull/7", "number": 7})
         self.github = Mock()
         self.github.repost_comment.return_value = "https://github.com/o/r/pull/7#issuecomment-1"
+        self.gate = Mock(side_effect=lambda _state: {"headSha": git(self.worktree, "rev-parse", "HEAD")})
         for target, value in (
             ("issue_delivery_orchestrator.blast_radius.GitHubClient", Mock(return_value=self.github)),
             ("issue_delivery_orchestrator.blast_radius.settings", Mock(return_value=Mock(profile_path=DEFAULT_PROFILE))),
+            ("issue_delivery_orchestrator.blast_radius.assert_review_converged", self.gate),
         ):
             patcher = patch(target, value)
             patcher.start()
@@ -79,7 +81,14 @@ class BlastRadiusTests(unittest.TestCase):
             write(self.worktree, "libs/shared-validation/src/schemas.ts", SCHEMAS.replace(*schemas))
         git(self.worktree, "add", ".")
         git(self.worktree, "commit", "-qm", "change")
-        self.state["finalRuntimeHandoff"] = {"verifiedCommit": git(self.worktree, "rev-parse", "HEAD")}
+        head = git(self.worktree, "rev-parse", "HEAD")
+        self.state["finalRuntimeHandoff"] = {"verifiedCommit": head}
+        self.reviewed(head)
+
+    def reviewed(self, head):
+        snapshot = Path(".local-runtime") / "round-01.json"
+        write(self.worktree, snapshot, json.dumps({"headSha": head}))
+        self.state.setdefault("artifacts", {})["latestReviewSnapshot"] = str(snapshot)
 
     def assess(self, money=False, **extra):
         payload = {
@@ -149,6 +158,18 @@ class BlastRadiusTests(unittest.TestCase):
         with self.assertRaisesRegex(RunBlocked, "missing=\\['permissions', 'mobileContract'\\]"):
             assess_blast_radius(self.state, path)
         self.github.repost_comment.assert_not_called()
+
+    def test_requires_a_review_round_on_the_pushed_lesson_commit(self):
+        self.commit("apps/shops-app/src/a.ts", "apps/shops-app/src/a.test.ts")
+        handed_off = git(self.worktree, "rev-parse", "HEAD")
+        self.commit("docs/lessons/card.md")
+        self.state["finalRuntimeHandoff"] = {"verifiedCommit": handed_off}
+        self.reviewed(handed_off)
+        with self.assertRaisesRegex(RunBlocked, "did not run on HEAD"):
+            self.assess()
+        self.reviewed(git(self.worktree, "rev-parse", "HEAD"))
+        self.assertEqual(self.assess()["level"], "bajo")
+        self.gate.assert_called_once()
 
     def test_requires_the_handed_off_code(self):
         self.commit("apps/shops-app/src/a.ts")

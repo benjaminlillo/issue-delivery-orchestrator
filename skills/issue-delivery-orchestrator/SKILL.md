@@ -173,8 +173,9 @@ Considerar ciclo de reparación toda instrucción que pida ajustar, corregir o c
 6. Si la revisión detecta un fallo, lanzar otro worker de `issue-delivery-implement` y repetir. Permitir como máximo cinco ciclos reparación-revisión.
 7. Considerar obsoleto todo PASS UI si después se modifica código, configuración, datos sembrados o dependencias que puedan afectar el flujo. Repetir el mismo reviewer después del último cambio.
 8. Actualizar capturas y evidencia publicada cuando exista PR.
-9. Tras el nuevo handoff de un run completo, ejecutar `lessons-learned` sólo con las señales
-   nuevas y volver a calcular el blast radius según [blast-radius.md](references/blast-radius.md).
+9. Tras el nuevo handoff de un run completo, repetir los pasos finales del run: `lessons-learned`
+   sólo con las señales nuevas, la ronda de review sobre su push y el blast radius según
+   [blast-radius.md](references/blast-radius.md).
 
 En `full`, prohibir el handoff —incluido afirmar que está arreglado o pedir al usuario que lo
 verifique— hasta disponer de un PASS del reviewer del modo posterior al último cambio, con
@@ -716,8 +717,15 @@ cambiaron. Luego, sin esperar al usuario:
 
 1. Ejecutar `lessons-learned` según "Lecciones al terminar el run" en
    [repo-rules.md](references/repo-rules.md).
-2. Calcular y publicar el blast radius de la PR según
-   [blast-radius.md](references/blast-radius.md).
+2. Si el paso anterior hizo push, revisar ese commit como una ronda más de la convergencia: los
+   bots lo vuelven a revisar. Ejecutar `wait-review`, triagear todo comentario nuevo con
+   `issue-delivery-blocker-triage` y terminar con `publish-skip-summary` si hay `SKIP` nuevos y con
+   `review-gate`. Un `FIX` que sólo cambia `docs/lessons/` se commitea, se pushea y se registra con
+   `record-review-repair`, y luego se repite este paso; no requiere revisión UI ni handoff nuevo.
+   Un `FIX` que cambia código aplica la invariante de reparación y handoff completa.
+3. Calcular y publicar el blast radius de la PR según
+   [blast-radius.md](references/blast-radius.md). El motor lo bloquea si la última ronda de
+   `wait-review` no corrió sobre el HEAD actual o si `review-gate` no pasa.
 
 Terminar mostrando el blast radius, las lecciones creadas (o que no hubo), los links del runtime fresco para prueba manual, las páginas
 precargadas y las fallidas u omitidas, el enlace reproducible o descargable de la demo

@@ -9,6 +9,7 @@ from typing import Any
 from .config import settings
 from .errors import OrchestrationError, RunBlocked
 from .github import GitHubClient
+from .review import assert_review_converged
 from .state import now, run_root, save_state, target_branch
 from .util import atomic_write_json, code_head, read_json, run
 
@@ -36,6 +37,7 @@ def assess_blast_radius(state: dict[str, Any], input_path: Path) -> dict[str, An
     head = code_head(worktree)
     if head != (state.get("finalRuntimeHandoff") or {}).get("verifiedCommit"):
         raise RunBlocked("Code changed since the final handoff; finish the repair flow first")
+    _assert_reviewed_head(state, worktree)
     rules = _rules()
     payload = read_json(input_path, None)
     judged = _judged_checks(payload, rules["judgedTriggers"])
@@ -111,6 +113,24 @@ def assess_blast_radius(state: dict[str, Any], input_path: Path) -> dict[str, An
     state.setdefault("artifacts", {})["blastRadius"] = str(path.relative_to(worktree))
     save_state(state)
     return {**assessment, "markdown": body}
+
+
+def _assert_reviewed_head(state: dict[str, Any], worktree: Path) -> None:
+    """Require a quiet review round and a passing gate on the pushed HEAD, lesson commits included.
+
+    Pushing the lesson cards starts a new bot review after the convergence closed; the blast
+    radius must not be published before that review is processed.
+    """
+    local = run(["git", "rev-parse", "HEAD"], cwd=worktree).stdout.strip()
+    snapshot_path = (state.get("artifacts") or {}).get("latestReviewSnapshot")
+    snapshot = read_json(worktree / snapshot_path, {}) if snapshot_path else {}
+    if snapshot.get("headSha") != local:
+        raise RunBlocked(
+            f"The last review round did not run on HEAD {local[:7]}; push it, run wait-review, "
+            "triage the new comments and run review-gate before the blast radius"
+        )
+    if assert_review_converged(state).get("headSha") != local:
+        raise RunBlocked("The PR head moved since the last review round; push it and wait again")
 
 
 def _rules() -> dict[str, Any]:

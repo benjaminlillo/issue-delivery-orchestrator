@@ -55,7 +55,9 @@ completo, o cuando el usuario dé por terminada la tarea en `manual-runtime`:
 2. La skill commitea sólo tarjetas de `docs/lessons/` y hace push. El motor ignora esos commits al
    comparar el código entregado, así que el handoff, `runtime-restore`, el escritorio, el blast
    radius y `request-review` siguen válidos.
-3. Marcar en `lessons/signals.md` las señales ya procesadas. Si un handoff posterior trae señales
+3. Ese push dispara otra revisión de los bots. Esperarla y procesarla antes del blast radius, como
+   indica el final de "8. Convergencia remota" del orquestador.
+4. Marcar en `lessons/signals.md` las señales ya procesadas. Si un handoff posterior trae señales
    nuevas, repetir con esas solamente.
 
 No correr `lessons-learned` en medio del run, antes del handoff final.
