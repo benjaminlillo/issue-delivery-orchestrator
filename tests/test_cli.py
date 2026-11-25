@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from issue_delivery_orchestrator.cli import (
+    default_pr_title,
     _is_conductor_cloud,
     _is_gate_runner,
     _mode_decision,
@@ -495,3 +496,17 @@ class VerifiedLinearTests(unittest.TestCase):
                 else:
                     with self.assertRaisesRegex(IdentityMismatch, "workspace mismatch"):
                         _verified_linear()
+
+
+class DefaultPrTitleTests(unittest.TestCase):
+    def test_prefixes_the_identifier_once(self):
+        for title in ("Guardar notificaciones", "PRO-7: Guardar notificaciones", "pro-7 · Guardar notificaciones", "PRO-7 Guardar notificaciones"):
+            with self.subTest(title=title):
+                self.assertEqual(
+                    "PRO-7: Guardar notificaciones",
+                    default_pr_title({"identifier": "PRO-7", "title": title}),
+                )
+        self.assertEqual(
+            "PRO-7: PRO-70 otra cosa", default_pr_title({"identifier": "PRO-7", "title": "PRO-70 otra cosa"})
+        )
+

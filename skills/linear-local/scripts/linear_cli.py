@@ -550,10 +550,12 @@ def _issue_update(args: argparse.Namespace, credential: Credential) -> dict[str,
         issue_input["projectMilestoneId"] = _milestone(credential, project, args.milestone)["id"]
     if args.parent:
         issue_input["parentId"] = _issue(credential, args.parent)["id"]
+    if args.title:
+        issue_input["title"] = args.title.strip()
     if not issue_input and not args.blocked_by:
         raise LinearCliError(
-            "Nothing to update: pass --state, --add-label, --remove-label, --project, --milestone, "
-            "--parent or --blocked-by"
+            "Nothing to update: pass --title, --state, --add-label, --remove-label, --project, "
+            "--milestone, --parent or --blocked-by"
         )
     if issue_input:
         query = """
@@ -576,6 +578,8 @@ def _issue_update(args: argparse.Namespace, credential: Credential) -> dict[str,
             raise LinearCliError(f"Linear could not record that {blocker} blocks {issue['identifier']}")
     updated = _issue(credential, issue["id"])
     labels = {str(label["name"]).casefold() for label in updated.get("labels", {}).get("nodes", [])}
+    if args.title and updated["title"] != args.title.strip():
+        raise LinearCliError(f"{updated['identifier']} did not get the title {args.title.strip()!r}")
     if args.state and str(updated["state"]["name"]).casefold() != args.state.strip().casefold():
         raise LinearCliError(f"{updated['identifier']} did not move to state {args.state!r}")
     if any(name.casefold() not in labels for name in args.add_label):
@@ -706,6 +710,7 @@ def _parser() -> argparse.ArgumentParser:
     issue_update.add_argument("--description-file", required=True)
     issue_fields = issue_commands.add_parser("update")
     issue_fields.add_argument("issue")
+    issue_fields.add_argument("--title")
     issue_fields.add_argument("--state")
     issue_fields.add_argument("--add-label", action="append", default=[])
     issue_fields.add_argument("--remove-label", action="append", default=[])

@@ -720,6 +720,13 @@ def bootstrap(
     }
 
 
+def default_pr_title(issue: dict[str, Any]) -> str:
+    """Prefix the PR with the issue ID once, even when the issue title already starts with it."""
+    identifier = str(issue["identifier"])
+    title = re.sub(rf"^\s*{re.escape(identifier)}\b\s*[:·-]?\s*", "", str(issue["title"]), flags=re.I)
+    return f"{identifier}: {title or issue['title']}"
+
+
 def ensure_pull_request(
     state: dict[str, Any],
     body_file: Path,
@@ -765,7 +772,7 @@ def ensure_pull_request(
             raise RunBlocked(state["blocker"]["reason"])
         pr = github.create(
             branch,
-            title or f"{state['issue']['identifier']}: {state['issue']['title']}",
+            title or default_pr_title(state["issue"]),
             body_file,
         )
         created = True
