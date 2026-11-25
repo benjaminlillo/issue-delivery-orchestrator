@@ -46,7 +46,7 @@ codex-linear issue create \
   --assign-viewer
 codex-linear issue update-description SFW-123 \
   --description-file /absolute/path/description.md
-codex-linear issue update SFW-123 --state "In Progress" \
+codex-linear issue update SFW-123 --title "SFW-123: Título" --state "In Progress" \
   --add-label needs-decision --remove-label ready-for-agent \
   --project "<project>" --milestone "<milestone>" --parent SFW-100 --blocked-by SFW-120
 codex-linear issue spec-approval SFW-123 --prefix turboshop

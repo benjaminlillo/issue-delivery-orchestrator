@@ -121,7 +121,7 @@ class LinearLocalCommandTests(unittest.TestCase):
 
         args = argparse.Namespace(
             issue="PRO-1", state="in progress", add_label=["needs-decision"],
-            remove_label=[], project=None, milestone=None, parent=None, blocked_by=[],
+            remove_label=[], project=None, milestone=None, parent=None, blocked_by=[], title=None,
         )
         with patch.object(self.cli, "_graphql", side_effect=graphql):
             result = self.cli._issue_update(args, self.credential)
@@ -136,6 +136,31 @@ class LinearLocalCommandTests(unittest.TestCase):
         with patch.object(self.cli, "_graphql", side_effect=graphql):
             with self.assertRaisesRegex(self.cli.LinearCliError, "did not move"):
                 self.cli._issue_update(args, self.credential)
+
+    def test_issue_update_renames_and_verifies_the_title(self) -> None:
+        issue = {
+            "id": "issue-id", "identifier": "PRO-7", "title": "Guardar notificaciones",
+            "team": {"id": "team-id", "key": "PRO", "name": "Productos"}, "labels": {"nodes": []},
+        }
+        mutations = []
+
+        def graphql(_credential, query, variables):
+            if "CodexLinearViewer" in query:
+                return {"viewer": {"id": "u", "email": "dev@example.com"}, "organization": {"urlKey": "acme"}}
+            if "CodexLinearIssue(" in query:
+                return {"issue": {**issue, "title": "PRO-7: Guardar notificaciones"} if mutations else issue}
+            mutations.append(variables)
+            return {"issueUpdate": {"success": True}}
+
+        args = argparse.Namespace(
+            issue="PRO-7", state=None, add_label=[], remove_label=[], project=None, milestone=None,
+            parent=None, blocked_by=[], title=" PRO-7: Guardar notificaciones ",
+        )
+        with patch.object(self.cli, "_graphql", side_effect=graphql):
+            result = self.cli._issue_update(args, self.credential)
+
+        self.assertEqual({"title": "PRO-7: Guardar notificaciones"}, mutations[0]["input"])
+        self.assertEqual("PRO-7: Guardar notificaciones", result["title"])
 
     def test_milestones_resolve_by_name_in_the_issue_project(self) -> None:
         issue = {
@@ -166,7 +191,7 @@ class LinearLocalCommandTests(unittest.TestCase):
 
         args = argparse.Namespace(
             issue="PRO-1", state=None, add_label=[], remove_label=[], project=None,
-            milestone="etapa 1 · bodega base", parent=None, blocked_by=[],
+            milestone="etapa 1 · bodega base", parent=None, blocked_by=[], title=None,
         )
         with patch.object(self.cli, "_graphql", side_effect=graphql):
             self.cli._issue_update(args, self.credential)
